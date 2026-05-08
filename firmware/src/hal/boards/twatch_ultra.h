@@ -55,6 +55,11 @@
 #define TWATCH_NFC_INT    5    // ST25R3916
 #define TWATCH_NFC_CS     4
 
+// Boot button — usable as primary hardware button after boot completes.
+// Same pin as T-Deck trackball click; same _seenRelease guard pattern needed
+// (GPIO 0 held during reset puts ESP32-S3 into download mode).
+#define TWATCH_BOOT_BUTTON 0
+
 // I2C device addresses
 #define TWATCH_AXP2101_ADDR  0x34
 #define TWATCH_PCF85063_ADDR 0x51
