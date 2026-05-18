@@ -1,6 +1,7 @@
 #include "ChatScreen.h"
 #include "UIManager.h"
 #include "theme.h"
+#include "../hal/Display.h"
 #include "../hal/GPS.h"
 #include "../storage/MessageStore.h"
 #include "../config/ConfigManager.h"
@@ -15,7 +16,7 @@ struct RetryData { String text; uint32_t packetId; };
 
 void ChatScreen::create(lv_obj_t* parent) {
     _screen = lv_obj_create(parent);
-    lv_obj_set_size(_screen, 320, 240 - theme::STATUS_BAR_HEIGHT);
+    lv_obj_set_size(_screen, Display::width(), Display::height() - theme::STATUS_BAR_HEIGHT);
     lv_obj_align(_screen, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_bg_color(_screen, theme::BG_PRIMARY, 0);
     lv_obj_set_style_bg_opa(_screen, LV_OPA_COVER, 0);
@@ -33,7 +34,7 @@ void ChatScreen::create(lv_obj_t* parent) {
 
 void ChatScreen::createHeader() {
     _header = lv_obj_create(_screen);
-    lv_obj_set_size(_header, 320, 28);
+    lv_obj_set_size(_header, Display::width(), 28);
     lv_obj_align(_header, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_set_style_bg_color(_header, theme::BG_STATUS_BAR, 0);
     lv_obj_set_style_bg_opa(_header, LV_OPA_COVER, 0);
@@ -76,7 +77,7 @@ void ChatScreen::createHeader() {
 
 void ChatScreen::createChatArea() {
     _chatArea = lv_obj_create(_screen);
-    lv_obj_set_size(_chatArea, 320, 240 - theme::STATUS_BAR_HEIGHT - 28 - 36);
+    lv_obj_set_size(_chatArea, Display::width(), Display::height() - theme::STATUS_BAR_HEIGHT - 28 - 36);
     lv_obj_align(_chatArea, LV_ALIGN_TOP_MID, 0, 28);
     lv_obj_set_style_bg_opa(_chatArea, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(_chatArea, 0, 0);
@@ -89,7 +90,7 @@ void ChatScreen::createChatArea() {
 
 void ChatScreen::createInputBar() {
     _inputBar = lv_obj_create(_screen);
-    lv_obj_set_size(_inputBar, 320, 36);
+    lv_obj_set_size(_inputBar, Display::width(), 36);
     lv_obj_align(_inputBar, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_bg_color(_inputBar, theme::BG_INPUT, 0);
     lv_obj_set_style_bg_opa(_inputBar, LV_OPA_COVER, 0);
@@ -180,10 +181,10 @@ void ChatScreen::open(const ConvoId& id) {
     if (ro) {
         lv_obj_add_flag(_inputBar, LV_OBJ_FLAG_HIDDEN);
         // Expand chat area to fill the space
-        lv_obj_set_height(_chatArea, 240 - theme::STATUS_BAR_HEIGHT - 28);
+        lv_obj_set_height(_chatArea, Display::height() - theme::STATUS_BAR_HEIGHT - 28);
     } else {
         lv_obj_clear_flag(_inputBar, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_set_height(_chatArea, 240 - theme::STATUS_BAR_HEIGHT - 28 - 36);
+        lv_obj_set_height(_chatArea, Display::height() - theme::STATUS_BAR_HEIGHT - 28 - 36);
     }
 
     // Mark as read
@@ -556,7 +557,7 @@ void ChatScreen::showCannedPicker() {
 
     // Dark overlay
     _cannedOverlay = lv_obj_create(_screen);
-    lv_obj_set_size(_cannedOverlay, 320, 240 - theme::STATUS_BAR_HEIGHT);
+    lv_obj_set_size(_cannedOverlay, Display::width(), Display::height() - theme::STATUS_BAR_HEIGHT);
     lv_obj_set_pos(_cannedOverlay, 0, 0);
     lv_obj_set_style_bg_color(_cannedOverlay, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(_cannedOverlay, LV_OPA_50, 0);
@@ -576,7 +577,7 @@ void ChatScreen::showCannedPicker() {
     _cannedBtnm = lv_btnmatrix_create(_screen);
     lv_btnmatrix_set_map(_cannedBtnm, btnMap);
     lv_coord_t pickerH = count * 24 + 8;  // 24px per button + padding
-    lv_coord_t maxH = 240 - theme::STATUS_BAR_HEIGHT - 16;  // leave margin
+    lv_coord_t maxH = Display::height() - theme::STATUS_BAR_HEIGHT - 16;  // leave margin
     if (pickerH > maxH) pickerH = maxH;
     lv_obj_set_size(_cannedBtnm, 280, pickerH);
     lv_obj_align(_cannedBtnm, LV_ALIGN_CENTER, 0, 0);

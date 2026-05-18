@@ -3,6 +3,8 @@
 #include <LovyanGFX.hpp>
 #include <lvgl.h>
 
+#include "boards/board.h"
+
 namespace mclite {
 
 // LovyanGFX display configuration for T-Deck Plus ST7789
@@ -17,6 +19,9 @@ public:
 
 class Display {
 public:
+    static constexpr lv_coord_t width()  { return BOARD_DISP_W; }
+    static constexpr lv_coord_t height() { return BOARD_DISP_H; }
+
     bool init();
     void setBrightness(uint8_t level);  // 0-255
     void flush(lv_disp_drv_t* drv, const lv_area_t* area, lv_color_t* buf);

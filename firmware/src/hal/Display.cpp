@@ -60,7 +60,7 @@ bool Display::init() {
     lv_init();
 
     // Allocate draw buffers in PSRAM (double-buffered)
-    const size_t bufSize = 320 * 40;  // 40 rows at a time
+    const size_t bufSize = Display::width() * 40;  // 40 rows at a time
     _buf1 = (lv_color_t*)ps_malloc(bufSize * sizeof(lv_color_t));
     _buf2 = (lv_color_t*)ps_malloc(bufSize * sizeof(lv_color_t));
     if (!_buf1 || !_buf2) {
@@ -78,8 +78,8 @@ bool Display::init() {
 
     // Register display driver
     lv_disp_drv_init(&_dispDrv);
-    _dispDrv.hor_res  = 320;
-    _dispDrv.ver_res  = 240;
+    _dispDrv.hor_res  = Display::width();
+    _dispDrv.ver_res  = Display::height();
     _dispDrv.flush_cb = flushCb;
     _dispDrv.draw_buf = &_drawBuf;
     _dispDrv.user_data = this;
@@ -179,7 +179,7 @@ void Display::showBootScreen(const char* bootText) {
 
     // Container for centered content
     lv_obj_t* container = lv_obj_create(_bootScreen);
-    lv_obj_set_size(container, 320, 240);
+    lv_obj_set_size(container, Display::width(), Display::height());
     lv_obj_set_style_bg_opa(container, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(container, 0, 0);
     lv_obj_set_style_pad_all(container, 0, 0);

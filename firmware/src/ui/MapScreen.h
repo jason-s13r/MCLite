@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <vector>
 
+#include "../hal/Display.h"
+
 namespace mclite {
 
 // Full-screen map view: renders slippy tiles from SD centred on a contact's
@@ -61,8 +63,8 @@ private:
     int      _zoomIdx = 0;
     uint8_t  _zoom    = 0;
 
-    static constexpr int CANVAS_W = 320;
-    static constexpr int CANVAS_H = 240;
+    static constexpr int CANVAS_W = Display::width();
+    static constexpr int CANVAS_H = Display::height();
 };
 
 }  // namespace mclite

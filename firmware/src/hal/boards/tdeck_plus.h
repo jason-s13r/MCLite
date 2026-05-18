@@ -9,11 +9,13 @@
 #define TDECK_SPI_MISO   38
 #define TDECK_SPI_SCK    40
 
-// ST7789 display (320x240)
+// ST7789 display (320x240 landscape, after setRotation(1))
 #define TDECK_TFT_CS     12
 #define TDECK_TFT_DC     11
 #define TDECK_TFT_BL     42
 #define TDECK_TFT_RST    -1
+#define TDECK_DISP_W    320
+#define TDECK_DISP_H    240
 
 // SD card
 #define TDECK_SD_CS      39

@@ -4,6 +4,7 @@
 #include "UIManager.h"
 #include "theme.h"
 #include "../config/ConfigManager.h"
+#include "../hal/Display.h"
 #include "../mesh/ContactStore.h"
 #include "../mesh/ChannelStore.h"
 #include "../mesh/MeshManager.h"
@@ -21,7 +22,7 @@ namespace mclite {
 
 void AdminScreen::create(lv_obj_t* parent) {
     _screen = lv_obj_create(parent);
-    lv_obj_set_size(_screen, 320, 240 - theme::STATUS_BAR_HEIGHT);
+    lv_obj_set_size(_screen, Display::width(), Display::height() - theme::STATUS_BAR_HEIGHT);
     lv_obj_align(_screen, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_bg_color(_screen, theme::BG_PRIMARY, 0);
     lv_obj_set_style_bg_opa(_screen, LV_OPA_COVER, 0);
@@ -80,7 +81,7 @@ void AdminScreen::show() {
     // Helper to add a row
     auto addRow = [this](const char* label, const String& value) {
         lv_obj_t* row = lv_obj_create(_screen);
-        lv_obj_set_size(row, 300, LV_SIZE_CONTENT);
+        lv_obj_set_size(row, Display::width() - 20, LV_SIZE_CONTENT);
         lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(row, 0, 0);
@@ -115,7 +116,7 @@ void AdminScreen::show() {
     // (subtle when OFF, stronger when ON), distinct from BG_SECONDARY info rows.
     {
         lv_obj_t* row = lv_obj_create(_screen);
-        lv_obj_set_size(row, 300, LV_SIZE_CONTENT);
+        lv_obj_set_size(row, Display::width() - 20, LV_SIZE_CONTENT);
         lv_obj_set_style_bg_color(row, theme::OFFGRID_ACCENT, 0);
         lv_obj_set_style_bg_opa(row, cfg.offgrid.enabled ? LV_OPA_50 : LV_OPA_20, 0);
         lv_obj_set_style_border_width(row, 0, 0);
@@ -150,7 +151,7 @@ void AdminScreen::show() {
     // Heard adverts shortcut — mirrors info-row styling but clickable, with chevron.
     {
         lv_obj_t* row = lv_obj_create(_screen);
-        lv_obj_set_size(row, 300, LV_SIZE_CONTENT);
+        lv_obj_set_size(row, Display::width() - 20, LV_SIZE_CONTENT);
         lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(row, 0, 0);

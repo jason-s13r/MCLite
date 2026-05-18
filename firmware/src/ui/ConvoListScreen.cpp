@@ -2,6 +2,7 @@
 #include "theme.h"
 #include "../mesh/ContactStore.h"
 #include "../mesh/ChannelStore.h"
+#include "../hal/Display.h"
 #include "../hal/GPS.h"
 #include "../i18n/I18n.h"
 #include "../storage/TelemetryCache.h"
@@ -11,7 +12,7 @@ namespace mclite {
 
 void ConvoListScreen::create(lv_obj_t* parent) {
     _screen = lv_obj_create(parent);
-    lv_obj_set_size(_screen, 320, 240 - theme::STATUS_BAR_HEIGHT);
+    lv_obj_set_size(_screen, Display::width(), Display::height() - theme::STATUS_BAR_HEIGHT);
     lv_obj_align(_screen, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_bg_color(_screen, theme::BG_PRIMARY, 0);
     lv_obj_set_style_bg_opa(_screen, LV_OPA_COVER, 0);
@@ -22,7 +23,7 @@ void ConvoListScreen::create(lv_obj_t* parent) {
 
     // Scrollable list container
     _list = lv_obj_create(_screen);
-    lv_obj_set_size(_list, 320, 240 - theme::STATUS_BAR_HEIGHT);
+    lv_obj_set_size(_list, Display::width(), Display::height() - theme::STATUS_BAR_HEIGHT);
     lv_obj_align(_list, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_set_style_bg_opa(_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(_list, 0, 0);

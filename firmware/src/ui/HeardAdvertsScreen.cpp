@@ -3,6 +3,7 @@
 #include "theme.h"
 #include "../config/ConfigManager.h"
 #include "../config/defaults.h"
+#include "../hal/Display.h"
 #include "../i18n/I18n.h"
 #include "../mesh/ContactStore.h"
 #include "../mesh/MeshManager.h"
@@ -107,7 +108,7 @@ String formatAge(uint32_t lastHeardMs) {
 
 void HeardAdvertsScreen::create(lv_obj_t* parent) {
     _screen = lv_obj_create(parent);
-    lv_obj_set_size(_screen, 320, 240 - theme::STATUS_BAR_HEIGHT);
+    lv_obj_set_size(_screen, Display::width(), Display::height() - theme::STATUS_BAR_HEIGHT);
     lv_obj_align(_screen, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_obj_set_style_bg_color(_screen, theme::BG_PRIMARY, 0);
     lv_obj_set_style_bg_opa(_screen, LV_OPA_COVER, 0);
@@ -121,7 +122,7 @@ void HeardAdvertsScreen::create(lv_obj_t* parent) {
     // Header row: title + clear + close. Inset slightly so the buttons don't
     // touch the screen edges; list below stays full-width.
     lv_obj_t* header = lv_obj_create(_screen);
-    lv_obj_set_size(header, 320, LV_SIZE_CONTENT);
+    lv_obj_set_size(header, Display::width(), LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(header, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(header, 0, 0);
     lv_obj_set_style_pad_hor(header, theme::PAD_SMALL, 0);
@@ -161,7 +162,7 @@ void HeardAdvertsScreen::create(lv_obj_t* parent) {
 
     // Scrollable list container — full screen width
     _list = lv_obj_create(_screen);
-    lv_obj_set_size(_list, 320, LV_SIZE_CONTENT);
+    lv_obj_set_size(_list, Display::width(), LV_SIZE_CONTENT);
     lv_obj_set_flex_grow(_list, 1);
     lv_obj_set_style_bg_opa(_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(_list, 0, 0);

@@ -772,7 +772,7 @@ void UIManager::showSetupScreen(SetupReason reason) {
 
     // Full-screen overlay on top of everything
     lv_obj_t* overlay = lv_obj_create(lv_layer_top());
-    lv_obj_set_size(overlay, 320, 240);
+    lv_obj_set_size(overlay, Display::width(), Display::height());
     lv_obj_set_pos(overlay, 0, 0);
     lv_obj_set_style_bg_color(overlay, theme::BG_PRIMARY, 0);
     lv_obj_set_style_bg_opa(overlay, LV_OPA_COVER, 0);
@@ -1147,7 +1147,7 @@ void UIManager::showPinLock() {
     _pinBuffer = "";
 
     _pinOverlay = lv_obj_create(lv_layer_top());
-    lv_obj_set_size(_pinOverlay, 320, 240);
+    lv_obj_set_size(_pinOverlay, Display::width(), Display::height());
     lv_obj_set_pos(_pinOverlay, 0, 0);
     lv_obj_set_style_bg_color(_pinOverlay, theme::BG_PRIMARY, 0);
     lv_obj_set_style_bg_opa(_pinOverlay, LV_OPA_COVER, 0);
