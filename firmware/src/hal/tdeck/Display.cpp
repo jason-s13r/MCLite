@@ -1,50 +1,60 @@
-#include "Display.h"
+#include "hal/Display.h"
 #include "hal/boards/board.h"
-#include "../config/defaults.h"
-#include "../ui/theme.h"
+#include "config/defaults.h"
+#include "ui/theme.h"
 #include <Arduino.h>
 
 namespace mclite {
+namespace {
+
+// LovyanGFX device for T-Deck Plus ST7789.
+class TDeckDisplay : public lgfx::LGFX_Device {
+public:
+    lgfx::Panel_ST7789 _panel;
+    lgfx::Bus_SPI      _bus;
+    lgfx::Light_PWM    _light;
+
+    TDeckDisplay() {
+        auto busConfig = _bus.config();
+        busConfig.spi_host   = SPI2_HOST;
+        busConfig.spi_mode   = 0;
+        busConfig.freq_write = 40000000;
+        busConfig.freq_read  = 16000000;
+        busConfig.pin_mosi   = TDECK_SPI_MOSI;
+        busConfig.pin_miso   = TDECK_SPI_MISO;
+        busConfig.pin_sclk   = TDECK_SPI_SCK;
+        busConfig.pin_dc     = TDECK_TFT_DC;
+        _bus.config(busConfig);
+        _panel.setBus(&_bus);
+
+        auto panelConfig = _panel.config();
+        panelConfig.pin_cs       = TDECK_TFT_CS;
+        panelConfig.pin_rst      = TDECK_TFT_RST;
+        panelConfig.panel_width  = 240;   // Native portrait width
+        panelConfig.panel_height = 320;   // Native portrait height
+        panelConfig.offset_x     = 0;
+        panelConfig.offset_y     = 0;
+        panelConfig.invert       = true;
+        panelConfig.rgb_order    = false;
+        _panel.config(panelConfig);
+        setPanel(&_panel);
+
+        auto lightConfig = _light.config();
+        lightConfig.pin_bl   = TDECK_TFT_BL;
+        lightConfig.invert   = false;
+        lightConfig.freq     = 12000;
+        lightConfig.pwm_channel = 0;
+        _light.config(lightConfig);
+        _panel.setLight(&_light);
+    }
+};
+
+}  // anonymous namespace
 
 lv_disp_draw_buf_t Display::_drawBuf;
 lv_disp_drv_t      Display::_dispDrv;
 lv_color_t*        Display::_buf1 = nullptr;
 lv_color_t*        Display::_buf2 = nullptr;
-
-// LovyanGFX config for T-Deck Plus
-TDeckDisplay::TDeckDisplay() {
-    auto busConfig = _bus.config();
-    busConfig.spi_host   = SPI2_HOST;
-    busConfig.spi_mode   = 0;
-    busConfig.freq_write = 40000000;
-    busConfig.freq_read  = 16000000;
-    busConfig.pin_mosi   = TDECK_SPI_MOSI;
-    busConfig.pin_miso   = TDECK_SPI_MISO;
-    busConfig.pin_sclk   = TDECK_SPI_SCK;
-    busConfig.pin_dc     = TDECK_TFT_DC;
-    _bus.config(busConfig);
-    _panel.setBus(&_bus);
-
-    auto panelConfig = _panel.config();
-    panelConfig.pin_cs       = TDECK_TFT_CS;
-    panelConfig.pin_rst      = TDECK_TFT_RST;
-    panelConfig.panel_width  = 240;   // Native portrait width
-    panelConfig.panel_height = 320;   // Native portrait height
-    panelConfig.offset_x     = 0;
-    panelConfig.offset_y     = 0;
-    panelConfig.invert       = true;
-    panelConfig.rgb_order    = false;
-    _panel.config(panelConfig);
-    setPanel(&_panel);
-
-    auto lightConfig = _light.config();
-    lightConfig.pin_bl   = TDECK_TFT_BL;
-    lightConfig.invert   = false;
-    lightConfig.freq     = 12000;
-    lightConfig.pwm_channel = 0;
-    _light.config(lightConfig);
-    _panel.setLight(&_light);
-}
 
 Display& Display::instance() {
     static Display inst;
@@ -52,8 +62,11 @@ Display& Display::instance() {
 }
 
 bool Display::init() {
-    _lgfx.init();
-    _lgfx.setRotation(1);  // Landscape
+    static TDeckDisplay lgfx;
+    _lgfx_dev = &lgfx;
+
+    _lgfx_dev->init();
+    _lgfx_dev->setRotation(1);  // Landscape
     setBrightness(180);
 
     // Initialize LVGL
@@ -89,16 +102,16 @@ bool Display::init() {
 }
 
 void Display::setBrightness(uint8_t level) {
-    _lgfx.setBrightness(level);
+    _lgfx_dev->setBrightness(level);
 }
 
 void Display::flush(lv_disp_drv_t* drv, const lv_area_t* area, lv_color_t* buf) {
     int w = area->x2 - area->x1 + 1;
     int h = area->y2 - area->y1 + 1;
-    _lgfx.startWrite();
-    _lgfx.setAddrWindow(area->x1, area->y1, w, h);
-    _lgfx.writePixels((uint16_t*)buf, w * h);
-    _lgfx.endWrite();
+    _lgfx_dev->startWrite();
+    _lgfx_dev->setAddrWindow(area->x1, area->y1, w, h);
+    _lgfx_dev->writePixels((uint16_t*)buf, w * h);
+    _lgfx_dev->endWrite();
     lv_disp_flush_ready(drv);
 }
 

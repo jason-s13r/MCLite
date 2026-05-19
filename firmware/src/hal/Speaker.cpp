@@ -37,9 +37,15 @@ bool Speaker::init() {
 
     i2s_pin_config_t pin_config = {};
     pin_config.mck_io_num = I2S_PIN_NO_CHANGE;   // Don't use MCLK (default 0 would steal GPIO 0!)
+#ifdef PLATFORM_TDECK
     pin_config.bck_io_num = TDECK_I2S_BCK;
     pin_config.ws_io_num = TDECK_I2S_WS;
     pin_config.data_out_num = TDECK_I2S_DOUT;
+#elif defined(PLATFORM_TWATCH)
+    pin_config.bck_io_num = TWATCH_I2S_BCK;
+    pin_config.ws_io_num = TWATCH_I2S_WS;
+    pin_config.data_out_num = TWATCH_I2S_DOUT;
+#endif
     pin_config.data_in_num = I2S_PIN_NO_CHANGE;
 
     if (i2s_set_pin(I2S_PORT, &pin_config) != ESP_OK) {

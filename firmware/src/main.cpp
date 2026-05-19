@@ -30,9 +30,12 @@ void setup() {
     Serial.printf("\n=== MCLite v%s ===\n", MCLITE_VERSION);
 
     // Enable board power
+#ifdef PLATFORM_TDECK
     pinMode(TDECK_POWER_EN, OUTPUT);
     digitalWrite(TDECK_POWER_EN, HIGH);
     delay(100);
+#endif
+    // T-Watch power-on sequence (I2C, XL9555 expander, AXP2101 PMU) arrives in Phase 3d
 
     // 1. Display + LVGL (configures SPI bus via LovyanGFX)
     Serial.println("[Boot] Display...");

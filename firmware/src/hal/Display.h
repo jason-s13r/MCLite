@@ -7,16 +7,6 @@
 
 namespace mclite {
 
-// LovyanGFX display configuration for T-Deck Plus ST7789
-class TDeckDisplay : public lgfx::LGFX_Device {
-public:
-    lgfx::Panel_ST7789 _panel;
-    lgfx::Bus_SPI      _bus;
-    lgfx::Light_PWM    _light;
-
-    TDeckDisplay();
-};
-
 class Display {
 public:
     static constexpr lv_coord_t width()  { return BOARD_DISP_W; }
@@ -32,13 +22,12 @@ public:
     void setBootStatus(const char* status);  // Update progress text
     void hideBootScreen();                    // Remove boot screen, show normal UI
 
-    TDeckDisplay& getLGFX() { return _lgfx; }
-
     static Display& instance();
 
 private:
     Display() = default;
-    TDeckDisplay _lgfx;
+    // Concrete LGFX device class is per-board, defined in hal/<board>/Display.cpp.
+    lgfx::LGFX_Device* _lgfx_dev = nullptr;
     static lv_disp_draw_buf_t _drawBuf;
     static lv_disp_drv_t      _dispDrv;
     static lv_color_t*        _buf1;

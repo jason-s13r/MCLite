@@ -15,8 +15,13 @@ namespace mclite {
 
 // ---- Hardware ----
 // Use the global Arduino SPI object (already initialized by SD card on shared bus)
+#ifdef PLATFORM_TDECK
 static CustomSX1262 radio = new Module(TDECK_LORA_CS, TDECK_LORA_DIO1,
                                         TDECK_LORA_RST, TDECK_LORA_BUSY, SPI);
+#elif defined(PLATFORM_TWATCH)
+static CustomSX1262 radio = new Module(TWATCH_LORA_CS, TWATCH_LORA_IRQ,
+                                        TWATCH_LORA_RST, TWATCH_LORA_BUSY, SPI);
+#endif
 
 static SimpleMeshTables meshTables;
 

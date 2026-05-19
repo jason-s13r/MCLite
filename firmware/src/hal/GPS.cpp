@@ -13,7 +13,11 @@ GPS& GPS::instance() {
 }
 
 bool GPS::init() {
+#ifdef PLATFORM_TDECK
     Serial1.begin(TDECK_GPS_BAUD, SERIAL_8N1, TDECK_GPS_RX, TDECK_GPS_TX);
+#elif defined(PLATFORM_TWATCH)
+    Serial1.begin(TWATCH_GPS_BAUD, SERIAL_8N1, TWATCH_GPS_RX, TWATCH_GPS_TX);
+#endif
     _enabled = true;
     Serial.println("[GPS] Initialized");
     return true;
