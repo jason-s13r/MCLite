@@ -7,6 +7,9 @@
 #include "../i18n/I18n.h"
 #include "../storage/TelemetryCache.h"
 #include "../config/ConfigManager.h"
+#ifdef PLATFORM_TWATCH
+#include "UIManager.h"
+#endif
 
 namespace mclite {
 
@@ -50,6 +53,32 @@ void ConvoListScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_text_align(_emptyHint, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(_emptyHint, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_flag(_emptyHint, LV_OBJ_FLAG_HIDDEN);
+
+#ifdef PLATFORM_TWATCH
+    // Gear button parented to the main screen, not _screen, so it floats on
+    // the status bar's empty right area (icons centered → space available).
+    // T-Watch is touch-only and has no QWERTY '0' shortcut — this is the
+    // path to Admin from the home view. Hidden by default; show()/hide()
+    // toggle visibility with the rest of the ConvoList.
+    _gearBtn = lv_btn_create(parent);
+    lv_obj_set_size(_gearBtn, 48, 48);
+    lv_obj_align(_gearBtn, LV_ALIGN_TOP_RIGHT,
+                 -theme::SAFE_AREA_RIGHT - theme::PAD_SMALL,
+                 theme::SAFE_AREA_TOP    + theme::PAD_SMALL);
+    lv_obj_set_style_bg_opa(_gearBtn, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(_gearBtn, 0, 0);
+    lv_obj_set_style_shadow_width(_gearBtn, 0, 0);
+    lv_obj_set_style_pad_all(_gearBtn, 0, 0);
+    lv_obj_t* gearLbl = lv_label_create(_gearBtn);
+    lv_obj_set_style_text_font(gearLbl, FONT_STATUSBAR_ICON, 0);
+    lv_obj_set_style_text_color(gearLbl, theme::TEXT_PRIMARY, 0);
+    lv_label_set_text(gearLbl, LV_SYMBOL_SETTINGS);
+    lv_obj_center(gearLbl);
+    lv_obj_add_event_cb(_gearBtn, [](lv_event_t*) {
+        UIManager::instance().showScreen(Screen::ADMIN);
+    }, LV_EVENT_CLICKED, nullptr);
+    lv_obj_add_flag(_gearBtn, LV_OBJ_FLAG_HIDDEN);
+#endif
 }
 
 void ConvoListScreen::refresh() {
@@ -296,6 +325,9 @@ void ConvoListScreen::rowClickCb(lv_event_t* e) {
 
 void ConvoListScreen::show() {
     if (_screen) lv_obj_clear_flag(_screen, LV_OBJ_FLAG_HIDDEN);
+#ifdef PLATFORM_TWATCH
+    if (_gearBtn) lv_obj_clear_flag(_gearBtn, LV_OBJ_FLAG_HIDDEN);
+#endif
     refresh();
 
     // refresh() only restores focus if a convo was previously focused. When
@@ -332,6 +364,9 @@ void ConvoListScreen::hide() {
     }
 
     lv_obj_add_flag(_screen, LV_OBJ_FLAG_HIDDEN);
+#ifdef PLATFORM_TWATCH
+    if (_gearBtn) lv_obj_add_flag(_gearBtn, LV_OBJ_FLAG_HIDDEN);
+#endif
 }
 
 

@@ -30,6 +30,19 @@ void ChatScreen::create(lv_obj_t* parent) {
     createChatArea();
     createInputBar();
 
+#ifdef PLATFORM_TWATCH
+    // Right-swipe anywhere on Chat → return home. T-Watch is touch-only;
+    // mirrors the iOS back-swipe gesture. No-op on T-Deck (gated).
+    // GESTURE_BUBBLE must be CLEARED so LVGL stops the gesture-bubble walk
+    // here and actually dispatches LV_EVENT_GESTURE to _screen (otherwise
+    // the walk runs past every ancestor to NULL and no event is sent).
+    lv_obj_clear_flag(_screen, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_add_event_cb(_screen, [](lv_event_t* e) {
+        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+        if (dir == LV_DIR_RIGHT) UIManager::instance().goHome();
+    }, LV_EVENT_GESTURE, nullptr);
+#endif
+
     lv_obj_add_flag(_screen, LV_OBJ_FLAG_HIDDEN);
 }
 

@@ -35,9 +35,27 @@ void AdminScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_pad_row(_screen, theme::PAD_SMALL, 0);
     lv_obj_add_flag(_screen, LV_OBJ_FLAG_SCROLLABLE);
 
+#ifdef PLATFORM_TWATCH
+    // Pull horizontal pad into the rounded-corner safe-area so rows/header
+    // can fill LV_PCT(100) without clipping. T-Deck branch above already set
+    // pad_all=PAD_MEDIUM and stays as-is.
+    lv_obj_set_style_pad_hor(_screen, theme::SAFE_AREA_LEFT, 0);
+    lv_obj_set_style_pad_ver(_screen, theme::PAD_MEDIUM, 0);
+
+    // Vertical-only scroll so horizontal swipes never get claimed for scroll
+    // detection; combined with clearing GESTURE_BUBBLE this lets the gesture
+    // event reach our handler.
+    lv_obj_set_scroll_dir(_screen, LV_DIR_VER);
+    lv_obj_clear_flag(_screen, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_add_event_cb(_screen, [](lv_event_t* e) {
+        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+        if (dir == LV_DIR_RIGHT) UIManager::instance().goHome();
+    }, LV_EVENT_GESTURE, nullptr);
+#endif
+
     // Header row: title + close button
     lv_obj_t* header = lv_obj_create(_screen);
-    lv_obj_set_size(header, 300, LV_SIZE_CONTENT);
+    lv_obj_set_size(header, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(header, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(header, 0, 0);
     lv_obj_set_style_pad_all(header, 0, 0);
@@ -83,7 +101,7 @@ void AdminScreen::show() {
     // Helper to add a row
     auto addRow = [this](const char* label, const String& value) {
         lv_obj_t* row = lv_obj_create(_screen);
-        lv_obj_set_size(row, theme::CONTENT_WIDTH - 20, LV_SIZE_CONTENT);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
         lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(row, 0, 0);
@@ -118,7 +136,7 @@ void AdminScreen::show() {
     // (subtle when OFF, stronger when ON), distinct from BG_SECONDARY info rows.
     {
         lv_obj_t* row = lv_obj_create(_screen);
-        lv_obj_set_size(row, theme::CONTENT_WIDTH - 20, LV_SIZE_CONTENT);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
         lv_obj_set_style_bg_color(row, theme::OFFGRID_ACCENT, 0);
         lv_obj_set_style_bg_opa(row, cfg.offgrid.enabled ? LV_OPA_50 : LV_OPA_20, 0);
         lv_obj_set_style_border_width(row, 0, 0);
@@ -153,7 +171,7 @@ void AdminScreen::show() {
     // Heard adverts shortcut — mirrors info-row styling but clickable, with chevron.
     {
         lv_obj_t* row = lv_obj_create(_screen);
-        lv_obj_set_size(row, theme::CONTENT_WIDTH - 20, LV_SIZE_CONTENT);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
         lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(row, 0, 0);
@@ -401,7 +419,7 @@ void AdminScreen::show() {
     lv_label_set_text(licToggle, licToggleText.c_str());
 
     lv_obj_t* licContainer = lv_obj_create(_screen);
-    lv_obj_set_size(licContainer, 300, LV_SIZE_CONTENT);
+    lv_obj_set_size(licContainer, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(licContainer, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(licContainer, 0, 0);
     lv_obj_set_style_pad_all(licContainer, 0, 0);
@@ -451,7 +469,7 @@ void AdminScreen::show() {
     lv_obj_t* licLabel = lv_label_create(licContainer);
     lv_obj_set_style_text_font(licLabel, FONT_SMALL, 0);
     lv_obj_set_style_text_color(licLabel, theme::TEXT_SECONDARY, 0);
-    lv_obj_set_width(licLabel, theme::CONTENT_WIDTH - 24);
+    lv_obj_set_width(licLabel, LV_PCT(100));
     lv_label_set_long_mode(licLabel, LV_LABEL_LONG_WRAP);
     lv_label_set_text_static(licLabel, licenseText);
 

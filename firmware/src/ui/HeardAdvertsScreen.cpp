@@ -121,6 +121,14 @@ void HeardAdvertsScreen::create(lv_obj_t* parent) {
     lv_obj_set_flex_flow(_screen, LV_FLEX_FLOW_COLUMN);
     lv_obj_clear_flag(_screen, LV_OBJ_FLAG_SCROLLABLE);
 
+#ifdef PLATFORM_TWATCH
+    lv_obj_clear_flag(_screen, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_add_event_cb(_screen, [](lv_event_t* e) {
+        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+        if (dir == LV_DIR_RIGHT) UIManager::instance().goHome();
+    }, LV_EVENT_GESTURE, nullptr);
+#endif
+
     // Header row: title + clear + close. Inset slightly so the buttons don't
     // touch the screen edges; list below stays full-width.
     lv_obj_t* header = lv_obj_create(_screen);
