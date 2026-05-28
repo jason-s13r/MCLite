@@ -38,6 +38,12 @@ bool Pmu::init() {
 
     g_axp.setChargeTargetVoltage(XPOWERS_AXP2101_CHG_VOL_4V2);
 
+    // PEK short-press IRQ — polled by consumeShortPress() each loop iter.
+    // Long press remains a hardware shutdown via the AXP2101 itself.
+    g_axp.disableIRQ(XPOWERS_AXP2101_ALL_IRQ);
+    g_axp.clearIrqStatus();
+    g_axp.enableIRQ(XPOWERS_AXP2101_PKEY_SHORT_IRQ);
+
     _ready = true;
     return true;
 }
@@ -58,6 +64,16 @@ uint8_t Pmu::batteryPercent() {
 bool Pmu::isCharging() {
     if (!_ready) return false;
     return g_axp.isCharging();
+}
+
+bool Pmu::consumeShortPress() {
+    if (!_ready) return false;
+    g_axp.getIrqStatus();
+    if (g_axp.isPekeyShortPressIrq()) {
+        g_axp.clearIrqStatus();
+        return true;
+    }
+    return false;
 }
 
 }  // namespace mclite

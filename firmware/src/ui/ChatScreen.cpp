@@ -71,6 +71,7 @@ void ChatScreen::createHeader() {
 
     lv_obj_t* backLbl = lv_label_create(backBtn);
     lv_label_set_text(backLbl, LV_SYMBOL_LEFT);
+    lv_obj_set_style_text_font(backLbl, FONT_HEADING, 0);  // match the name font for baseline alignment
     lv_obj_set_style_text_color(backLbl, theme::ACCENT, 0);
     lv_obj_center(backLbl);
 
@@ -86,9 +87,12 @@ void ChatScreen::createHeader() {
     lv_obj_add_event_cb(nameBtn, headerNameCb, LV_EVENT_CLICKED, this);
 
     _headerName = lv_label_create(nameBtn);
-    lv_obj_set_style_text_font(_headerName, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(_headerName, FONT_HEADING, 0);
     lv_obj_set_style_text_color(_headerName, theme::TEXT_PRIMARY, 0);
     lv_label_set_text(_headerName, "");
+    // Vertically center on the button so the baseline matches the centered
+    // back-arrow label next to it (default top-left would sit higher).
+    lv_obj_align(_headerName, LV_ALIGN_LEFT_MID, 0, 0);
 }
 
 void ChatScreen::createChatArea() {
@@ -134,6 +138,7 @@ void ChatScreen::createInputBar() {
 
         lv_obj_t* cannedLbl = lv_label_create(_cannedBtn);
         lv_label_set_text(cannedLbl, LV_SYMBOL_LIST);
+        lv_obj_set_style_text_font(cannedLbl, FONT_HEADING, 0);
         lv_obj_set_style_text_color(cannedLbl, theme::TEXT_SECONDARY, 0);
         lv_obj_center(cannedLbl);
     }
@@ -145,7 +150,7 @@ void ChatScreen::createInputBar() {
     lv_textarea_set_one_line(_textarea, true);
     lv_textarea_set_max_length(_textarea, 160);  // MeshCore MAX_TEXT_LEN
     lv_textarea_set_placeholder_text(_textarea, t("chat_placeholder"));
-    lv_obj_set_style_text_font(_textarea, FONT_SMALL, 0);
+    lv_obj_set_style_text_font(_textarea, FONT_BODY, 0);
     lv_obj_set_style_text_color(_textarea, theme::TEXT_PRIMARY, 0);
     lv_obj_set_style_bg_color(_textarea, theme::BG_SECONDARY, 0);
     lv_obj_set_style_border_color(_textarea, theme::ACCENT, LV_STATE_FOCUSED);
@@ -163,6 +168,7 @@ void ChatScreen::createInputBar() {
 
     lv_obj_t* gpsLbl = lv_label_create(_gpsBtn);
     lv_label_set_text(gpsLbl, LV_SYMBOL_GPS);
+    lv_obj_set_style_text_font(gpsLbl, FONT_HEADING, 0);
     lv_obj_set_style_text_color(gpsLbl, theme::TEXT_SECONDARY, 0);
     lv_obj_center(gpsLbl);
 
@@ -175,7 +181,7 @@ void ChatScreen::createInputBar() {
 
     lv_obj_t* sendLbl = lv_label_create(_sendBtn);
     lv_label_set_text(sendLbl, t("btn_send"));
-    lv_obj_set_style_text_font(sendLbl, FONT_SMALL, 0);
+    lv_obj_set_style_text_font(sendLbl, FONT_BODY, 0);
     lv_obj_center(sendLbl);
 }
 
@@ -260,7 +266,7 @@ void ChatScreen::addBubble(const Message& msg) {
     // Short text: bubble sizes to content. Long text: fixed width so label wraps.
     const lv_coord_t maxTextW = theme::BUBBLE_MAX_WIDTH - theme::BUBBLE_PAD * 2;
     lv_point_t textSize;
-    lv_txt_get_size(&textSize, msg.text.c_str(), FONT_SMALL,
+    lv_txt_get_size(&textSize, msg.text.c_str(), FONT_BODY,
                     0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
     bool needsWrap = (textSize.x > maxTextW);
 
@@ -291,14 +297,14 @@ void ChatScreen::addBubble(const Message& msg) {
         (_currentConvo->type == ConvoId::CHANNEL ||
          _currentConvo->type == ConvoId::ROOM)) {
         lv_obj_t* sender = lv_label_create(bubble);
-        lv_obj_set_style_text_font(sender, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(sender, FONT_BODY, 0);
         lv_obj_set_style_text_color(sender, theme::ACCENT, 0);
         lv_label_set_text(sender, msg.senderName.c_str());
     }
 
     // Message text
     lv_obj_t* text = lv_label_create(bubble);
-    lv_obj_set_style_text_font(text, FONT_SMALL, 0);
+    lv_obj_set_style_text_font(text, FONT_BODY, 0);
     lv_obj_set_style_text_color(text, theme::TEXT_PRIMARY, 0);
     lv_label_set_long_mode(text, LV_LABEL_LONG_WRAP);
     if (needsWrap) {
@@ -321,7 +327,7 @@ void ChatScreen::addBubble(const Message& msg) {
     // Timestamp — show HH:MM in local time (auto-DST via POSIX TZ)
     if (msg.timestamp > 1700000000) {
         lv_obj_t* ts = lv_label_create(meta);
-        lv_obj_set_style_text_font(ts, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(ts, FONT_BODY, 0);
         lv_obj_set_style_text_color(ts,
             msg.fromSelf ? theme::BUBBLE_SELF_META : theme::TEXT_TIMESTAMP, 0);
         char timeStr[8];
@@ -332,7 +338,7 @@ void ChatScreen::addBubble(const Message& msg) {
     // Delivery status (outgoing only)
     if (msg.fromSelf) {
         lv_obj_t* status = lv_label_create(meta);
-        lv_obj_set_style_text_font(status, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(status, FONT_BODY, 0);
         switch (msg.status) {
             case MessageStatus::SENDING:
                 lv_label_set_text(status, "...");
@@ -460,7 +466,7 @@ void ChatScreen::gpsBtnCb(lv_event_t* e) {
     lv_obj_center(msgbox);
     lv_obj_set_style_bg_color(msgbox, theme::BG_SECONDARY, 0);
     lv_obj_set_style_text_color(msgbox, theme::TEXT_PRIMARY, 0);
-    lv_obj_set_style_text_font(msgbox, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(msgbox, FONT_HEADING, 0);
 
     // Switch trackball/keyboard to modal group so they can't navigate chat behind
     lv_obj_t* btnm = lv_msgbox_get_btns(msgbox);
@@ -597,12 +603,16 @@ void ChatScreen::showCannedPicker() {
 
     _cannedBtnm = lv_btnmatrix_create(_screen);
     lv_btnmatrix_set_map(_cannedBtnm, btnMap);
-    lv_coord_t pickerH = count * 24 + 8;  // 24px per button + padding
+#ifdef PLATFORM_TWATCH
+    lv_coord_t pickerH = count * 64 + 16;  // 64px per button on T-Watch for finger taps
+#else
+    lv_coord_t pickerH = count * 24 + 8;
+#endif
     lv_coord_t maxH = Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT - 16;  // leave margin
     if (pickerH > maxH) pickerH = maxH;
     lv_obj_set_size(_cannedBtnm, theme::MODAL_TEXT_WIDTH, pickerH);
     lv_obj_align(_cannedBtnm, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_set_style_text_font(_cannedBtnm, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(_cannedBtnm, FONT_HEADING, 0);
     lv_obj_set_style_text_color(_cannedBtnm, theme::TEXT_PRIMARY, 0);
     lv_obj_set_style_bg_color(_cannedBtnm, theme::BG_SECONDARY, 0);
     lv_obj_set_style_bg_opa(_cannedBtnm, LV_OPA_COVER, 0);

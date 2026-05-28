@@ -162,11 +162,18 @@ constexpr int CONVO_ROW_HEIGHT  = 48;
 #define FONT_LARGE          &lv_font_montserrat_20
 #define FONT_TITLE          &lv_font_montserrat_24
 #define FONT_STATUSBAR_ICON &lv_font_montserrat_28  // 2x current icon size for finger taps
+// Semantic fonts — one step larger than the size-named FONT_* on T-Watch
+// so body text and section headings read comfortably at arm's length.
+// Used in chat bubbles, the chat header, admin rows, etc.
+#define FONT_BODY     FONT_NORMAL  // body text, list rows, bubble text, timestamps
+#define FONT_HEADING  FONT_LARGE   // header titles, modal text, close-button glyph
 #else
 #define FONT_SMALL    &lv_font_montserrat_12
 #define FONT_NORMAL   &lv_font_montserrat_14
 #define FONT_LARGE    &lv_font_montserrat_16
 #define FONT_TITLE    &lv_font_montserrat_20
+#define FONT_BODY     FONT_SMALL
+#define FONT_HEADING  FONT_NORMAL
 #endif
 
 }  // namespace theme

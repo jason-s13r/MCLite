@@ -24,6 +24,10 @@ public:
     uint8_t  batteryPercent();
     bool isCharging();
 
+    // Returns true once per short press of the upper power (PEK) button.
+    // Long press is still routed to hardware shutdown by the AXP2101.
+    bool consumeShortPress();
+
     bool isReady() const { return _ready; }
 
 private:

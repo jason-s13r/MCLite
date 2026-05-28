@@ -13,6 +13,9 @@
 #include "../i18n/I18n.h"
 #include "../storage/TelemetryCache.h"
 #include "../storage/TileLoader.h"
+#ifdef PLATFORM_TWATCH
+#include "../hal/twatch/Pmu.h"
+#endif
 #include "../util/distance.h"
 #include "../util/hex.h"
 #include "../util/mgrs.h"
@@ -84,6 +87,16 @@ void UIManager::update() {
 
     // Check for input activity to wake from dim (after LVGL so _lastKey is fresh)
     checkWake();
+
+#ifdef PLATFORM_TWATCH
+    // Upper power button (AXP2101 PEK) short-press: toggle Admin <-> home.
+    // Long-press remains a hardware shutdown via the PMU itself.
+    if (Pmu::instance().consumeShortPress()) {
+        if (_currentScreen == Screen::ADMIN) goHome();
+        else                                  showScreen(Screen::ADMIN);
+        _lastActivity = now;
+    }
+#endif
 
     // Periodic status bar update
     if (now - _lastStatusUpdate >= STATUS_UPDATE_MS) {

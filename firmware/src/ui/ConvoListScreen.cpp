@@ -46,7 +46,7 @@ void ConvoListScreen::create(lv_obj_t* parent) {
 
     // Empty state hint
     _emptyHint = lv_label_create(_screen);
-    lv_obj_set_style_text_font(_emptyHint, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(_emptyHint, FONT_HEADING, 0);
     lv_obj_set_style_text_color(_emptyHint, theme::TEXT_SECONDARY, 0);
     lv_label_set_text(_emptyHint, t("no_contacts"));
     lv_obj_set_style_text_align(_emptyHint, LV_TEXT_ALIGN_CENTER, 0);
@@ -66,7 +66,7 @@ void ConvoListScreen::create(lv_obj_t* parent) {
     // glyph clear of the rounded bottom-right corner. Vertical inset PAD_LARGE
     // sits the button comfortably within the footer's content band.
     lv_obj_align(_gearBtn, LV_ALIGN_BOTTOM_RIGHT,
-                 -theme::SAFE_AREA_RIGHT - theme::PAD_LARGE,
+                 -(theme::SAFE_AREA_RIGHT + theme::PAD_LARGE * 2),
                  -theme::PAD_LARGE);
     lv_obj_set_style_bg_opa(_gearBtn, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(_gearBtn, 0, 0);
@@ -173,9 +173,10 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
         delete id;
     }, LV_EVENT_DELETE, nullptr);
 
-    // Top line: icon + name + timestamp
+    // Top line: icon + name + telemetry badges + timestamp.
+    // Fill the row's inner width so the trailing badges align to the right edge.
     lv_obj_t* topLine = lv_obj_create(row);
-    lv_obj_set_size(topLine, 300, LV_SIZE_CONTENT);
+    lv_obj_set_size(topLine, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_style_bg_opa(topLine, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(topLine, 0, 0);
     lv_obj_set_style_pad_all(topLine, 0, 0);
@@ -185,7 +186,7 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
 
     // Type icon
     lv_obj_t* icon = lv_label_create(topLine);
-    lv_obj_set_style_text_font(icon, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(icon, FONT_HEADING, 0);
     if (convo->convoId.type == ConvoId::ROOM) {
         lv_label_set_text(icon, ICON_ROOM);
         lv_obj_set_style_text_color(icon, theme::ROOM_ACCENT, 0);
@@ -203,14 +204,14 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
     // Unread dot
     if (convo->hasUnread) {
         lv_obj_t* dot = lv_label_create(topLine);
-        lv_obj_set_style_text_font(dot, FONT_NORMAL, 0);
+        lv_obj_set_style_text_font(dot, FONT_HEADING, 0);
         lv_obj_set_style_text_color(dot, theme::UNREAD_DOT, 0);
         lv_label_set_text(dot, " " LV_SYMBOL_BULLET);
     }
 
     // Name
     lv_obj_t* name = lv_label_create(topLine);
-    lv_obj_set_style_text_font(name, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(name, FONT_HEADING, 0);
     lv_obj_set_style_text_color(name, theme::TEXT_PRIMARY, 0);
     lv_obj_set_flex_grow(name, 1);
     String nameStr = " " + convo->displayName;
@@ -231,7 +232,7 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
                 // Eye icon if < 20min (tolerates one missed advert cycle)
                 if (age < 1200000) {
                     lv_obj_t* seenIcon = lv_label_create(topLine);
-                    lv_obj_set_style_text_font(seenIcon, FONT_SMALL, 0);
+                    lv_obj_set_style_text_font(seenIcon, FONT_BODY, 0);
                     lv_obj_set_style_text_color(seenIcon, theme::ONLINE_DOT, 0);
                     lv_label_set_text(seenIcon, LV_SYMBOL_EYE_OPEN);
                 }
@@ -240,7 +241,7 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
                 String seenText = formatLastSeen(c->lastSeen);
                 if (seenText.length() > 0) {
                     lv_obj_t* seenLabel = lv_label_create(topLine);
-                    lv_obj_set_style_text_font(seenLabel, FONT_SMALL, 0);
+                    lv_obj_set_style_text_font(seenLabel, FONT_BODY, 0);
                     lv_obj_set_style_text_color(seenLabel, theme::TEXT_TIMESTAMP, 0);
                     lv_label_set_text(seenLabel, seenText.c_str());
                 }
@@ -261,7 +262,7 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
                         else if (pct > 20) battSym = LV_SYMBOL_BATTERY_1;
                         else               battSym = LV_SYMBOL_BATTERY_EMPTY;
                         lv_obj_t* battIcon = lv_label_create(topLine);
-                        lv_obj_set_style_text_font(battIcon, FONT_SMALL, 0);
+                        lv_obj_set_style_text_font(battIcon, FONT_BODY, 0);
                         lv_label_set_text(battIcon, battSym);
                         lv_obj_set_style_text_color(battIcon,
                             pct <= 20 ? theme::BATTERY_LOW : theme::TEXT_PRIMARY, 0);
@@ -269,7 +270,7 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
                     // GPS icon
                     if (td->hasLocation && (showTelem == "location" || showTelem == "both")) {
                         lv_obj_t* locIcon = lv_label_create(topLine);
-                        lv_obj_set_style_text_font(locIcon, FONT_SMALL, 0);
+                        lv_obj_set_style_text_font(locIcon, FONT_BODY, 0);
                         lv_label_set_text(locIcon, LV_SYMBOL_GPS);
                         lv_obj_set_style_text_color(locIcon, theme::TEXT_PRIMARY, 0);
                     }
@@ -295,7 +296,7 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
         else                      snprintf(timeBuf, sizeof(timeBuf), t("time_d"), (int)(diff / 86400));
         String timeStr = timeBuf;
         lv_obj_t* ts = lv_label_create(topLine);
-        lv_obj_set_style_text_font(ts, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(ts, FONT_BODY, 0);
         lv_obj_set_style_text_color(ts, theme::TEXT_TIMESTAMP, 0);
         lv_label_set_text(ts, timeStr.c_str());
     }
@@ -304,9 +305,9 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
     const Message* last = convo->lastMessage();
     if (last && last->text.length() > 0) {
         lv_obj_t* preview = lv_label_create(row);
-        lv_obj_set_style_text_font(preview, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(preview, FONT_BODY, 0);
         lv_obj_set_style_text_color(preview, theme::TEXT_SECONDARY, 0);
-        lv_obj_set_width(preview, theme::CONTENT_WIDTH - 20);
+        lv_obj_set_width(preview, LV_PCT(100));
         lv_label_set_long_mode(preview, LV_LABEL_LONG_DOT);
 
         String previewText = last->text;

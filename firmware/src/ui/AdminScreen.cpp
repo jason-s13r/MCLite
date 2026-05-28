@@ -77,7 +77,7 @@ void AdminScreen::create(lv_obj_t* parent) {
     lv_obj_add_event_cb(_closeBtn, closeBtnCb, LV_EVENT_CLICKED, nullptr);
 
     lv_obj_t* btnLabel = lv_label_create(_closeBtn);
-    lv_obj_set_style_text_font(btnLabel, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(btnLabel, FONT_HEADING, 0);
     lv_obj_set_style_text_color(btnLabel, theme::TEXT_PRIMARY, 0);
     lv_label_set_text(btnLabel, LV_SYMBOL_CLOSE);
     lv_obj_center(btnLabel);
@@ -111,12 +111,12 @@ void AdminScreen::show() {
         lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
         lv_obj_t* lbl = lv_label_create(row);
-        lv_obj_set_style_text_font(lbl, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
         lv_obj_set_style_text_color(lbl, theme::TEXT_SECONDARY, 0);
         lv_label_set_text(lbl, label);
 
         lv_obj_t* val = lv_label_create(row);
-        lv_obj_set_style_text_font(val, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(val, FONT_BODY, 0);
         lv_obj_set_style_text_color(val, theme::TEXT_PRIMARY, 0);
         lv_label_set_text(val, value.c_str());
     };
@@ -124,7 +124,7 @@ void AdminScreen::show() {
     // Helper for section headers
     auto addSection = [this](const char* title) {
         lv_obj_t* lbl = lv_label_create(_screen);
-        lv_obj_set_style_text_font(lbl, FONT_NORMAL, 0);
+        lv_obj_set_style_text_font(lbl, FONT_HEADING, 0);
         lv_obj_set_style_text_color(lbl, theme::ACCENT, 0);
         lv_obj_set_style_pad_top(lbl, theme::PAD_MEDIUM, 0);
         lv_label_set_text(lbl, title);
@@ -147,12 +147,12 @@ void AdminScreen::show() {
         lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
 
         lv_obj_t* lbl = lv_label_create(row);
-        lv_obj_set_style_text_font(lbl, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
         lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
         lv_label_set_text(lbl, "Offgrid");
 
         lv_obj_t* val = lv_label_create(row);
-        lv_obj_set_style_text_font(val, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(val, FONT_BODY, 0);
         lv_obj_set_style_text_color(val, theme::TEXT_PRIMARY, 0);
         if (cfg.offgrid.enabled) {
             char buf[24];
@@ -184,7 +184,7 @@ void AdminScreen::show() {
         lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
 
         _heardCountLabel = lv_label_create(row);
-        lv_obj_set_style_text_font(_heardCountLabel, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(_heardCountLabel, FONT_BODY, 0);
         lv_obj_set_style_text_color(_heardCountLabel, theme::TEXT_PRIMARY, 0);
         char rowBuf[40];
         snprintf(rowBuf, sizeof(rowBuf), "%s (%d)",
@@ -194,7 +194,7 @@ void AdminScreen::show() {
         _heardCacheVersion = HeardAdvertCache::instance().version();
 
         lv_obj_t* chev = lv_label_create(row);
-        lv_obj_set_style_text_font(chev, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(chev, FONT_BODY, 0);
         lv_obj_set_style_text_color(chev, theme::TEXT_SECONDARY, 0);
         lv_label_set_text(chev, LV_SYMBOL_RIGHT);
 
@@ -410,7 +410,7 @@ void AdminScreen::show() {
 
     // Expandable 3rd-party licenses
     lv_obj_t* licToggle = lv_label_create(_screen);
-    lv_obj_set_style_text_font(licToggle, FONT_SMALL, 0);
+    lv_obj_set_style_text_font(licToggle, FONT_BODY, 0);
     lv_obj_set_style_text_color(licToggle, theme::ACCENT, 0);
     lv_obj_add_flag(licToggle, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_set_style_pad_top(licToggle, theme::PAD_SMALL, 0);
@@ -466,7 +466,7 @@ void AdminScreen::show() {
         "Full license texts: see LICENSES.md";
 
     lv_obj_t* licLabel = lv_label_create(licContainer);
-    lv_obj_set_style_text_font(licLabel, FONT_SMALL, 0);
+    lv_obj_set_style_text_font(licLabel, FONT_BODY, 0);
     lv_obj_set_style_text_color(licLabel, theme::TEXT_SECONDARY, 0);
     lv_obj_set_width(licLabel, LV_PCT(100));
     lv_label_set_long_mode(licLabel, LV_LABEL_LONG_WRAP);
@@ -490,7 +490,7 @@ void AdminScreen::show() {
 
     // Footer
     lv_obj_t* footer = lv_label_create(_screen);
-    lv_obj_set_style_text_font(footer, FONT_SMALL, 0);
+    lv_obj_set_style_text_font(footer, FONT_BODY, 0);
     lv_obj_set_style_text_color(footer, theme::TEXT_TIMESTAMP, 0);
     lv_obj_set_style_pad_top(footer, theme::PAD_MEDIUM, 0);
     lv_label_set_text(footer, t("admin_footer"));
@@ -535,7 +535,7 @@ void AdminScreen::offgridToggleCb(lv_event_t* e) {
     lv_obj_center(msgbox);
     lv_obj_set_style_bg_color(msgbox, theme::BG_SECONDARY, 0);
     lv_obj_set_style_text_color(msgbox, theme::TEXT_PRIMARY, 0);
-    lv_obj_set_style_text_font(msgbox, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(msgbox, FONT_HEADING, 0);
 
     lv_obj_t* btnm = lv_msgbox_get_btns(msgbox);
     if (btnm) UIManager::instance().switchToModalGroup(btnm);

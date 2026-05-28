@@ -118,6 +118,10 @@ void HeardAdvertsScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_pad_all(_screen, 0, 0);  // edge-to-edge; header carries its own inset
     lv_obj_set_style_pad_row(_screen, theme::PAD_SMALL, 0);
     lv_obj_set_flex_flow(_screen, LV_FLEX_FLOW_COLUMN);
+    // Center header / list / empty-hint on the cross (X) axis — default
+    // would left-align them and the whole screen looks shifted left on
+    // T-Watch where CONTENT_WIDTH < Display::width().
+    lv_obj_set_flex_align(_screen, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_clear_flag(_screen, LV_OBJ_FLAG_SCROLLABLE);
 
 #ifdef PLATFORM_TWATCH
@@ -158,7 +162,7 @@ void HeardAdvertsScreen::create(lv_obj_t* parent) {
         lv_obj_set_style_bg_opa(btn, LV_OPA_60, LV_STATE_FOCUSED);
         lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, user);
         lv_obj_t* lbl = lv_label_create(btn);
-        lv_obj_set_style_text_font(lbl, FONT_NORMAL, 0);
+        lv_obj_set_style_text_font(lbl, FONT_HEADING, 0);
         lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
         lv_label_set_text(lbl, sym);
         lv_obj_center(lbl);
@@ -187,7 +191,7 @@ void HeardAdvertsScreen::create(lv_obj_t* parent) {
 
     // Empty hint
     _emptyHint = lv_label_create(_screen);
-    lv_obj_set_style_text_font(_emptyHint, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(_emptyHint, FONT_HEADING, 0);
     lv_obj_set_style_text_color(_emptyHint, theme::TEXT_SECONDARY, 0);
     lv_obj_set_style_text_align(_emptyHint, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(_emptyHint, t("heard_adverts_empty"));
@@ -293,7 +297,7 @@ void HeardAdvertsScreen::rebuild() {
         const HeardAdvert& e = es[slot];
 
         lv_obj_t* row = lv_obj_create(_list);
-        lv_obj_set_size(row, 316, LV_SIZE_CONTENT);  // matches ConvoListScreen, leaves room for scrollbar
+        lv_obj_set_size(row, theme::CONTENT_WIDTH - theme::PAD_SMALL, LV_SIZE_CONTENT);  // matches ConvoListScreen, leaves room for scrollbar
         lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(row, 0, 0);
@@ -330,7 +334,7 @@ void HeardAdvertsScreen::rebuild() {
         // Type icon — replaced with refresh glyph for queued (saved-this-session)
         // entries so the user sees something is pending without opening the modal.
         lv_obj_t* icon = lv_label_create(row);
-        lv_obj_set_style_text_font(icon, FONT_NORMAL, 0);
+        lv_obj_set_style_text_font(icon, FONT_HEADING, 0);
         if (queued) {
             lv_obj_set_style_text_color(icon, theme::OFFGRID_ACCENT, 0);
             lv_label_set_text(icon, LV_SYMBOL_REFRESH);
@@ -341,7 +345,7 @@ void HeardAdvertsScreen::rebuild() {
 
         // Name (alias if known; show heard name in parens if it differs)
         lv_obj_t* name = lv_label_create(row);
-        lv_obj_set_style_text_font(name, FONT_NORMAL, 0);
+        lv_obj_set_style_text_font(name, FONT_HEADING, 0);
         lv_obj_set_style_text_color(name,
             (known || queued) ? theme::TEXT_TIMESTAMP : theme::TEXT_PRIMARY, 0);
         lv_obj_set_flex_grow(name, 1);
@@ -364,14 +368,14 @@ void HeardAdvertsScreen::rebuild() {
 
         // Hops
         lv_obj_t* hopsLbl = lv_label_create(row);
-        lv_obj_set_style_text_font(hopsLbl, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(hopsLbl, FONT_BODY, 0);
         lv_obj_set_style_text_color(hopsLbl, theme::TEXT_SECONDARY, 0);
         String hopsText = " " + formatHops(e.hops) + " ";
         lv_label_set_text(hopsLbl, hopsText.c_str());
 
         // Age
         lv_obj_t* age = lv_label_create(row);
-        lv_obj_set_style_text_font(age, FONT_SMALL, 0);
+        lv_obj_set_style_text_font(age, FONT_BODY, 0);
         lv_obj_set_style_text_color(age, theme::TEXT_TIMESTAMP, 0);
         lv_label_set_text(age, formatAge(e.lastHeardMs).c_str());
     }
@@ -519,7 +523,7 @@ void HeardAdvertsScreen::openDetail(int slotIdx) {
     lv_obj_set_style_max_height(_detailMsgbox, 216, 0);
     lv_obj_set_style_bg_color(_detailMsgbox, theme::BG_SECONDARY, 0);
     lv_obj_set_style_text_color(_detailMsgbox, theme::TEXT_PRIMARY, 0);
-    lv_obj_set_style_text_font(_detailMsgbox, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(_detailMsgbox, FONT_HEADING, 0);
 
     // Uniform vertical breathing room between every body line — matches the
     // implicit gap between the title bar and the first body line.
@@ -533,7 +537,7 @@ void HeardAdvertsScreen::openDetail(int slotIdx) {
     keyText += formatKeyChunked(e.pubKey);
 
     lv_obj_t* keyLabel = lv_label_create(_detailMsgbox);
-    lv_obj_set_style_text_font(keyLabel, FONT_SMALL, 0);
+    lv_obj_set_style_text_font(keyLabel, FONT_BODY, 0);
     lv_obj_set_style_text_color(keyLabel, theme::TEXT_SECONDARY, 0);
     lv_obj_set_style_text_line_space(keyLabel, 2, 0);
     lv_obj_set_style_pad_top(keyLabel, 2, 0);
@@ -675,7 +679,7 @@ void HeardAdvertsScreen::showSimpleInfoModal(const char* msg) {
     lv_obj_set_height(_detailMsgbox, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_color(_detailMsgbox, theme::BG_SECONDARY, 0);
     lv_obj_set_style_text_color(_detailMsgbox, theme::TEXT_PRIMARY, 0);
-    lv_obj_set_style_text_font(_detailMsgbox, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(_detailMsgbox, FONT_HEADING, 0);
 
     lv_obj_t* btnm = lv_msgbox_get_btns(_detailMsgbox);
     if (btnm) UIManager::instance().switchToModalGroup(btnm);
@@ -698,7 +702,7 @@ void HeardAdvertsScreen::showSavedConfirmation() {
     lv_obj_set_height(_detailMsgbox, LV_SIZE_CONTENT);
     lv_obj_set_style_bg_color(_detailMsgbox, theme::BG_SECONDARY, 0);
     lv_obj_set_style_text_color(_detailMsgbox, theme::TEXT_PRIMARY, 0);
-    lv_obj_set_style_text_font(_detailMsgbox, FONT_NORMAL, 0);
+    lv_obj_set_style_text_font(_detailMsgbox, FONT_HEADING, 0);
 
     lv_obj_t* btnm = lv_msgbox_get_btns(_detailMsgbox);
     if (btnm) UIManager::instance().switchToModalGroup(btnm);
