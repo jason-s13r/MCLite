@@ -45,9 +45,15 @@ constexpr int PAD_LARGE   = 12;
 // Safe-area insets for displays with rounded bezel corners. T-Deck's rect LCD
 // uses 0; T-Watch's AMOLED clips into the panel at each rounded corner —
 // vertical clipping is more aggressive than horizontal.
+// T-Watch's rounded AMOLED used to push *every* content widget down by
+// SAFE_AREA_TOP/BOTTOM=24 to clear the bezel curves. R8 stops doing that:
+// the status bar at the top and the new footer at the bottom now ABSORB
+// the vertical safe area (their inner pad_top / pad_bottom keep content
+// out of the rounded zones), so widgets in between can use the full
+// vertical band between the two bars without further offset.
 #ifdef PLATFORM_TWATCH
-constexpr int SAFE_AREA_TOP    = 24;
-constexpr int SAFE_AREA_BOTTOM = 24;
+constexpr int SAFE_AREA_TOP    = 0;    // was 24 — now absorbed by STATUS_BAR
+constexpr int SAFE_AREA_BOTTOM = 0;    // was 24 — now absorbed by FOOTER
 constexpr int SAFE_AREA_LEFT   = 20;
 constexpr int SAFE_AREA_RIGHT  = 20;
 #else
@@ -65,12 +71,19 @@ constexpr int SAFE_AREA_RIGHT  = 0;
 constexpr int CONTENT_WIDTH = BOARD_DISP_W - SAFE_AREA_LEFT - SAFE_AREA_RIGHT;
 
 // Status bar — taller on T-Watch to fit a two-row layout (centered device
-// name on top, finger-sized centered icons below). T-Deck stays single-row.
+// name on top, finger-sized centered icons below). R8: bar height grows
+// from 72 to 96 to absorb the 24 px rounded-top safe area; inner pad_top
+// keeps content out of the corner. The new FOOTER does the same on the
+// bottom and hosts the clock. T-Deck stays single-row, no footer.
 #ifdef PLATFORM_TWATCH
-constexpr int STATUS_BAR_HEIGHT   = 72;
-constexpr int STATUS_BAR_ICON_GAP = PAD_LARGE;  // 12 px between icons on row 2
+constexpr int STATUS_BAR_HEIGHT   = 96;
+constexpr int FOOTER_HEIGHT       = 64;
+constexpr int STATUS_BAR_PAD_V    = 20;  // inner top pad — clear rounded top
+constexpr int FOOTER_PAD_V        = 20;  // inner bottom pad — clear rounded bottom
+constexpr int STATUS_BAR_ICON_GAP = PAD_LARGE;
 #else
 constexpr int STATUS_BAR_HEIGHT = 24;
+constexpr int FOOTER_HEIGHT     = 0;     // T-Deck has no footer
 #endif
 
 // Inner horizontal padding for full-width bars (status bar, chat header, chat

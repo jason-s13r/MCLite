@@ -16,8 +16,8 @@ namespace mclite {
 void ConvoListScreen::create(lv_obj_t* parent) {
     _screen = lv_obj_create(parent);
     lv_obj_set_size(_screen, Display::width(),
-                    Display::height() - theme::SAFE_AREA_TOP - theme::STATUS_BAR_HEIGHT);
-    lv_obj_align(_screen, LV_ALIGN_BOTTOM_MID, 0, 0);
+                    Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT);
+    lv_obj_align(_screen, LV_ALIGN_BOTTOM_MID, 0, -theme::FOOTER_HEIGHT);
     lv_obj_set_style_bg_color(_screen, theme::BG_PRIMARY, 0);
     lv_obj_set_style_bg_opa(_screen, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(_screen, 0, 0);
@@ -28,8 +28,7 @@ void ConvoListScreen::create(lv_obj_t* parent) {
     // Scrollable list container
     _list = lv_obj_create(_screen);
     lv_obj_set_size(_list, theme::CONTENT_WIDTH,
-                    Display::height() - theme::SAFE_AREA_TOP - theme::STATUS_BAR_HEIGHT
-                    - theme::SAFE_AREA_BOTTOM);
+                    Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT);
     lv_obj_align(_list, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_set_style_bg_opa(_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(_list, 0, 0);
@@ -62,9 +61,13 @@ void ConvoListScreen::create(lv_obj_t* parent) {
     // toggle visibility with the rest of the ConvoList.
     _gearBtn = lv_btn_create(parent);
     lv_obj_set_size(_gearBtn, 48, 48);
-    lv_obj_align(_gearBtn, LV_ALIGN_TOP_RIGHT,
-                 -theme::SAFE_AREA_RIGHT - theme::PAD_SMALL,
-                 theme::SAFE_AREA_TOP    + theme::PAD_SMALL);
+    // Bottom-right of the screen, floating on the footer next to the clock.
+    // Extra horizontal inset (SAFE_AREA_RIGHT + PAD_LARGE) keeps the visible
+    // glyph clear of the rounded bottom-right corner. Vertical inset PAD_LARGE
+    // sits the button comfortably within the footer's content band.
+    lv_obj_align(_gearBtn, LV_ALIGN_BOTTOM_RIGHT,
+                 -theme::SAFE_AREA_RIGHT - theme::PAD_LARGE,
+                 -theme::PAD_LARGE);
     lv_obj_set_style_bg_opa(_gearBtn, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(_gearBtn, 0, 0);
     lv_obj_set_style_shadow_width(_gearBtn, 0, 0);

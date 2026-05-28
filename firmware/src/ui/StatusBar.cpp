@@ -23,9 +23,12 @@ void StatusBar::create(lv_obj_t* parent) {
     lv_obj_clear_flag(_bar, LV_OBJ_FLAG_SCROLLABLE);
 
 #ifdef PLATFORM_TWATCH
-    // T-Watch: two-row layout. Row 1 = device name centered (with optional
-    // OFFGRID badge inline). Row 2 = sound/GPS/battery/time centered, sized
-    // with FONT_STATUSBAR_ICON (28pt — 2x previous) for finger touch.
+    // T-Watch: status bar = row 1 (device name centered) + row 2 (sound /
+    // GPS / battery centered, 28-pt). Clock lives in the separate footer
+    // bar at the bottom of the screen (created below). Status bar height
+    // (96) absorbs the rounded-top safe area; pad_top keeps content out
+    // of the corner.
+    lv_obj_set_style_pad_top(_bar, theme::STATUS_BAR_PAD_V, 0);
     lv_obj_set_flex_flow(_bar, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(_bar, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_row(_bar, theme::PAD_SMALL, 0);
@@ -64,7 +67,7 @@ void StatusBar::create(lv_obj_t* parent) {
     const auto& cfg = ConfigManager::instance().config();
     lv_label_set_text(_lblName, cfg.deviceName.c_str());
 
-    // Row 2 icons. All at FONT_STATUSBAR_ICON (28pt) for parity and finger taps.
+    // Row 2 icons — sound / GPS / battery only. Clock moved to footer.
     _soundIcon = lv_label_create(_iconRow);
     lv_obj_set_style_text_font(_soundIcon, FONT_STATUSBAR_ICON, 0);
     lv_obj_add_flag(_soundIcon, LV_OBJ_FLAG_CLICKABLE);
@@ -79,7 +82,23 @@ void StatusBar::create(lv_obj_t* parent) {
     lv_obj_set_style_text_font(_lblBatt, FONT_STATUSBAR_ICON, 0);
     lv_obj_set_style_text_color(_lblBatt, theme::TEXT_PRIMARY, 0);
 
-    _lblTime = lv_label_create(_iconRow);
+    // Footer bar — bottom of the screen, mirrors the status bar.
+    // Absorbs the rounded-bottom safe area via FOOTER_PAD_V.
+    _footer = lv_obj_create(parent);
+    lv_obj_set_size(_footer, Display::width(), theme::FOOTER_HEIGHT);
+    lv_obj_align(_footer, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_color(_footer, theme::BG_STATUS_BAR, 0);
+    lv_obj_set_style_bg_opa(_footer, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(_footer, 0, 0);
+    lv_obj_set_style_radius(_footer, 0, 0);
+    lv_obj_set_style_pad_top(_footer, theme::PAD_SMALL, 0);
+    lv_obj_set_style_pad_bottom(_footer, theme::FOOTER_PAD_V, 0);
+    lv_obj_set_style_pad_hor(_footer, theme::STATUS_BAR_PAD_HOR, 0);
+    lv_obj_clear_flag(_footer, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(_footer, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(_footer, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    _lblTime = lv_label_create(_footer);
     lv_obj_set_style_text_font(_lblTime, FONT_STATUSBAR_ICON, 0);
     lv_obj_set_style_text_color(_lblTime, theme::TEXT_PRIMARY, 0);
 #else

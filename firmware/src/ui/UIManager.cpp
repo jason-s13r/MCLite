@@ -1610,7 +1610,12 @@ void UIManager::showToast(const char* msg, uint32_t durationMs) {
     lv_obj_set_style_text_font(lbl, FONT_NORMAL, 0);
     lv_label_set_text(lbl, msg);
 
+#ifdef PLATFORM_TWATCH
+    // Sit above the footer bar so the clock isn't covered.
+    lv_obj_align(toast, LV_ALIGN_BOTTOM_MID, 0, -theme::FOOTER_HEIGHT - theme::PAD_LARGE);
+#else
     lv_obj_align(toast, LV_ALIGN_BOTTOM_MID, 0, -24);
+#endif
 
     // Auto-dismiss via one-shot timer that deletes the wrapper async.
     // lv_timer_set_repeat_count(timer, 1) tells LVGL to free the timer

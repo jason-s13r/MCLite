@@ -109,9 +109,8 @@ String formatAge(uint32_t lastHeardMs) {
 void HeardAdvertsScreen::create(lv_obj_t* parent) {
     _screen = lv_obj_create(parent);
     lv_obj_set_size(_screen, Display::width(),
-                    Display::height() - theme::SAFE_AREA_TOP - theme::STATUS_BAR_HEIGHT
-                    - theme::SAFE_AREA_BOTTOM);
-    lv_obj_align(_screen, LV_ALIGN_BOTTOM_MID, 0, -theme::SAFE_AREA_BOTTOM);
+                    Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT);
+    lv_obj_align(_screen, LV_ALIGN_BOTTOM_MID, 0, -theme::FOOTER_HEIGHT);
     lv_obj_set_style_bg_color(_screen, theme::BG_PRIMARY, 0);
     lv_obj_set_style_bg_opa(_screen, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(_screen, 0, 0);
