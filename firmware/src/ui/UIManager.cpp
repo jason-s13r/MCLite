@@ -91,7 +91,9 @@ void UIManager::update() {
 #ifdef PLATFORM_TWATCH
     // Upper power button (AXP2101 PEK) short-press: toggle Admin <-> home.
     // Long-press remains a hardware shutdown via the PMU itself.
-    if (Pmu::instance().consumeShortPress()) {
+    // Suppressed while the screen is key-locked or PIN-locked so the lock
+    // can't be bypassed to reach Admin.
+    if (Pmu::instance().consumeShortPress() && !_keyLocked && !_isLocked) {
         if (_currentScreen == Screen::ADMIN) goHome();
         else                                  showScreen(Screen::ADMIN);
         _lastActivity = now;
