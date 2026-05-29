@@ -44,6 +44,11 @@ void TimeHelper::applyTimezone() {
     Serial.printf("[Time] Timezone: %s\n", tz.c_str());
 }
 
+uint32_t TimeHelper::nowEpoch() const {
+    if (!_synced) return 0;
+    return (uint32_t)time(nullptr);
+}
+
 void TimeHelper::syncSystemClock(uint32_t utcEpoch) {
     if (utcEpoch < 1700000000) return;
     if (utcEpoch == _lastSyncEpoch) return;

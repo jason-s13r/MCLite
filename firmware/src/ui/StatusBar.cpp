@@ -202,11 +202,20 @@ void StatusBar::update() {
     lv_obj_set_style_text_color(_lblBatt,
         pct <= 20 ? theme::BATTERY_LOW : theme::TEXT_PRIMARY, 0);
 
-    // Clock — show HH:MM in local time (auto-DST via POSIX TZ)
+    // Clock — show HH:MM in local time (auto-DST via POSIX TZ). Prefer GPS
+    // when locked; fall back to the system clock (which is seeded from the
+    // RTC at boot on T-Watch) so we still display a sensible time during
+    // GPS-cold periods.
     auto& gps = GPS::instance();
+    uint32_t clockEpoch = 0;
     if (gps.isTimeSynced() && gps.hasTime()) {
+        clockEpoch = gps.currentTimestamp();
+    } else {
+        clockEpoch = TimeHelper::instance().nowEpoch();
+    }
+    if (clockEpoch) {
         char timeStr[8];
-        TimeHelper::instance().formatHHMM(gps.currentTimestamp(), timeStr, sizeof(timeStr));
+        TimeHelper::instance().formatHHMM(clockEpoch, timeStr, sizeof(timeStr));
         lv_label_set_text(_lblTime, timeStr[0] ? timeStr : "");
     } else {
         lv_label_set_text(_lblTime, "");

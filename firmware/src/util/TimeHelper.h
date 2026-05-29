@@ -32,6 +32,10 @@ public:
 
     bool isSynced() const { return _synced; }
 
+    // Current Unix epoch from the system clock if a sync has happened
+    // (RTC-restore at boot or GPS lock during runtime); 0 otherwise.
+    uint32_t nowEpoch() const;
+
 private:
     TimeHelper() = default;
     bool     _synced = false;

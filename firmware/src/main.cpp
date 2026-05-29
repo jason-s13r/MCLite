@@ -21,6 +21,7 @@
 #include <Wire.h>
 #include "hal/twatch/Expander.h"
 #include "hal/twatch/Pmu.h"
+#include "hal/twatch/Rtc.h"
 #endif
 
 using namespace mclite;
@@ -47,6 +48,11 @@ void setup() {
     Expander::instance().init();
     // PMU enables ALDO2 (display rail) before LovyanGFX talks to the panel.
     Pmu::instance().init();
+    // Battery-backed RTC — restored as soon as the I2C bus is alive so the
+    // clock + log timestamps are correct from the very first frame, well
+    // before GPS gets a fix. Sync after applyTimezone() below so DST is
+    // applied correctly.
+    Rtc::instance().init();
     delay(10);
 #endif
 
@@ -86,6 +92,17 @@ void setup() {
 
     // Apply timezone for auto-DST (before UI init)
     mclite::TimeHelper::instance().applyTimezone();
+
+#ifdef PLATFORM_TWATCH
+    // Restore the system clock from the battery-backed RTC so the status-bar
+    // clock and outgoing-packet timestamps are correct before GPS gets a fix.
+    // syncSystemClock() is idempotent — when GPS later locks it overwrites
+    // with the more accurate value.
+    if (mclite::Rtc::instance().isValid()) {
+        uint32_t rtcEpoch = mclite::Rtc::instance().getEpoch();
+        if (rtcEpoch) mclite::TimeHelper::instance().syncSystemClock(rtcEpoch);
+    }
+#endif
 
     // Load language translations (before UI init)
     I18n::instance().init(cfg.language);
@@ -196,7 +213,17 @@ void setup() {
 void loop() {
     GPS::instance().update();
     if (GPS::instance().isTimeSynced()) {
-        mclite::TimeHelper::instance().syncSystemClock(GPS::instance().currentTimestamp());
+        uint32_t gpsEpoch = GPS::instance().currentTimestamp();
+        mclite::TimeHelper::instance().syncSystemClock(gpsEpoch);
+#ifdef PLATFORM_TWATCH
+        // Sync the RTC against GPS at most once per minute so the chip stays
+        // accurate against a fresh reference, without thrashing I2C writes.
+        static uint32_t lastRtcSync = 0;
+        if (gpsEpoch && gpsEpoch - lastRtcSync >= 60) {
+            mclite::Rtc::instance().setEpoch(gpsEpoch);
+            lastRtcSync = gpsEpoch;
+        }
+#endif
     }
     MeshManager::instance().update();
     UIManager::instance().update();
