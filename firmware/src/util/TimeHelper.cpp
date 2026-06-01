@@ -49,6 +49,11 @@ uint32_t TimeHelper::nowEpoch() const {
     return (uint32_t)time(nullptr);
 }
 
+uint32_t TimeHelper::bestEpoch() const {
+    uint32_t e = nowEpoch();
+    return e ? e : (millis() / 1000);
+}
+
 void TimeHelper::syncSystemClock(uint32_t utcEpoch) {
     if (utcEpoch < 1700000000) return;
     if (utcEpoch == _lastSyncEpoch) return;

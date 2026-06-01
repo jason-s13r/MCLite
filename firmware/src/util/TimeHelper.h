@@ -36,6 +36,11 @@ public:
     // (RTC-restore at boot or GPS lock during runtime); 0 otherwise.
     uint32_t nowEpoch() const;
 
+    // nowEpoch() if synced, millis()/1000 otherwise. Use for outgoing
+    // message timestamps where we always need *some* value (receivers
+    // will see 1970-01-XX in the fallback case but local sort works).
+    uint32_t bestEpoch() const;
+
 private:
     TimeHelper() = default;
     bool     _synced = false;

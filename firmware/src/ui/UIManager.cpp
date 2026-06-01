@@ -15,10 +15,12 @@
 #include "../storage/TileLoader.h"
 #ifdef PLATFORM_TWATCH
 #include "../hal/twatch/Pmu.h"
+#include "../hal/twatch/Haptic.h"
 #endif
 #include "../util/distance.h"
 #include "../util/hex.h"
 #include "../util/mgrs.h"
+#include "../util/TimeHelper.h"
 #include <helpers/BaseChatMesh.h>  // RESP_SERVER_LOGIN_OK
 
 namespace mclite {
@@ -321,6 +323,12 @@ void UIManager::onIncomingMessage(const ConvoId& id, const Message& msg) {
                 }
             }
         }
+#ifdef PLATFORM_TWATCH
+        // Haptic always fires on incoming message — silent + buzzing is a
+        // common "do not disturb" combo and we don't want to suppress it
+        // along with the sound. Future: separate `hapticEnabled` config.
+        Haptic::instance().playMessage();
+#endif
     }
 
     // Wake display
@@ -443,6 +451,9 @@ void UIManager::showSOSAlert(const ConvoId& id, const Message& msg) {
     // Start SOS sound
     const auto& cfg = ConfigManager::instance().config();
     Speaker::instance().startSOS(cfg.sosRepeat);
+#ifdef PLATFORM_TWATCH
+    Haptic::instance().playSos();
+#endif
 
     // Wake display to max brightness
     Display::instance().setBrightness(255);
@@ -468,6 +479,9 @@ void UIManager::sosButtonCb(lv_event_t* e) {
 
 void UIManager::dismissSOSAlert(bool sendReply) {
     Speaker::instance().stopSOS();
+#ifdef PLATFORM_TWATCH
+    Haptic::instance().stop();
+#endif
 
     // Send "SOS acknowledged" reply to the conversation it came from. Rooms
     // are excluded: we'd have to broadcast to the whole room (no addressable
@@ -478,8 +492,7 @@ void UIManager::dismissSOSAlert(bool sendReply) {
         Message reply;
         reply.fromSelf  = true;
         reply.text      = replyText;
-        reply.timestamp = GPS::instance().isTimeSynced()
-            ? GPS::instance().currentTimestamp() : (millis() / 1000);
+        reply.timestamp = TimeHelper::instance().bestEpoch();
 
         if (_sosIsDM && _sosContactIndex >= 0) {
             reply.packetId = MeshManager::instance().sendMessage(_sosContactIndex, replyText.c_str());
@@ -584,8 +597,7 @@ void UIManager::handleSend(const ConvoId& id, const String& text) {
     Message msg;
     msg.fromSelf  = true;
     msg.text      = text;
-    msg.timestamp = GPS::instance().isTimeSynced()
-        ? GPS::instance().currentTimestamp() : (millis() / 1000);
+    msg.timestamp = TimeHelper::instance().bestEpoch();
     msg.status    = initialStatus;
     msg.packetId  = packetId;
 
@@ -971,8 +983,7 @@ void UIManager::sendSOSToAll() {
         Message msg;
         msg.fromSelf  = true;
         msg.text      = sosText;
-        msg.timestamp = gps.isTimeSynced()
-            ? gps.currentTimestamp() : (millis() / 1000);
+        msg.timestamp = TimeHelper::instance().bestEpoch();
         msg.status    = packetId ? MessageStatus::SENDING : MessageStatus::FAILED;
         msg.packetId  = packetId;
 
@@ -1003,8 +1014,7 @@ void UIManager::sendSOSToAll() {
         Message msg;
         msg.fromSelf  = true;
         msg.text      = sosText;
-        msg.timestamp = gps.isTimeSynced()
-            ? gps.currentTimestamp() : (millis() / 1000);
+        msg.timestamp = TimeHelper::instance().bestEpoch();
         msg.status    = packetId ? MessageStatus::SENT : MessageStatus::FAILED;
         msg.packetId  = packetId;
 
@@ -1035,8 +1045,7 @@ void UIManager::sendSOSToAll() {
         Message msg;
         msg.fromSelf  = true;
         msg.text      = sosText;
-        msg.timestamp = gps.isTimeSynced()
-            ? gps.currentTimestamp() : (millis() / 1000);
+        msg.timestamp = TimeHelper::instance().bestEpoch();
         msg.status    = packetId ? MessageStatus::SENDING : MessageStatus::FAILED;
         msg.packetId  = packetId;
 
@@ -1114,8 +1123,7 @@ void UIManager::checkBatteryAlert() {
         auto& mesh = MeshManager::instance();
 
         if (mesh.isRadioReady()) {
-            uint32_t ts = gps.isTimeSynced()
-                ? gps.currentTimestamp() : (millis() / 1000);
+            uint32_t ts = TimeHelper::instance().bestEpoch();
 
             for (size_t i = 0; i < contacts.count(); i++) {
                 Contact* c = contacts.findByIndex(i);

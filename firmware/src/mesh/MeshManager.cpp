@@ -5,6 +5,7 @@
 #include "hal/boards/board.h"
 #include "../config/ConfigManager.h"
 #include "../hal/GPS.h"
+#include "../util/TimeHelper.h"
 
 #include <SPI.h>
 #include <RadioLib.h>
@@ -174,8 +175,7 @@ uint32_t MeshManager::sendRoomPost(size_t roomIdx, const String& text) {
     const auto& cfg = ConfigManager::instance().config();
     // Same timestamp policy as sendMessage/sendGroupMessage: GPS epoch when
     // synced, else millis()/1000 as a unique-per-message fallback.
-    uint32_t timestamp = GPS::instance().isTimeSynced()
-        ? GPS::instance().currentTimestamp() : (millis() / 1000);
+    uint32_t timestamp = TimeHelper::instance().bestEpoch();
     return _mesh->sendRoomPost(roomIdx, text.c_str(), timestamp,
                                 cfg.messaging.maxRetries);
 }
@@ -250,8 +250,7 @@ uint32_t MeshManager::sendMessage(size_t contactIndex, const String& text) {
     const auto& cfg = ConfigManager::instance().config();
     // Use GPS epoch time if available, otherwise millis()/1000 as unique fallback
     // (wrong date but prevents packet dedup when sending same text twice)
-    uint32_t timestamp = GPS::instance().isTimeSynced()
-        ? GPS::instance().currentTimestamp() : (millis() / 1000);
+    uint32_t timestamp = TimeHelper::instance().bestEpoch();
 
     return _mesh->sendDM(contactIndex, text.c_str(), timestamp,
                           cfg.messaging.maxRetries);
@@ -261,8 +260,7 @@ uint32_t MeshManager::sendGroupMessage(uint8_t channelIndex, const String& text)
     if (!_mesh || !_radioReady) return 0;
 
     const auto& cfg = ConfigManager::instance().config();
-    uint32_t timestamp = GPS::instance().isTimeSynced()
-        ? GPS::instance().currentTimestamp() : (millis() / 1000);
+    uint32_t timestamp = TimeHelper::instance().bestEpoch();
 
     // Find the MeshCore channel index (our ChannelStore index maps to
     // the order we called addChannel during init)

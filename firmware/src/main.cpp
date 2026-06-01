@@ -22,6 +22,7 @@
 #include "hal/twatch/Expander.h"
 #include "hal/twatch/Pmu.h"
 #include "hal/twatch/Rtc.h"
+#include "hal/twatch/Haptic.h"
 #endif
 
 using namespace mclite;
@@ -53,6 +54,7 @@ void setup() {
     // before GPS gets a fix. Sync after applyTimezone() below so DST is
     // applied correctly.
     Rtc::instance().init();
+    Haptic::instance().init();
     delay(10);
 #endif
 
