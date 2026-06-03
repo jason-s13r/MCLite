@@ -68,6 +68,23 @@ bool UIManager::init() {
         showTelemetryModal(id);
     });
 
+    _convoList.onMute([this](const ConvoId& id, bool muted) {
+        showToast(muted ? t("toast_muted") : t("toast_unmuted"));
+        // If currently viewing this chat, refresh the header mute indicator
+        if (_currentScreen == Screen::CHAT && _chatScreen.currentConvo() &&
+            *_chatScreen.currentConvo() == id) {
+            _chatScreen.open(id);  // re-open to refresh mute icon
+        }
+    });
+
+    _chatScreen.onMute([this](const ConvoId& id, bool muted) {
+        showToast(muted ? t("toast_muted") : t("toast_unmuted"));
+        // Refresh convo list so the mute indicator appears there too
+        if (_currentScreen == Screen::CONVO_LIST) {
+            _convoList.refresh();
+        }
+    });
+
     _lastActivity = millis();
 
     // Turn on keyboard backlight if enabled
@@ -309,8 +326,10 @@ void UIManager::onIncomingMessage(const ConvoId& id, const Message& msg) {
         // SOS alert handled — skip normal notification
     } else {
         // Normal notification with per-contact always-sound check
+        // Skip sound if this specific chat is muted
+        bool chatMuted = MessageStore::instance().isMuted(id);
         auto& speaker = Speaker::instance();
-        if (!speaker.isMuted()) {
+        if (!speaker.isMuted() && !chatMuted) {
             speaker.playNotification();
         } else if (id.type == ConvoId::DM) {
             // Check if this DM contact has always_sound enabled
