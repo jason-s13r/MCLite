@@ -23,6 +23,7 @@ struct Channel {
     bool    sendSos = true;   // Include in outgoing SOS broadcast
     bool    readOnly = false;  // Hide input bar in chat view
     String  scope;             // Region scope override ("" = inherit global)
+    bool    custom = false;    // true = added via admin screen (deletable)
 
     bool isPrivate() const { return type == ChannelType::PRIVATE; }
 };
@@ -30,7 +31,21 @@ struct Channel {
 class ChannelStore {
 public:
     void loadFromConfig();
+    void loadCustomChannels();   // /mclite/custom/channels.json
     void addChannel(const Channel& ch);
+
+    // Derive a hashtag channel (name must start with '#').
+    // Returns nullptr if name is invalid or already exists.
+    Channel* deriveHashtagChannel(const String& name);
+
+    // Derive with explicit flags (used by AdminScreen with checkboxes).
+    Channel* deriveHashtagChannel(const String& name, bool allowSos, bool sendSos, bool readOnly);
+
+    // Remove a channel by name. Only removes custom channels. Returns true if removed.
+    bool removeChannelByName(const String& name);
+
+    // Save custom channels to /mclite/custom/channels.json
+    bool saveCustomChannels();
 
     Channel* findByName(const String& name);
     Channel* findByIndex(uint8_t index);
@@ -43,6 +58,7 @@ public:
 private:
     ChannelStore() = default;
     std::vector<Channel> _channels;
+    size_t _builtinCount = 0;   // number of channels loaded from config.json
 };
 
 }  // namespace mclite

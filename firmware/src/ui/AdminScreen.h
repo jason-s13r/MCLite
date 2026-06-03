@@ -1,11 +1,11 @@
 #pragma once
 
 #include <lvgl.h>
+#include <Arduino.h>
 
 namespace mclite {
 
-// AdminScreen — placeholder for future PIN-protected settings
-// v1: All configuration via SD card only
+// AdminScreen — device info + runtime channel management
 class AdminScreen {
 public:
     void create(lv_obj_t* parent);
@@ -23,8 +23,25 @@ private:
     lv_obj_t* _heardCountLabel = nullptr;
     uint32_t  _heardCacheVersion = 0;
 
+    // Add-channel modal state
+    lv_obj_t* _addChannelModal   = nullptr;
+    lv_obj_t* _addChannelTextarea = nullptr;
+    lv_obj_t* _swSendSos        = nullptr;
+    lv_obj_t* _swRecvSos        = nullptr;
+    lv_obj_t* _swReadOnly       = nullptr;
+#ifdef PLATFORM_TWATCH
+    lv_obj_t* _addChannelKbd     = nullptr;
+#endif
+
+    void showAddChannelModal();
+    void hideAddChannelModal();
+
     static void closeBtnCb(lv_event_t* e);
     static void offgridToggleCb(lv_event_t* e);
+    static void addChannelBtnCb(lv_event_t* e);
+    static void addChannelConfirmCb(lv_event_t* e);
+    static void addChannelCancelCb(lv_event_t* e);
+    static void channelDeleteCb(lv_event_t* e);
 };
 
 }  // namespace mclite

@@ -101,6 +101,22 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"licenses_toggle",     "3rd-party licenses"},
     {"admin_footer",        "Edit config.json on SD card to change settings"},
 
+    // Admin screen — channel management
+    {"add_channel_title",   "Add Hashtag Channel"},
+    {"add_channel_hint",  "Enter #channel-name"},
+    {"add_channel_btn",   "Add Channel"},
+    {"channel_send_sos",  "Send SOS"},
+    {"channel_recv_sos",  "Receive SOS"},
+    {"channel_read_only", "Read-only"},
+    {"channel_added",     "Channel added"},
+    {"channel_exists",    "Channel already exists"},
+    {"channel_invalid",   "Invalid hashtag name"},
+    {"channel_save_fail", "Failed to save channel"},
+    {"btn_delete",        "Delete"},
+    {"channel_deleted",   "Channel deleted"},
+    {"confirm_delete_title","Delete channel?"},
+    {"confirm_delete_body", "Remove '%s' permanently. This cannot be undone."},
+
     // Offgrid mode (tap-to-toggle on admin screen)
     {"offgrid_off",              "OFF"},
     {"offgrid_on",               "ON"},

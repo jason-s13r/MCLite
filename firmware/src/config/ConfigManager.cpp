@@ -530,6 +530,83 @@ bool ConfigManager::generate() {
     return save();
 }
 
+bool ConfigManager::addChannel(const ChannelConfig& cc) {
+    // Validate: must be a hashtag channel with a valid name
+    if (cc.name.length() == 0 || cc.name[0] != '#') {
+        Serial.println("[Config] addChannel: name must start with #");
+        return false;
+    }
+    // Normalize name (lowercase, strip invalid chars)
+    String normalized;
+    for (size_t i = 0; i < cc.name.length(); i++) {
+        char c = tolower(cc.name[i]);
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '#')
+            normalized += c;
+    }
+    if (normalized.length() <= 1) {
+        Serial.println("[Config] addChannel: invalid hashtag name");
+        return false;
+    }
+
+    // Prevent duplicates
+    for (const auto& existing : _config.channels) {
+        if (existing.name == normalized) {
+            Serial.printf("[Config] addChannel: duplicate '%s'\n", normalized.c_str());
+            return false;
+        }
+    }
+
+    // Find next available index
+    uint8_t nextIndex = 0;
+    for (const auto& ch : _config.channels) {
+        if (ch.index >= nextIndex) nextIndex = ch.index + 1;
+    }
+
+    ChannelConfig toAdd = cc;
+    toAdd.name = normalized;
+    toAdd.type = "hashtag";
+    toAdd.index = nextIndex;
+    toAdd.allowSos = false;
+    toAdd.sendSos = false;
+    toAdd.readOnly = false;
+    toAdd.scope = "";
+    // Derive PSK as SHA256(name)[:16] hex
+    {
+        uint8_t hash[32];
+        mbedtls_sha256((const uint8_t*)normalized.c_str(), normalized.length(), hash, 0);
+        char hex[33];
+        for (int i = 0; i < 16; i++) sprintf(hex + i * 2, "%02x", hash[i]);
+        hex[32] = '\0';
+        toAdd.psk = String(hex);
+    }
+
+    _config.channels.push_back(toAdd);
+    if (!save()) {
+        _config.channels.pop_back();
+        Serial.println("[Config] addChannel: save failed");
+        return false;
+    }
+    Serial.printf("[Config] Saved new hashtag channel: %s (index=%d)\n",
+                  normalized.c_str(), nextIndex);
+    return true;
+}
+
+bool ConfigManager::removeChannel(const String& name) {
+    for (auto it = _config.channels.begin(); it != _config.channels.end(); ++it) {
+        if (it->name == name) {
+            _config.channels.erase(it);
+            if (!save()) {
+                Serial.println("[Config] removeChannel: save failed");
+                return false;
+            }
+            Serial.printf("[Config] Removed channel: %s\n", name.c_str());
+            return true;
+        }
+    }
+    Serial.printf("[Config] removeChannel: '%s' not found\n", name.c_str());
+    return false;
+}
+
 bool ConfigManager::hasIdentity() const {
     return _config.privateKey.length() > 0 && _config.publicKey.length() > 0;
 }

@@ -267,13 +267,82 @@ void AdminScreen::show() {
     char secChannelsBuf[32];
     snprintf(secChannelsBuf, sizeof(secChannelsBuf), t("sec_channels"), (int)channels.count());
     addSection(secChannelsBuf);
+
     for (const auto& ch : channels.all()) {
+        lv_obj_t* row = lv_obj_create(_screen);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
+        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_radius(row, 4, 0);
+        lv_obj_set_style_pad_all(row, theme::PAD_SMALL, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_bg_color(row, theme::ACCENT, LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_opa(row, LV_OPA_40, LV_STATE_FOCUSED);
+        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+        // Label: prefix + name + badges
+        lv_obj_t* lbl = lv_label_create(row);
+        lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
+        lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
         const char* prefix = ch.isPrivate() ? "  *" : "  #";
         String info = ch.name;
         if (ch.readOnly) info += " [read-only]";
         if (ch.sendSos) info += " [SOS]";
         if (ch.scope.length() > 0) info += " [scope:" + ch.scope + "]";
-        addRow(prefix, info);
+        lv_label_set_text(lbl, (String(prefix) + " " + info).c_str());
+        lv_obj_set_flex_grow(lbl, 1);
+
+        // Trash icon button on the right (only for custom channels)
+        if (ch.custom) {
+            lv_obj_t* trashBtn = lv_btn_create(row);
+            lv_obj_set_size(trashBtn, 32, 32);
+            lv_obj_set_style_bg_opa(trashBtn, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(trashBtn, 0, 0);
+            lv_obj_set_style_shadow_width(trashBtn, 0, 0);
+            lv_obj_set_style_pad_all(trashBtn, 0, 0);
+            lv_obj_add_event_cb(trashBtn, channelDeleteCb, LV_EVENT_CLICKED, this);
+
+            lv_obj_t* trashIcon = lv_label_create(trashBtn);
+            lv_obj_set_style_text_font(trashIcon, FONT_BODY, 0);
+            lv_obj_set_style_text_color(trashIcon, theme::BATTERY_LOW, 0);
+            lv_label_set_text(trashIcon, LV_SYMBOL_TRASH);
+            lv_obj_center(trashIcon);
+
+            // Store channel name in user_data on the trash button
+            String* nameCopy = new String(ch.name);
+            lv_obj_set_user_data(trashBtn, nameCopy);
+            lv_obj_add_event_cb(trashBtn, [](lv_event_t* e) {
+                String* name = (String*)lv_obj_get_user_data(lv_event_get_target(e));
+                delete name;
+            }, LV_EVENT_DELETE, nullptr);
+        }
+    }
+
+    // "Add channel" button row — at the bottom of the channel list
+    {
+        lv_obj_t* row = lv_obj_create(_screen);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
+        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_radius(row, 4, 0);
+        lv_obj_set_style_pad_all(row, theme::PAD_SMALL, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_bg_color(row, theme::ACCENT, LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_opa(row, LV_OPA_40, LV_STATE_FOCUSED);
+        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t* lbl = lv_label_create(row);
+        lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
+        lv_obj_set_style_text_color(lbl, theme::ACCENT, 0);
+        lv_label_set_text(lbl, (String(LV_SYMBOL_PLUS " ") + t("add_channel_btn")).c_str());
+
+        lv_obj_add_event_cb(row, addChannelBtnCb, LV_EVENT_CLICKED, this);
     }
 
     // --- Rooms (read-only — config tool manages add/remove) ---
@@ -594,6 +663,293 @@ void AdminScreen::tick() {
              t("heard_adverts_title"),
              HeardAdvertCache::instance().count());
     lv_label_set_text(_heardCountLabel, rowBuf);
+}
+
+// ---- Add hashtag channel modal ----
+
+void AdminScreen::showAddChannelModal() {
+    if (_addChannelModal) hideAddChannelModal();
+
+    _addChannelModal = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(_addChannelModal, Display::width(), Display::height());
+    lv_obj_set_pos(_addChannelModal, 0, 0);
+    lv_obj_set_style_bg_color(_addChannelModal, theme::BG_PRIMARY, 0);
+    lv_obj_set_style_bg_opa(_addChannelModal, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(_addChannelModal, 0, 0);
+    lv_obj_set_style_radius(_addChannelModal, 0, 0);
+    lv_obj_set_style_pad_all(_addChannelModal, theme::PAD_LARGE, 0);
+    lv_obj_set_flex_flow(_addChannelModal, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(_addChannelModal, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_row(_addChannelModal, theme::PAD_MEDIUM, 0);
+    lv_obj_clear_flag(_addChannelModal, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Title
+    lv_obj_t* title = lv_label_create(_addChannelModal);
+    lv_obj_set_style_text_font(title, FONT_LARGE, 0);
+    lv_obj_set_style_text_color(title, theme::TEXT_PRIMARY, 0);
+    lv_label_set_text(title, t("add_channel_title"));
+
+    // Textarea
+    _addChannelTextarea = lv_textarea_create(_addChannelModal);
+    lv_obj_set_width(_addChannelTextarea, LV_PCT(80));
+    lv_obj_set_height(_addChannelTextarea, 40);
+    lv_textarea_set_one_line(_addChannelTextarea, true);
+    lv_textarea_set_max_length(_addChannelTextarea, 32);
+    lv_textarea_set_placeholder_text(_addChannelTextarea, t("add_channel_hint"));
+    lv_obj_set_style_text_font(_addChannelTextarea, FONT_BODY, 0);
+    lv_obj_set_style_text_color(_addChannelTextarea, theme::TEXT_PRIMARY, 0);
+    lv_obj_set_style_bg_color(_addChannelTextarea, theme::BG_SECONDARY, 0);
+    lv_obj_set_style_border_color(_addChannelTextarea, theme::ACCENT, LV_STATE_FOCUSED);
+    lv_obj_set_style_border_width(_addChannelTextarea, 1, LV_STATE_FOCUSED);
+    lv_obj_add_event_cb(_addChannelTextarea, addChannelConfirmCb, LV_EVENT_READY, this);
+
+    // Switch row: Send SOS
+    {
+        lv_obj_t* row = lv_obj_create(_addChannelModal);
+        lv_obj_set_size(row, LV_PCT(80), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_pad_all(row, 0, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+        lv_obj_t* lbl = lv_label_create(row);
+        lv_label_set_text(lbl, t("channel_send_sos"));
+        lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
+        lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
+
+        _swSendSos = lv_switch_create(row);
+        lv_obj_set_size(_swSendSos, 40, 20);
+    }
+
+    // Switch row: Receive SOS
+    {
+        lv_obj_t* row = lv_obj_create(_addChannelModal);
+        lv_obj_set_size(row, LV_PCT(80), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_pad_all(row, 0, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+        lv_obj_t* lbl = lv_label_create(row);
+        lv_label_set_text(lbl, t("channel_recv_sos"));
+        lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
+        lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
+
+        _swRecvSos = lv_switch_create(row);
+        lv_obj_set_size(_swRecvSos, 40, 20);
+    }
+
+    // Switch row: Read only
+    {
+        lv_obj_t* row = lv_obj_create(_addChannelModal);
+        lv_obj_set_size(row, LV_PCT(80), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_pad_all(row, 0, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+        lv_obj_t* lbl = lv_label_create(row);
+        lv_label_set_text(lbl, t("channel_read_only"));
+        lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
+        lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
+
+        _swReadOnly = lv_switch_create(row);
+        lv_obj_set_size(_swReadOnly, 40, 20);
+    }
+
+#ifdef PLATFORM_TWATCH
+    // On-screen keyboard for T-Watch
+    _addChannelKbd = lv_keyboard_create(_addChannelModal);
+    lv_obj_set_size(_addChannelKbd, Display::width(), 200);
+    lv_obj_align(_addChannelKbd, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_keyboard_set_textarea(_addChannelKbd, _addChannelTextarea);
+    lv_keyboard_set_popovers(_addChannelKbd, true);
+    lv_btnmatrix_set_btn_ctrl_all(_addChannelKbd, LV_BTNMATRIX_CTRL_NO_REPEAT);
+    lv_obj_set_style_text_font(_addChannelKbd, FONT_BODY, LV_PART_ITEMS);
+    lv_obj_set_style_text_font(_addChannelKbd, FONT_TITLE, LV_PART_ITEMS | LV_STATE_PRESSED);
+    lv_obj_set_style_bg_color(_addChannelKbd, theme::ACCENT, LV_PART_ITEMS | LV_STATE_PRESSED);
+    lv_obj_set_style_text_color(_addChannelKbd, lv_color_white(), LV_PART_ITEMS | LV_STATE_PRESSED);
+    lv_obj_set_style_radius(_addChannelKbd, 4, LV_PART_ITEMS);
+    lv_obj_set_style_pad_all(_addChannelKbd, 2, 0);
+    lv_obj_set_style_pad_gap(_addChannelKbd, 2, 0);
+#endif
+
+    // Button row: Cancel + Add
+    lv_obj_t* btnRow = lv_obj_create(_addChannelModal);
+    lv_obj_set_size(btnRow, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_opa(btnRow, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(btnRow, 0, 0);
+    lv_obj_set_style_pad_all(btnRow, 0, 0);
+    lv_obj_clear_flag(btnRow, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(btnRow, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(btnRow, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(btnRow, theme::PAD_MEDIUM, 0);
+
+    lv_obj_t* cancelBtn = lv_btn_create(btnRow);
+    lv_obj_set_size(cancelBtn, 80, 36);
+    lv_obj_set_style_bg_color(cancelBtn, theme::BG_SECONDARY, 0);
+    lv_obj_set_style_radius(cancelBtn, 4, 0);
+    lv_obj_add_event_cb(cancelBtn, addChannelCancelCb, LV_EVENT_CLICKED, this);
+    lv_obj_t* cancelLbl = lv_label_create(cancelBtn);
+    lv_label_set_text(cancelLbl, t("btn_cancel"));
+    lv_obj_set_style_text_font(cancelLbl, FONT_BODY, 0);
+    lv_obj_center(cancelLbl);
+
+    lv_obj_t* addBtn = lv_btn_create(btnRow);
+    lv_obj_set_size(addBtn, 80, 36);
+    lv_obj_set_style_bg_color(addBtn, theme::ACCENT, 0);
+    lv_obj_set_style_radius(addBtn, 4, 0);
+    lv_obj_add_event_cb(addBtn, addChannelConfirmCb, LV_EVENT_CLICKED, this);
+    lv_obj_t* addLbl = lv_label_create(addBtn);
+    lv_label_set_text(addLbl, t("add_channel_btn"));
+    lv_obj_set_style_text_font(addLbl, FONT_BODY, 0);
+    lv_obj_center(addLbl);
+
+    // Focus textarea so keyboard/trackball input goes there
+    lv_group_t* grp = lv_group_get_default();
+    if (grp) {
+        lv_group_add_obj(grp, _addChannelTextarea);
+        lv_group_focus_obj(_addChannelTextarea);
+        lv_group_set_editing(grp, true);
+    }
+}
+
+void AdminScreen::hideAddChannelModal() {
+    if (!_addChannelModal) return;
+
+    if (_addChannelTextarea) lv_group_remove_obj(_addChannelTextarea);
+#ifdef PLATFORM_TWATCH
+    if (_addChannelKbd) lv_group_remove_obj(_addChannelKbd);
+#endif
+
+    lv_obj_del(_addChannelModal);
+    _addChannelModal = nullptr;
+    _addChannelTextarea = nullptr;
+    _swSendSos = nullptr;
+    _swRecvSos = nullptr;
+    _swReadOnly = nullptr;
+#ifdef PLATFORM_TWATCH
+    _addChannelKbd = nullptr;
+#endif
+}
+
+void AdminScreen::addChannelBtnCb(lv_event_t* e) {
+    AdminScreen* self = static_cast<AdminScreen*>(lv_event_get_user_data(e));
+    if (self) self->showAddChannelModal();
+}
+
+void AdminScreen::addChannelConfirmCb(lv_event_t* e) {
+    AdminScreen* self = static_cast<AdminScreen*>(lv_event_get_user_data(e));
+    if (!self || !self->_addChannelTextarea) return;
+
+    const char* raw = lv_textarea_get_text(self->_addChannelTextarea);
+    String name(raw);
+    name.trim();
+
+    // Ensure it starts with #
+    if (name.length() == 0 || name[0] != '#') {
+        UIManager::instance().showToast(t("channel_invalid"));
+        return;
+    }
+
+    // Read switch states
+    bool sendSos  = self->_swSendSos  ? lv_obj_has_state(self->_swSendSos,  LV_STATE_CHECKED) : false;
+    bool recvSos  = self->_swRecvSos  ? lv_obj_has_state(self->_swRecvSos,  LV_STATE_CHECKED) : false;
+    bool readOnly = self->_swReadOnly ? lv_obj_has_state(self->_swReadOnly, LV_STATE_CHECKED) : false;
+
+    // 1. Add to ChannelStore (derive PSK, check duplicates)
+    Channel* ch = ChannelStore::instance().deriveHashtagChannel(name, recvSos, sendSos, readOnly);
+    if (!ch) {
+        UIManager::instance().showToast(t("channel_exists"));
+        return;
+    }
+
+    // 2. Persist to custom channels file
+    if (!ChannelStore::instance().saveCustomChannels()) {
+        // Rollback: remove from ChannelStore
+        ChannelStore::instance().removeChannelByName(ch->name);
+        UIManager::instance().showToast(t("channel_save_fail"));
+        return;
+    }
+
+    // 3. Create conversation entry so it appears in the convo list immediately
+    ConvoId cid{ConvoId::CHANNEL, ch->name};
+    MessageStore::instance().ensureConversation(cid, ch->name, ch->isPrivate(), ch->readOnly);
+    MessageStore::instance().loadHistory(cid);
+
+    // 4. Register with MeshCore at runtime
+    int meshIdx = MeshManager::instance().addChannel(ch->name.c_str(), ch->pskB64.c_str());
+    if (meshIdx < 0) {
+        UIManager::instance().showToast(t("channel_save_fail"));
+        return;
+    }
+
+    UIManager::instance().showToast(t("channel_added"));
+    self->hideAddChannelModal();
+
+    // Refresh admin screen so the new channel appears immediately
+    self->show();
+}
+
+void AdminScreen::addChannelCancelCb(lv_event_t* e) {
+    AdminScreen* self = static_cast<AdminScreen*>(lv_event_get_user_data(e));
+    if (self) self->hideAddChannelModal();
+}
+
+// ---- Channel delete (trash icon) ----
+
+void AdminScreen::channelDeleteCb(lv_event_t* e) {
+    AdminScreen* self = static_cast<AdminScreen*>(lv_event_get_user_data(e));
+    String* name = (String*)lv_obj_get_user_data(lv_event_get_target(e));
+    if (!self || !name) return;
+
+    // Confirmation msgbox
+    static char bodyBuf[128];
+    snprintf(bodyBuf, sizeof(bodyBuf), t("confirm_delete_body"), name->c_str());
+    static const char* btns[3];
+    btns[0] = t("btn_cancel");
+    btns[1] = t("btn_delete");
+    btns[2] = "";
+
+    lv_obj_t* msgbox = lv_msgbox_create(NULL, t("confirm_delete_title"), bodyBuf, btns, false);
+    lv_obj_center(msgbox);
+    lv_obj_set_style_bg_color(msgbox, theme::BG_SECONDARY, 0);
+    lv_obj_set_style_text_color(msgbox, theme::TEXT_PRIMARY, 0);
+    lv_obj_set_style_text_font(msgbox, FONT_HEADING, 0);
+
+    lv_obj_t* btnm = lv_msgbox_get_btns(msgbox);
+    if (btnm) UIManager::instance().switchToModalGroup(btnm);
+
+    // Pass both name and self via user_data so we can refresh the admin screen
+    struct DeleteCtx {
+        String name;
+        AdminScreen* screen;
+    };
+    DeleteCtx* ctx = new DeleteCtx{*name, self};
+    lv_obj_set_user_data(msgbox, ctx);
+    lv_obj_add_event_cb(msgbox, [](lv_event_t* ev) {
+        DeleteCtx* c = (DeleteCtx*)lv_obj_get_user_data(lv_event_get_current_target(ev));
+        lv_obj_t* mbox = lv_event_get_current_target(ev);
+        uint16_t btnIdx = lv_msgbox_get_active_btn(mbox);
+        if (btnIdx == 1 && c) {
+            // Confirmed delete
+            ChannelStore::instance().removeChannelByName(c->name);
+            ChannelStore::instance().saveCustomChannels();
+            ConvoId cid{ConvoId::CHANNEL, c->name};
+            MessageStore::instance().removeConversation(cid);
+            UIManager::instance().showToast(t("channel_deleted"));
+            if (c->screen) c->screen->show();
+        }
+        UIManager::instance().restoreFromModalGroup();
+        lv_msgbox_close(mbox);
+        delete c;
+    }, LV_EVENT_VALUE_CHANGED, nullptr);
 }
 
 }  // namespace mclite

@@ -81,6 +81,9 @@ public:
     void setMuted(const ConvoId& id, bool muted);
     bool isMuted(const ConvoId& id);
 
+    // Remove a conversation entirely (history file stays on SD)
+    void removeConversation(const ConvoId& id);
+
     // ROOM-only: persist sender_timestamp as syncSince. Triggers saveHistory().
     void updateRoomSyncSince(const ConvoId& id, uint32_t timestamp);
 

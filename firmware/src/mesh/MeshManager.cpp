@@ -184,6 +184,7 @@ bool MeshManager::init() {
     // Load contacts and channels first
     ContactStore::instance().loadFromConfig();
     ChannelStore::instance().loadFromConfig();
+    ChannelStore::instance().loadCustomChannels();
 
     if (!initRadio()) {
         Serial.println("[Mesh] Radio failed, running in offline mode");
@@ -297,6 +298,23 @@ bool MeshManager::requestTelemetry(size_t contactIndex, uint32_t& estTimeout) {
 
 void MeshManager::clearPendingTelemetry() {
     if (_mesh) _mesh->clearPendingTelemetry();
+}
+
+int MeshManager::addChannel(const char* name, const char* pskB64) {
+    if (!_mesh || !_radioReady) return -1;
+
+    ChannelDetails* cd = _mesh->addChannel(name, pskB64);
+    if (!cd) {
+        Serial.printf("[MeshManager] addChannel failed for '%s'\n", name);
+        return -1;
+    }
+    int idx = _mesh->findChannelIdx(cd->channel);
+    if (idx < 0) {
+        Serial.printf("[MeshManager] addChannel: could not find index for '%s'\n", name);
+        return -1;
+    }
+    Serial.printf("[MeshManager] Runtime added channel '%s' at index %d\n", name, idx);
+    return idx;
 }
 
 bool MeshManager::sendAdvertNow() {

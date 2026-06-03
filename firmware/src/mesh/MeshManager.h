@@ -43,6 +43,10 @@ public:
     // Send a group message to a channel by index — returns internal packet ID
     uint32_t sendGroupMessage(uint8_t channelIndex, const String& text);
 
+    // Runtime add a channel to MeshCore. Returns MeshCore channel index on
+    // success, -1 on failure (duplicate name or full).
+    int addChannel(const char* name, const char* pskB64);
+
     // Set callbacks
     void onMessage(OnMessageCallback cb)      { _onMessage = cb; }
     void onGroupMessage(OnGroupMsgCallback cb) { _onGroupMsg = cb; }

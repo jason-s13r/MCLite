@@ -138,6 +138,15 @@ public:
     // are caught at boot-time by ContactStore::findByPublicKey instead.
     bool hasContactByPubkeyHex(const String& hexKey) const;
 
+    // Append a new hashtag channel (no scope override, no SOS, not read-only).
+    // Derives PSK from name. Saves config to SD immediately. Returns false if
+    // name invalid, duplicate, or SD write fails.
+    bool addChannel(const ChannelConfig& cc);
+
+    // Remove a channel by name. Saves config to SD immediately.
+    // Returns true if removed.
+    bool removeChannel(const String& name);
+
     static ConfigManager& instance();
 
 private:
