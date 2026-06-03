@@ -1,5 +1,7 @@
 # Build artifacts
 firmware/.pio/
+.parcel-cache/
+dist/
 
 # Claude Code
 .claude/

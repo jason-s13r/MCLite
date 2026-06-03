@@ -1115,6 +1115,11 @@ esp-web-install-button button[slot="activate"]:disabled {
               <select id="version" onchange="onVersionChange()" class="version-select hidden" disabled>
                 <option value="">— Loading —</option>
               </select>
+              <div id="custom-upload-row" class="hidden" style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+                <input type="file" id="custom-bin-input" accept=".bin" style="display:none;" onchange="handleCustomUpload(this)">
+                <button class="btn-utility" id="custom-upload-btn" onclick="document.getElementById('custom-bin-input').click()">Upload .bin</button>
+                <span id="custom-bin-name" style="font-family:var(--mono); font-size:11px; color:var(--shell-text-dim);"></span>
+              </div>
             </div>
           </div>
           <button class="btn-utility" id="version-toggle" onclick="toggleVersionPicker()" disabled>Change</button>
@@ -1278,6 +1283,12 @@ window.addEventListener('unhandledrejection', (event) => {
 
 let currentManifestUrl = null;
 
+// Custom firmware upload state
+let customBinFile = null;   // File object from <input type=file>
+let customBinUrl = null;    // Object URL for the uploaded file
+let customBinSize = 0;      // bytes
+let customBinName = '';     // original filename
+
 // HTML-escape user-controlled strings before injecting via innerHTML.
 // Repository file names that match our binaryPattern (.+) capture group
 // could in theory contain HTML chars — quote them.
@@ -1288,6 +1299,67 @@ function escapeHtml(s) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function handleCustomUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // Revoke previous blob URL if any
+  if (customBinUrl) {
+    URL.revokeObjectURL(customBinUrl);
+    customBinUrl = null;
+  }
+
+  customBinFile = file;
+  customBinName = file.name;
+  customBinSize = file.size;
+  customBinUrl = URL.createObjectURL(file);
+
+  // Update UI
+  const display = document.getElementById('version-display');
+  const sizeMB = (customBinSize / (1024 * 1024)).toFixed(1);
+  display.classList.remove('placeholder');
+  display.innerHTML = escapeHtml(customBinName) + `<span class="meta">· ${sizeMB} MB · custom upload</span>`;
+
+  const nameEl = document.getElementById('custom-bin-name');
+  if (nameEl) nameEl.textContent = customBinName;
+
+  // Collapse the release picker if open
+  const sel = document.getElementById('version');
+  sel.classList.add('hidden');
+  const uploadRow = document.getElementById('custom-upload-row');
+  if (uploadRow) uploadRow.classList.add('hidden');
+  document.getElementById('version-toggle').textContent = 'Change';
+
+  // Build manifest pointing at the local blob
+  const target = getTarget();
+  const manifest = {
+    name: `MCLite (${target.displayName})`,
+    version: 'custom',
+    new_install_prompt_erase: target.eraseOnFirstFlash,
+    new_install_improv_wait_time: 0,
+    builds: [{
+      chipFamily: target.chipFamily,
+      improv: false,
+      parts: [{
+        path: customBinUrl,
+        offset: target.flashOffset
+      }]
+    }]
+  };
+
+  if (currentManifestUrl) {
+    URL.revokeObjectURL(currentManifestUrl);
+    currentManifestUrl = null;
+  }
+  currentManifestUrl = URL.createObjectURL(
+    new Blob([JSON.stringify(manifest)], { type: 'application/json' })
+  );
+  const flashBtn = document.getElementById('flash-btn');
+  flashBtn.setAttribute('manifest', currentManifestUrl);
+
+  syncChecklist();
 }
 
 // ---------- Targets (hardware variants) ----------
@@ -1481,10 +1553,22 @@ async function setTarget(targetId) {
   const sel = document.getElementById('version');
   sel.value = '';
   sel.classList.add('hidden'); // collapse if it was open from previous target
+  const uploadRow = document.getElementById('custom-upload-row');
+  if (uploadRow) uploadRow.classList.add('hidden');
   if (currentManifestUrl) {
     URL.revokeObjectURL(currentManifestUrl);
     currentManifestUrl = null;
   }
+  // Clear custom upload state — the uploaded file was for the previous target
+  if (customBinUrl) {
+    URL.revokeObjectURL(customBinUrl);
+    customBinUrl = null;
+  }
+  customBinFile = null;
+  customBinName = '';
+  customBinSize = 0;
+  const nameEl = document.getElementById('custom-bin-name');
+  if (nameEl) nameEl.textContent = '';
   const flashBtn = document.getElementById('flash-btn');
   flashBtn.removeAttribute('manifest');
   const activateBtn = flashBtn.querySelector('[slot="activate"]');
@@ -1617,7 +1701,7 @@ async function fetchReleases(forceRescan) {
     sel.disabled = true;
     display.textContent = userMessage;
     display.classList.add('placeholder');
-    // Repurpose the toggle button as a retry trigger
+    // Repurpose the toggle button as a retry trigger, but still allow custom upload
     toggleBtn.disabled = false;
     toggleBtn.textContent = 'Retry';
     toggleBtn.onclick = () => fetchReleases(true);
@@ -1650,6 +1734,9 @@ function populateVersionSelect() {
   toggleBtn.textContent = 'Change';
   toggleBtn.onclick = toggleVersionPicker;
 
+  // If a custom file is already active, don't overwrite it with auto-select
+  if (customBinUrl) return;
+
   // Auto-select the latest
   sel.value = '0';
   onVersionChange();
@@ -1667,6 +1754,17 @@ function onVersionChange() {
     URL.revokeObjectURL(currentManifestUrl);
     currentManifestUrl = null;
   }
+
+  // If switching from custom upload back to a release, clear custom state
+  if (customBinUrl) {
+    URL.revokeObjectURL(customBinUrl);
+    customBinUrl = null;
+  }
+  customBinFile = null;
+  customBinName = '';
+  customBinSize = 0;
+  const nameEl = document.getElementById('custom-bin-name');
+  if (nameEl) nameEl.textContent = '';
 
   if (idx === '' || !releases[idx]) {
     flashBtn.removeAttribute('manifest');
@@ -1724,9 +1822,11 @@ function onVersionChange() {
 function toggleVersionPicker() {
   const sel = document.getElementById('version');
   const btn = document.getElementById('version-toggle');
+  const uploadRow = document.getElementById('custom-upload-row');
   const wasHidden = sel.classList.contains('hidden');
 
   sel.classList.toggle('hidden');
+  if (uploadRow) uploadRow.classList.toggle('hidden', !wasHidden);
 
   if (wasHidden) {
     btn.textContent = 'Done';
@@ -2015,7 +2115,7 @@ async function setupSerialDetect() {
 
 // ---------- Checklist sync ----------
 function syncChecklist() {
-  const versionDone = document.getElementById('version').value !== '';
+  const versionDone = document.getElementById('version').value !== '' || customBinUrl !== null;
   const dfuDone = dfuDetected;
 
   const items = {
