@@ -74,6 +74,7 @@ private:
     static void textareaCb(lv_event_t* e);
     static void headerNameCb(lv_event_t* e);
     static void retryBtnCb(lv_event_t* e);
+    static void senderNameCb(lv_event_t* e);
     static void cannedBtnCb(lv_event_t* e);
     static void cannedBtnmCb(lv_event_t* e);
 };

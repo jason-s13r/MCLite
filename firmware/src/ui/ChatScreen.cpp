@@ -396,6 +396,10 @@ void ChatScreen::addBubble(const Message& msg) {
         lv_obj_set_style_text_font(sender, FONT_BODY, 0);
         lv_obj_set_style_text_color(sender, theme::ACCENT, 0);
         lv_label_set_text(sender, msg.senderName.c_str());
+        lv_obj_add_flag(sender, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_set_ext_click_area(sender, 8);
+        lv_obj_set_user_data(sender, (void*)msg.senderName.c_str());
+        lv_obj_add_event_cb(sender, senderNameCb, LV_EVENT_CLICKED, this);
     }
 
     // Message text
@@ -640,6 +644,25 @@ void ChatScreen::retryBtnCb(lv_event_t* e) {
     if (!rd) return;
 
     self->_onRetry(*self->_currentConvo, rd->text, rd->packetId);
+}
+
+void ChatScreen::senderNameCb(lv_event_t* e) {
+    auto* self = static_cast<ChatScreen*>(lv_event_get_user_data(e));
+    if (!self || !self->_textarea) return;
+
+    const char* name = static_cast<const char*>(lv_obj_get_user_data(lv_event_get_target(e)));
+    if (!name || strlen(name) == 0) return;
+
+    const char* current = lv_textarea_get_text(self->_textarea);
+    String newText = String("@[") + name + String("] ");
+    if (current && strlen(current) > 0) {
+        newText = String(current) + " " + newText;
+    }
+    lv_textarea_set_text(self->_textarea, newText.c_str());
+
+    // Focus the textarea so the user can keep typing
+    lv_group_t* grp = lv_group_get_default();
+    if (grp) lv_group_focus_obj(self->_textarea);
 }
 
 void ChatScreen::cannedBtnCb(lv_event_t* e) {
