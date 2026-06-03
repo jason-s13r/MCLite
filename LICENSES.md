@@ -19,6 +19,7 @@ MCLite uses the following open-source libraries. Their license terms apply to th
 | [Melopero RV3028](https://github.com/melopero/Melopero_RV-3028_Arduino_Library) | 1.2.0 | MIT | (c) 2020 Melopero |
 | [TinyGPSPlus](https://github.com/mikalhart/TinyGPSPlus) | 1.1.0 | LGPL-2.1 | (c) 2008-2024 Mikal Hart |
 | [Arduino ESP32 core](https://github.com/espressif/arduino-esp32) | 2.0.17 | LGPL-2.1 | (c) Espressif Systems |
+| [OpenMoji](https://openmoji.org) | 15.0 | CC BY-SA 4.0 | (c) 2026 Groß, B., Utz, D., & The OpenMoji Contributors |
 
 ## Tools
 

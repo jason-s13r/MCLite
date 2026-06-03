@@ -47,6 +47,12 @@
 #define LV_FONT_MONTSERRAT_28 1
 #define LV_FONT_DEFAULT &lv_font_montserrat_14
 
+/* Emoji fallback fonts */
+#define LV_FONT_EMOJI_12 1
+#define LV_FONT_EMOJI_14 1
+#define LV_FONT_EMOJI_16 1
+#define LV_FONT_EMOJI_20 1
+
 /* Widgets */
 #define LV_USE_ARC        0
 #define LV_USE_BAR        1
