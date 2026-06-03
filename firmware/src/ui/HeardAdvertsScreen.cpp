@@ -9,6 +9,7 @@
 #include "../mesh/MeshManager.h"
 #include "../storage/HeardAdvertCache.h"
 #include "../util/hex.h"
+#include "../util/TextSanitizer.h"
 
 #include <helpers/AdvertDataHelpers.h>  // ADV_TYPE_*
 #include <algorithm>
@@ -352,7 +353,7 @@ void HeardAdvertsScreen::rebuild() {
         lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
         String label = " ";
         if (known) {
-            label += known->name;
+            label += sanitizeForDisplay(known->name);
             if (e.name[0] != '\0' && known->name != e.name) {
                 char akaBuf[80];
                 snprintf(akaBuf, sizeof(akaBuf), t("heard_aka_fmt"), e.name);
@@ -360,7 +361,7 @@ void HeardAdvertsScreen::rebuild() {
                 label += akaBuf;
             }
         } else if (e.name[0] != '\0') {
-            label += e.name;
+            label += sanitizeForDisplay(e.name);
         } else {
             label += pubKeyToShortId(e.pubKey);
         }

@@ -6,6 +6,7 @@
 #include "../hal/Speaker.h"
 #include "../config/ConfigManager.h"
 #include "../util/TimeHelper.h"
+#include "../util/TextSanitizer.h"
 
 namespace mclite {
 
@@ -65,7 +66,7 @@ void StatusBar::create(lv_obj_t* parent) {
     lv_label_set_long_mode(_lblName, LV_LABEL_LONG_DOT);
 
     const auto& cfg = ConfigManager::instance().config();
-    lv_label_set_text(_lblName, cfg.deviceName.c_str());
+    lv_label_set_text(_lblName, sanitizeForDisplay(cfg.deviceName).c_str());
 
     // Row 2 icons — sound / GPS / battery only. Clock moved to footer.
     _soundIcon = lv_label_create(_iconRow);
@@ -124,7 +125,7 @@ void StatusBar::create(lv_obj_t* parent) {
     lv_obj_set_flex_grow(_lblName, 1);
 
     const auto& cfg = ConfigManager::instance().config();
-    lv_label_set_text(_lblName, cfg.deviceName.c_str());
+    lv_label_set_text(_lblName, sanitizeForDisplay(cfg.deviceName).c_str());
 
     // --- Everything below is right-aligned (no flex_grow) ---
 
@@ -179,7 +180,7 @@ void StatusBar::update() {
     }
 
     // Device name (may change after first-boot generation)
-    lv_label_set_text(_lblName, cfg.deviceName.c_str());
+    lv_label_set_text(_lblName, sanitizeForDisplay(cfg.deviceName).c_str());
 
     // Battery — icon only
     auto& batt = Battery::instance();

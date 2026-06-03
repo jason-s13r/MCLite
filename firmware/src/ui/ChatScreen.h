@@ -44,6 +44,9 @@ private:
     lv_obj_t* _cannedBtn     = nullptr;
     lv_obj_t* _cannedBtnm    = nullptr;  // btnmatrix picker overlay
     lv_obj_t* _cannedOverlay = nullptr;
+    lv_obj_t* _emojiBtn      = nullptr;
+    lv_obj_t* _emojiBtnm     = nullptr;  // emoji grid picker overlay
+    lv_obj_t* _emojiOverlay  = nullptr;
     lv_obj_t* _headerName = nullptr;
     lv_obj_t* _muteIcon = nullptr;  // Mute indicator in header
 #ifdef PLATFORM_TWATCH
@@ -63,11 +66,13 @@ private:
     void createInputBar();
     void updateGpsButtonColor();
     void showCannedPicker();
+    void showEmojiPicker();
 #ifdef PLATFORM_TWATCH
     void showKeyboard();
     void hideKeyboard();
 #endif
     void hideCannedPicker();
+    void hideEmojiPicker();
     void updateMuteIndicator();
 
     void addBubble(const Message& msg);
@@ -82,6 +87,8 @@ private:
     static void senderNameCb(lv_event_t* e);
     static void cannedBtnCb(lv_event_t* e);
     static void cannedBtnmCb(lv_event_t* e);
+    static void emojiBtnCb(lv_event_t* e);
+    static void emojiBtnmCb(lv_event_t* e);
     static void muteIconCb(lv_event_t* e);
 };
 

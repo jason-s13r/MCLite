@@ -7,6 +7,7 @@
 #include "../config/ConfigManager.h"
 #include "../i18n/I18n.h"
 #include "../util/TimeHelper.h"
+#include "../util/TextSanitizer.h"
 
 namespace mclite {
 
@@ -166,6 +167,22 @@ void ChatScreen::createInputBar() {
         lv_obj_center(cannedLbl);
     }
 
+    // Emoji picker button
+    _emojiBtn = lv_btn_create(_inputBar);
+    lv_obj_set_size(_emojiBtn, theme::BTN_ACTION_W, theme::BTN_ACTION_H);
+    lv_obj_set_style_bg_opa(_emojiBtn, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_shadow_width(_emojiBtn, 0, 0);
+    lv_obj_set_style_border_width(_emojiBtn, 0, 0);
+    lv_obj_set_style_pad_all(_emojiBtn, 0, 0);
+    lv_obj_set_ext_click_area(_emojiBtn, 8);
+    lv_obj_add_event_cb(_emojiBtn, emojiBtnCb, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* emojiLbl = lv_label_create(_emojiBtn);
+    lv_label_set_text(emojiLbl, "\xF0\x9F\x99\x82");  // 🙂 (U+1F642)
+    lv_obj_set_style_text_font(emojiLbl, FONT_HEADING, 0);
+    lv_obj_set_style_text_color(emojiLbl, theme::TEXT_SECONDARY, 0);
+    lv_obj_center(emojiLbl);
+
     // Text input
     _textarea = lv_textarea_create(_inputBar);
     lv_obj_set_flex_grow(_textarea, 1);
@@ -313,7 +330,7 @@ void ChatScreen::open(const ConvoId& id) {
         } else {
             prefix = ICON_DM " ";
         }
-        lv_label_set_text(_headerName, (prefix + convo->displayName).c_str());
+        lv_label_set_text(_headerName, (prefix + sanitizeForDisplay(convo->displayName)).c_str());
     }
 
     // Hide or show input bar based on read-only flag
@@ -378,9 +395,10 @@ void ChatScreen::addBubble(const Message& msg) {
 
     // Bubble — measure text to decide if wrapping is needed.
     // Short text: bubble sizes to content. Long text: fixed width so label wraps.
+    const String displayText = sanitizeForDisplay(msg.text);
     const lv_coord_t maxTextW = theme::BUBBLE_MAX_WIDTH - theme::BUBBLE_PAD * 2;
     lv_point_t textSize;
-    lv_txt_get_size(&textSize, msg.text.c_str(), FONT_BODY,
+    lv_txt_get_size(&textSize, displayText.c_str(), FONT_BODY,
                     0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
     bool needsWrap = (textSize.x > maxTextW);
 
@@ -413,7 +431,8 @@ void ChatScreen::addBubble(const Message& msg) {
         lv_obj_t* sender = lv_label_create(bubble);
         lv_obj_set_style_text_font(sender, FONT_BODY, 0);
         lv_obj_set_style_text_color(sender, theme::ACCENT, 0);
-        lv_label_set_text(sender, msg.senderName.c_str());
+        const String displaySender = sanitizeForDisplay(msg.senderName);
+        lv_label_set_text(sender, displaySender.c_str());
         lv_obj_add_flag(sender, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_set_ext_click_area(sender, 8);
         lv_obj_set_user_data(sender, (void*)msg.senderName.c_str());
@@ -430,7 +449,7 @@ void ChatScreen::addBubble(const Message& msg) {
     } else {
         lv_obj_set_width(text, LV_SIZE_CONTENT);
     }
-    lv_label_set_text(text, msg.text.c_str());
+    lv_label_set_text(text, displayText.c_str());
 
     // Bottom line: timestamp + delivery status
     lv_obj_t* meta = lv_obj_create(bubble);
@@ -510,6 +529,7 @@ void ChatScreen::show() {
         lv_group_t* grp = lv_group_get_default();
         if (grp) {
             if (_cannedBtn) lv_group_add_obj(grp, _cannedBtn);
+            lv_group_add_obj(grp, _emojiBtn);
             lv_group_add_obj(grp, _textarea);
             lv_group_add_obj(grp, _gpsBtn);
             lv_group_add_obj(grp, _sendBtn);
@@ -523,11 +543,13 @@ void ChatScreen::hide() {
     // (only if input bar was visible — read-only channels never add them)
     if (!lv_obj_has_flag(_inputBar, LV_OBJ_FLAG_HIDDEN)) {
         if (_cannedBtnm) hideCannedPicker();
+        if (_emojiBtnm) hideEmojiPicker();
         lv_group_t* grp = lv_group_get_default();
         if (grp) {
             lv_group_remove_obj(_sendBtn);
             lv_group_remove_obj(_gpsBtn);
             lv_group_remove_obj(_textarea);
+            lv_group_remove_obj(_emojiBtn);
             if (_cannedBtn) lv_group_remove_obj(_cannedBtn);
         }
     }
@@ -688,8 +710,137 @@ void ChatScreen::cannedBtnCb(lv_event_t* e) {
     if (self->_cannedBtnm) {
         self->hideCannedPicker();
     } else {
+        if (self->_emojiBtnm) self->hideEmojiPicker();
         self->showCannedPicker();
     }
+}
+
+void ChatScreen::emojiBtnCb(lv_event_t* e) {
+    ChatScreen* self = (ChatScreen*)lv_event_get_user_data(e);
+    if (self->_emojiBtnm) {
+        self->hideEmojiPicker();
+    } else {
+        if (self->_cannedBtnm) self->hideCannedPicker();
+        self->showEmojiPicker();
+    }
+}
+
+void ChatScreen::showEmojiPicker() {
+    // 6x4 grid of emojis — UTF-8 string literals stored in static memory
+    // so LVGL's btnmatrix can safely retain pointers to them.
+    // 🙂 🙃 🙁 😎 😐 😶
+    // 😴 🤬 😡 🤡 👽 👀
+    // 🖕 👍 👎 🧭 💯 💗
+    // 🍽 🍔 🍺 🎉 💩 🔥
+    // ☂ 🌥 🌧 ❄ ☀ 🌜
+    static const char* emojiMap[] = {
+        "\xF0\x9F\x99\x82", "\xF0\x9F\x99\x83", "\xF0\x9F\x99\x81", "\xF0\x9F\x98\x8E", "\xF0\x9F\x98\x90", "\xF0\x9F\x98\xB6", "\n",
+        "\xF0\x9F\x98\xB4", "\xF0\x9F\xA4\xAC", "\xF0\x9F\x98\xA1", "\xF0\x9F\xA4\xA1", "\xF0\x9F\x91\xBD", "\xF0\x9F\x91\x80", "\n",
+        "\xF0\x9F\x96\x95", "\xF0\x9F\x91\x8D", "\xF0\x9F\x91\x8E", "\xF0\x9F\xA7\xAD", "\xF0\x9F\x92\xAF", "\xF0\x9F\x92\x97", "\n",
+        "\xF0\x9F\x8D\xBD", "\xF0\x9F\x8D\x94", "\xF0\x9F\x8D\xBA", "\xF0\x9F\x8E\x89", "\xF0\x9F\x92\xA9", "\xF0\x9F\x94\xA5", "\n",
+        "\xE2\x98\x82", "\xF0\x9F\x8C\xA5", "\xF0\x9F\x8C\xA7", "\xE2\x9D\x84", "\xE2\x98\x80", "\xF0\x9F\x8C\x9C", ""
+    };
+
+    // Dark overlay — matches _screen's dimensions exactly
+    _emojiOverlay = lv_obj_create(_screen);
+    lv_obj_set_size(_emojiOverlay, Display::width(),
+                    Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT);
+    lv_obj_set_pos(_emojiOverlay, 0, 0);
+    lv_obj_set_style_bg_color(_emojiOverlay, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(_emojiOverlay, LV_OPA_50, 0);
+    lv_obj_set_style_border_width(_emojiOverlay, 0, 0);
+    lv_obj_clear_flag(_emojiOverlay, LV_OBJ_FLAG_SCROLLABLE);
+
+    _emojiBtnm = lv_btnmatrix_create(_screen);
+    lv_btnmatrix_set_map(_emojiBtnm, emojiMap);
+#ifdef PLATFORM_TWATCH
+    lv_coord_t pickerH = 4 * 56 + 16;  // 56 px per row on T-Watch for finger taps
+#else
+    lv_coord_t pickerH = 4 * 32 + 8;   // 32 px per row on T-Deck
+#endif
+    lv_obj_set_size(_emojiBtnm, theme::MODAL_TEXT_WIDTH, pickerH);
+    lv_obj_align(_emojiBtnm, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_text_font(_emojiBtnm, FONT_HEADING, 0);
+    lv_obj_set_style_text_color(_emojiBtnm, theme::TEXT_PRIMARY, 0);
+    lv_obj_set_style_bg_color(_emojiBtnm, theme::BG_SECONDARY, 0);
+    lv_obj_set_style_bg_opa(_emojiBtnm, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(_emojiBtnm, theme::ACCENT, 0);
+    lv_obj_set_style_border_width(_emojiBtnm, 1, 0);
+    lv_obj_set_style_radius(_emojiBtnm, 8, 0);
+    // Button items styling
+    lv_obj_set_style_bg_color(_emojiBtnm, theme::BG_INPUT, LV_PART_ITEMS);
+    lv_obj_set_style_text_color(_emojiBtnm, theme::TEXT_PRIMARY, LV_PART_ITEMS);
+    lv_obj_set_style_radius(_emojiBtnm, 4, LV_PART_ITEMS);
+    // Focused button highlight
+    lv_obj_set_style_bg_color(_emojiBtnm, theme::ACCENT, LV_PART_ITEMS | LV_STATE_FOCUSED);
+    lv_obj_set_style_text_color(_emojiBtnm, lv_color_white(), LV_PART_ITEMS | LV_STATE_FOCUSED);
+
+    lv_obj_add_event_cb(_emojiBtnm, emojiBtnmCb, LV_EVENT_VALUE_CHANGED, this);
+    // ESC key dismisses the picker without selecting
+    lv_obj_add_event_cb(_emojiBtnm, [](lv_event_t* ev) {
+        if (lv_event_get_key(ev) != LV_KEY_ESC) return;
+        ChatScreen* cs = (ChatScreen*)lv_event_get_user_data(ev);
+        cs->hideEmojiPicker();
+        lv_group_t* grp = lv_group_get_default();
+        if (grp) lv_group_focus_obj(cs->_textarea);
+    }, LV_EVENT_KEY, this);
+
+    // Tap overlay to dismiss (deferred — same reason as cannedBtnmCb)
+    lv_obj_add_flag(_emojiOverlay, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(_emojiOverlay, [](lv_event_t* ev) {
+        ChatScreen* cs = (ChatScreen*)lv_event_get_user_data(ev);
+        lv_async_call([](void* ctx) {
+            ChatScreen* s = (ChatScreen*)ctx;
+            s->hideEmojiPicker();
+            lv_group_t* grp = lv_group_get_default();
+            if (grp) lv_group_focus_obj(s->_textarea);
+        }, cs);
+    }, LV_EVENT_CLICKED, this);
+
+    // Switch to modal group so trackball is isolated to btnmatrix
+    UIManager::instance().switchToModalGroup(_emojiBtnm);
+}
+
+void ChatScreen::emojiBtnmCb(lv_event_t* e) {
+    ChatScreen* self = (ChatScreen*)lv_event_get_user_data(e);
+    uint16_t idx = lv_btnmatrix_get_selected_btn(self->_emojiBtnm);
+    if (idx == LV_BTNMATRIX_BTN_NONE) return;
+
+    const char* text = lv_btnmatrix_get_btn_text(self->_emojiBtnm, idx);
+    if (!text) return;
+
+    // Append emoji to existing draft text, or set as new text if empty
+    const char* current = lv_textarea_get_text(self->_textarea);
+    if (current && strlen(current) > 0) {
+        lv_textarea_set_cursor_pos(self->_textarea, LV_TEXTAREA_CURSOR_LAST);
+        lv_textarea_add_text(self->_textarea, text);
+    } else {
+        lv_textarea_set_text(self->_textarea, text);
+    }
+
+    // Defer dismiss — touch input fires VALUE_CHANGED mid-event-chain
+    // (PRESSED→VALUE_CHANGED→RELEASED→CLICKED).  Synchronous group
+    // deletion inside restoreFromModalGroup() crashes because LVGL still
+    // references the modal group for the remaining touch events.
+    lv_async_call([](void* ctx) {
+        ChatScreen* cs = (ChatScreen*)ctx;
+        cs->hideEmojiPicker();
+        lv_group_t* grp = lv_group_get_default();
+        if (grp) lv_group_focus_obj(cs->_textarea);
+    }, self);
+}
+
+void ChatScreen::hideEmojiPicker() {
+    if (!_emojiBtnm) return;
+
+    UIManager::instance().restoreFromModalGroup();
+
+    // Use del_async — this may be called from within the btnmatrix's
+    // own event callback; synchronous delete would corrupt the event loop
+    lv_obj_del_async(_emojiBtnm);
+    _emojiBtnm = nullptr;
+    lv_obj_del_async(_emojiOverlay);
+    _emojiOverlay = nullptr;
 }
 
 void ChatScreen::showCannedPicker() {

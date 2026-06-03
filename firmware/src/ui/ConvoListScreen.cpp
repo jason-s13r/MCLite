@@ -7,6 +7,7 @@
 #include "../i18n/I18n.h"
 #include "../storage/TelemetryCache.h"
 #include "../config/ConfigManager.h"
+#include "../util/TextSanitizer.h"
 
 namespace mclite {
 
@@ -185,7 +186,7 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
     lv_obj_set_style_text_font(name, FONT_HEADING, 0);
     lv_obj_set_style_text_color(name, theme::TEXT_PRIMARY, 0);
     lv_obj_set_flex_grow(name, 1);
-    String nameStr = " " + convo->displayName;
+    String nameStr = " " + sanitizeForDisplay(convo->displayName);
     lv_label_set_text(name, nameStr.c_str());
     lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
 
@@ -289,7 +290,7 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
         lv_obj_set_width(preview, LV_PCT(100));
         lv_label_set_long_mode(preview, LV_LABEL_LONG_DOT);
 
-        String previewText = last->text;
+        String previewText = sanitizeForDisplay(last->text);
         if (previewText.length() > 40) {
             previewText = previewText.substring(0, 40);
         }

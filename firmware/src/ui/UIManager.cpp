@@ -21,6 +21,7 @@
 #include "../util/hex.h"
 #include "../util/mgrs.h"
 #include "../util/TimeHelper.h"
+#include "../util/TextSanitizer.h"
 #include <helpers/BaseChatMesh.h>  // RESP_SERVER_LOGIN_OK
 
 namespace mclite {
@@ -437,7 +438,7 @@ void UIManager::showSOSAlert(const ConvoId& id, const Message& msg) {
     // Persist alert text — LVGL only stores pointer, local String would dangle
     char fromBuf[64];
     snprintf(fromBuf, sizeof(fromBuf), t("sos_from"), msg.senderName.c_str());
-    _sosAlertText = String(fromBuf) + "\n\n" + msg.text;
+    _sosAlertText = String(fromBuf) + "\n\n" + sanitizeForDisplay(msg.text);
 
     // Button labels — must persist (static)
     static const char* btns[3];
