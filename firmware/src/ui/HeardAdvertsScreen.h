@@ -18,7 +18,7 @@ private:
     lv_obj_t* _screen     = nullptr;
     lv_obj_t* _list       = nullptr;
     lv_obj_t* _emptyHint  = nullptr;
-    lv_obj_t* _closeBtn   = nullptr;
+    lv_obj_t* _backBtn    = nullptr;
     lv_obj_t* _clearBtn   = nullptr;
     lv_obj_t* _advertBtn  = nullptr;
 
@@ -40,7 +40,7 @@ private:
     void showSavedConfirmation();
     void showSimpleInfoModal(const char* msg);  // single-OK confirmation for save failures
 
-    static void closeBtnCb(lv_event_t* e);
+    static void backBtnCb(lv_event_t* e);
     static void clearBtnCb(lv_event_t* e);
     static void advertBtnCb(lv_event_t* e);
     static void rowClickCb(lv_event_t* e);

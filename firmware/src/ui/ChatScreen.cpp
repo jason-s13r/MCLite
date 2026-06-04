@@ -4,6 +4,8 @@
 #include "../hal/Display.h"
 #include "../hal/GPS.h"
 #include "../storage/MessageStore.h"
+#include "../storage/TelemetryCache.h"
+#include "../mesh/ContactStore.h"
 #include "../config/ConfigManager.h"
 #include "../i18n/I18n.h"
 #include "../util/TimeHelper.h"
@@ -81,24 +83,62 @@ void ChatScreen::createHeader() {
     lv_obj_set_style_text_color(backLbl, theme::ACCENT, 0);
     lv_obj_center(backLbl);
 
-    // Contact/channel name — wrapped in a transparent button for tap detection
-    // Touch-only: do NOT add to encoder group (breaks trackball navigation)
-    lv_obj_t* nameBtn = lv_btn_create(_header);
-    lv_obj_set_height(nameBtn, theme::CHAT_NAME_BTN_H);
-    lv_obj_set_style_bg_opa(nameBtn, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_shadow_width(nameBtn, 0, 0);
-    lv_obj_set_style_border_width(nameBtn, 0, 0);
-    lv_obj_set_style_pad_all(nameBtn, 0, 0);
-    lv_obj_set_flex_grow(nameBtn, 1);
-    lv_obj_add_event_cb(nameBtn, headerNameCb, LV_EVENT_CLICKED, this);
-
-    _headerName = lv_label_create(nameBtn);
+    // Contact/channel name — non-clickable label, flexes to fill space
+    _headerName = lv_label_create(_header);
     lv_obj_set_style_text_font(_headerName, FONT_HEADING, 0);
     lv_obj_set_style_text_color(_headerName, theme::TEXT_PRIMARY, 0);
     lv_label_set_text(_headerName, "");
-    // Vertically center on the button so the baseline matches the centered
-    // back-arrow label next to it (default top-left would sit higher).
+    lv_obj_set_flex_grow(_headerName, 1);
+    // Vertically center so the baseline matches the centered back-arrow.
     lv_obj_align(_headerName, LV_ALIGN_LEFT_MID, 0, 0);
+
+    // Map button — shown only for DMs with cached location, opens map
+    _mapBtn = lv_btn_create(_header);
+    lv_obj_set_size(_mapBtn, theme::BTN_HEADER_ICON_W, theme::BTN_HEADER_ICON_H);
+    lv_obj_set_style_bg_opa(_mapBtn, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_shadow_width(_mapBtn, 0, 0);
+    lv_obj_set_style_border_width(_mapBtn, 0, 0);
+    lv_obj_set_style_pad_all(_mapBtn, 0, 0);
+    lv_obj_add_event_cb(_mapBtn, mapBtnCb, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* mapLbl = lv_label_create(_mapBtn);
+    lv_label_set_text(mapLbl, LV_SYMBOL_GPS);
+    lv_obj_set_style_text_font(mapLbl, FONT_HEADING, 0);
+    lv_obj_set_style_text_color(mapLbl, theme::TEXT_SECONDARY, 0);
+    lv_obj_center(mapLbl);
+    lv_obj_add_flag(_mapBtn, LV_OBJ_FLAG_HIDDEN);  // shown in open() for DMs with location
+
+    // Refresh button — shown only for DMs, requests updated telemetry
+    _refreshBtn = lv_btn_create(_header);
+    lv_obj_set_size(_refreshBtn, theme::BTN_HEADER_ICON_W, theme::BTN_HEADER_ICON_H);
+    lv_obj_set_style_bg_opa(_refreshBtn, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_shadow_width(_refreshBtn, 0, 0);
+    lv_obj_set_style_border_width(_refreshBtn, 0, 0);
+    lv_obj_set_style_pad_all(_refreshBtn, 0, 0);
+    lv_obj_add_event_cb(_refreshBtn, refreshBtnCb, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* refreshLbl = lv_label_create(_refreshBtn);
+    lv_label_set_text(refreshLbl, LV_SYMBOL_REFRESH);
+    lv_obj_set_style_text_font(refreshLbl, FONT_HEADING, 0);
+    lv_obj_set_style_text_color(refreshLbl, theme::TEXT_SECONDARY, 0);
+    lv_obj_center(refreshLbl);
+    lv_obj_add_flag(_refreshBtn, LV_OBJ_FLAG_HIDDEN);  // shown in open() for DMs
+
+    // Info button — shown only for DMs, opens contact info dialog
+    _infoBtn = lv_btn_create(_header);
+    lv_obj_set_size(_infoBtn, theme::BTN_HEADER_ICON_W, theme::BTN_HEADER_ICON_H);
+    lv_obj_set_style_bg_opa(_infoBtn, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_shadow_width(_infoBtn, 0, 0);
+    lv_obj_set_style_border_width(_infoBtn, 0, 0);
+    lv_obj_set_style_pad_all(_infoBtn, 0, 0);
+    lv_obj_add_event_cb(_infoBtn, infoBtnCb, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* infoLbl = lv_label_create(_infoBtn);
+    lv_label_set_text(infoLbl, LV_SYMBOL_SETTINGS);
+    lv_obj_set_style_text_font(infoLbl, FONT_HEADING, 0);
+    lv_obj_set_style_text_color(infoLbl, theme::TEXT_SECONDARY, 0);
+    lv_obj_center(infoLbl);
+    lv_obj_add_flag(_infoBtn, LV_OBJ_FLAG_HIDDEN);  // shown in open() for DMs
 
     // Mute indicator — shown on the right of the header when chat is muted.
     // Tapping it unmutes the conversation.
@@ -183,22 +223,7 @@ void ChatScreen::createInputBar() {
     lv_obj_set_style_text_color(emojiLbl, theme::TEXT_SECONDARY, 0);
     lv_obj_center(emojiLbl);
 
-    // Text input
-    _textarea = lv_textarea_create(_inputBar);
-    lv_obj_set_flex_grow(_textarea, 1);
-    lv_obj_set_height(_textarea, theme::CHAT_TEXTAREA_H);
-    lv_textarea_set_one_line(_textarea, true);
-    lv_textarea_set_max_length(_textarea, 160);  // MeshCore MAX_TEXT_LEN
-    lv_textarea_set_placeholder_text(_textarea, t("chat_placeholder"));
-    lv_obj_set_ext_click_area(_textarea, 8);
-    lv_obj_set_style_text_font(_textarea, FONT_BODY, 0);
-    lv_obj_set_style_text_color(_textarea, theme::TEXT_PRIMARY, 0);
-    lv_obj_set_style_bg_color(_textarea, theme::BG_SECONDARY, 0);
-    lv_obj_set_style_border_color(_textarea, theme::ACCENT, LV_STATE_FOCUSED);
-    lv_obj_set_style_border_width(_textarea, 1, LV_STATE_FOCUSED);
-    lv_obj_add_event_cb(_textarea, textareaCb, LV_EVENT_READY, this);
-
-    // GPS location button
+    // GPS location button — inserts location text into textarea
     _gpsBtn = lv_btn_create(_inputBar);
     lv_obj_set_size(_gpsBtn, theme::BTN_ACTION_W, theme::BTN_ACTION_H);
     lv_obj_set_style_bg_opa(_gpsBtn, LV_OPA_TRANSP, 0);
@@ -213,6 +238,21 @@ void ChatScreen::createInputBar() {
     lv_obj_set_style_text_font(gpsLbl, FONT_HEADING, 0);
     lv_obj_set_style_text_color(gpsLbl, theme::TEXT_SECONDARY, 0);
     lv_obj_center(gpsLbl);
+
+    // Text input
+    _textarea = lv_textarea_create(_inputBar);
+    lv_obj_set_flex_grow(_textarea, 1);
+    lv_obj_set_height(_textarea, theme::CHAT_TEXTAREA_H);
+    lv_textarea_set_one_line(_textarea, true);
+    lv_textarea_set_max_length(_textarea, 160);  // MeshCore MAX_TEXT_LEN
+    lv_textarea_set_placeholder_text(_textarea, t("chat_placeholder"));
+    lv_obj_set_ext_click_area(_textarea, 8);
+    lv_obj_set_style_text_font(_textarea, FONT_BODY, 0);
+    lv_obj_set_style_text_color(_textarea, theme::TEXT_PRIMARY, 0);
+    lv_obj_set_style_bg_color(_textarea, theme::BG_SECONDARY, 0);
+    lv_obj_set_style_border_color(_textarea, theme::ACCENT, LV_STATE_FOCUSED);
+    lv_obj_set_style_border_width(_textarea, 1, LV_STATE_FOCUSED);
+    lv_obj_add_event_cb(_textarea, textareaCb, LV_EVENT_READY, this);
 
     // Send button
     _sendBtn = lv_btn_create(_inputBar);
@@ -331,6 +371,17 @@ void ChatScreen::open(const ConvoId& id) {
             prefix = ICON_DM " ";
         }
         lv_label_set_text(_headerName, (prefix + sanitizeForDisplay(convo->displayName)).c_str());
+    }
+
+    // Show DM-only buttons (map shown only if we have cached location)
+    if (id.type == ConvoId::DM) {
+        lv_obj_clear_flag(_infoBtn, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(_refreshBtn, LV_OBJ_FLAG_HIDDEN);
+        updateMapButtonVisibility(id.id);
+    } else {
+        lv_obj_add_flag(_infoBtn, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(_refreshBtn, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(_mapBtn, LV_OBJ_FLAG_HIDDEN);
     }
 
     // Hide or show input bar based on read-only flag
@@ -533,6 +584,9 @@ void ChatScreen::show() {
             lv_group_add_obj(grp, _textarea);
             lv_group_add_obj(grp, _gpsBtn);
             lv_group_add_obj(grp, _sendBtn);
+            if (_refreshBtn) lv_group_add_obj(grp, _refreshBtn);
+            if (_mapBtn) lv_group_add_obj(grp, _mapBtn);
+            if (_infoBtn) lv_group_add_obj(grp, _infoBtn);
         }
     }
 }
@@ -551,11 +605,32 @@ void ChatScreen::hide() {
             lv_group_remove_obj(_textarea);
             lv_group_remove_obj(_emojiBtn);
             if (_cannedBtn) lv_group_remove_obj(_cannedBtn);
+            if (_refreshBtn) lv_group_remove_obj(_refreshBtn);
+            if (_mapBtn) lv_group_remove_obj(_mapBtn);
+            if (_infoBtn) lv_group_remove_obj(_infoBtn);
         }
     }
     lv_obj_add_flag(_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
+
+void ChatScreen::updateMapButtonVisibility(const String& shortId) {
+    bool hasLocation = false;
+    auto& contacts = ContactStore::instance();
+    for (size_t i = 0; i < contacts.count(); i++) {
+        const Contact* c = contacts.findByIndex(i);
+        if (c && c->shortId() == shortId) {
+            const TelemetryData* td = TelemetryCache::instance().get(c->publicKey);
+            hasLocation = td && td->hasLocation;
+            break;
+        }
+    }
+    if (hasLocation) {
+        lv_obj_clear_flag(_mapBtn, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(_mapBtn, LV_OBJ_FLAG_HIDDEN);
+    }
+}
 
 void ChatScreen::updateGpsButtonColor() {
     if (!_gpsBtn) return;
@@ -576,7 +651,7 @@ void ChatScreen::updateGpsButtonColor() {
 
 void ChatScreen::gpsBtnCb(lv_event_t* e) {
     ChatScreen* self = (ChatScreen*)lv_event_get_user_data(e);
-    if (!self->_currentConvo || !self->_onSend) return;
+    if (!self->_currentConvo) return;
 
     // Update button color on each click
     self->updateGpsButtonColor();
@@ -585,15 +660,9 @@ void ChatScreen::gpsBtnCb(lv_event_t* e) {
     FixStatus status = gps.fixStatus();
     if (status == FixStatus::NO_FIX) return;
 
-    String locStr = gps.formatLocationWithStatus();
+    String locStr = "@ " + gps.formatLocationWithStatus();
 
-    static const char* btns[3];
-    btns[0] = t("btn_cancel");
-    btns[1] = t("btn_location_send");
-    btns[2] = "";
-
-    // Title includes age warning for last-known position
-    String locTitle = String(LV_SYMBOL_GPS " ") + t("location_title");
+    // Append age qualifier for last-known positions
     if (status == FixStatus::LAST_KNOWN) {
         char ageBuf[32];
         uint32_t age = gps.fixAgeSeconds();
@@ -603,41 +672,22 @@ void ChatScreen::gpsBtnCb(lv_event_t* e) {
             snprintf(ageBuf, sizeof(ageBuf), t("loc_last_known_m"), (int)(age / 60));
         else
             snprintf(ageBuf, sizeof(ageBuf), t("loc_last_known_h"), (int)(age / 3600));
-        locStr += "\n\n" + String(ageBuf);
+        locStr += " (" + String(ageBuf) + ")";
     }
 
-    lv_obj_t* msgbox = lv_msgbox_create(NULL,
-        locTitle.c_str(), locStr.c_str(), btns, false);
-    lv_obj_center(msgbox);
-    lv_obj_set_style_bg_color(msgbox, theme::BG_SECONDARY, 0);
-    lv_obj_set_style_text_color(msgbox, theme::TEXT_PRIMARY, 0);
-    lv_obj_set_style_text_font(msgbox, FONT_HEADING, 0);
+    // Append location to existing draft text, or set as new text if empty
+    const char* current = lv_textarea_get_text(self->_textarea);
+    if (current && strlen(current) > 0) {
+        lv_textarea_set_cursor_pos(self->_textarea, LV_TEXTAREA_CURSOR_LAST);
+        lv_textarea_add_text(self->_textarea, " ");
+        lv_textarea_add_text(self->_textarea, locStr.c_str());
+    } else {
+        lv_textarea_set_text(self->_textarea, locStr.c_str());
+    }
 
-    // Switch trackball/keyboard to modal group so they can't navigate chat behind
-    lv_obj_t* btnm = lv_msgbox_get_btns(msgbox);
-    if (btnm) UIManager::instance().switchToModalGroup(btnm);
-
-    // Store self pointer on the msgbox for the callback
-    lv_obj_set_user_data(msgbox, self);
-
-    lv_obj_add_event_cb(msgbox, [](lv_event_t* ev) {
-        lv_obj_t* mbox = lv_event_get_current_target(ev);
-        uint16_t btnIdx = lv_msgbox_get_active_btn(mbox);
-        if (btnIdx == LV_BTNMATRIX_BTN_NONE) return;
-
-        ChatScreen* cs = (ChatScreen*)lv_obj_get_user_data(mbox);
-
-        if (btnIdx == 1 && cs && cs->_currentConvo && cs->_onSend) {
-            // "Send" pressed — format location with @ prefix and age qualifier
-            String msg = "@ " + GPS::instance().formatLocationWithStatus();
-            cs->_onSend(*cs->_currentConvo, msg);
-        }
-
-        // Restore input group before closing modal
-        UIManager::instance().restoreFromModalGroup();
-
-        lv_msgbox_close(mbox);
-    }, LV_EVENT_VALUE_CHANGED, NULL);
+    // Focus textarea so user can edit or hit send
+    lv_group_t* grp = lv_group_get_default();
+    if (grp) lv_group_focus_obj(self->_textarea);
 }
 
 void ChatScreen::sendBtnCb(lv_event_t* e) {
@@ -660,10 +710,22 @@ void ChatScreen::backBtnCb(lv_event_t* e) {
     }
 }
 
-void ChatScreen::headerNameCb(lv_event_t* e) {
+void ChatScreen::infoBtnCb(lv_event_t* e) {
     ChatScreen* self = (ChatScreen*)lv_event_get_user_data(e);
     if (!self->_currentConvo || self->_currentConvo->type != ConvoId::DM) return;
     if (self->_onInfo) self->_onInfo(*self->_currentConvo);
+}
+
+void ChatScreen::refreshBtnCb(lv_event_t* e) {
+    ChatScreen* self = (ChatScreen*)lv_event_get_user_data(e);
+    if (!self->_currentConvo || self->_currentConvo->type != ConvoId::DM) return;
+    if (self->_onRefresh) self->_onRefresh(*self->_currentConvo);
+}
+
+void ChatScreen::mapBtnCb(lv_event_t* e) {
+    ChatScreen* self = (ChatScreen*)lv_event_get_user_data(e);
+    if (!self->_currentConvo || self->_currentConvo->type != ConvoId::DM) return;
+    if (self->_onMap) self->_onMap(*self->_currentConvo);
 }
 
 void ChatScreen::textareaCb(lv_event_t* e) {

@@ -47,6 +47,7 @@ bool UIManager::init() {
     _chatScreen.create(_mainScreen);
     _adminScreen.create(_mainScreen);
     _heardAdvertsScreen.create(_mainScreen);
+    _mapScreen.create(_mainScreen);
 
     // Wire up callbacks
     _convoList.onSelect([this](const ConvoId& id) {
@@ -65,8 +66,51 @@ bool UIManager::init() {
         goHome();
     });
 
+    _mapScreen.onBack([this]() {
+        if (_prevScreenBeforeMap == Screen::CHAT) {
+            showScreen(Screen::CHAT);
+            _chatScreen.show();
+        } else {
+            showScreen(_prevScreenBeforeMap);
+        }
+    });
+
     _chatScreen.onInfo([this](const ConvoId& id) {
         showTelemetryModal(id);
+    });
+
+    _chatScreen.onRefresh([this](const ConvoId& id) {
+        // Find contact index and request telemetry
+        auto& contacts = ContactStore::instance();
+        for (size_t i = 0; i < contacts.count(); i++) {
+            const Contact* c = contacts.findByIndex(i);
+            if (c && c->shortId() == id.id) {
+                uint32_t estTimeout = 0;
+                if (MeshManager::instance().requestTelemetry(i, estTimeout)) {
+                    showToast(t("telem_requesting"));
+                } else {
+                    showToast(t("telem_send_failed"));
+                }
+                break;
+            }
+        }
+    });
+
+    _chatScreen.onMap([this](const ConvoId& id) {
+        // Find contact and open map if location available
+        auto& contacts = ContactStore::instance();
+        for (size_t i = 0; i < contacts.count(); i++) {
+            const Contact* c = contacts.findByIndex(i);
+            if (c && c->shortId() == id.id) {
+                const TelemetryData* td = TelemetryCache::instance().get(c->publicKey);
+                if (td && td->hasLocation) {
+                    showMapScreen(td->lat, td->lon, c->name);
+                } else {
+                    showToast(t("telem_no_data"));
+                }
+                break;
+            }
+        }
     });
 
     _convoList.onMute([this](const ConvoId& id, bool muted) {
@@ -248,6 +292,7 @@ void UIManager::showScreen(Screen screen) {
     _chatScreen.hide();
     _adminScreen.hide();
     _heardAdvertsScreen.hide();
+    _mapScreen.hide();
 
     switch (screen) {
         case Screen::CONVO_LIST:
@@ -262,6 +307,9 @@ void UIManager::showScreen(Screen screen) {
             break;
         case Screen::HEARD_ADVERTS:
             _heardAdvertsScreen.show();
+            break;
+        case Screen::MAP:
+            _mapScreen.show();
             break;
     }
     _currentScreen = screen;
@@ -1478,7 +1526,7 @@ void UIManager::showTelemetryModal(const ConvoId& id) {
 
     // Build widget via helper so updateTelemetryModal() can recreate with a
     // different button count (re-layouting a live btnmatrix doesn't work).
-    buildTelemetryMsgbox(evalCanMap(contact->publicKey));
+    buildTelemetryMsgbox();
 
     // Auto-request if no cached data or stale
     if (!td || !TelemetryCache::instance().isFresh(contact->publicKey)) {
@@ -1524,45 +1572,16 @@ void UIManager::telemBtnCb(lv_event_t* e) {
                 break;
             }
         }
-    } else if (idx == 2) {
-        // Map — find contact's cached location and launch MapScreen
-        auto& contacts = ContactStore::instance();
-        for (size_t i = 0; i < contacts.count(); i++) {
-            const Contact* c = contacts.findByIndex(i);
-            if (c && c->shortId() == self->_telemContactId) {
-                const TelemetryData* td = TelemetryCache::instance().get(c->publicKey);
-                if (td && td->hasLocation) {
-                    self->_pendingMapLat  = td->lat;
-                    self->_pendingMapLon  = td->lon;
-                    self->_pendingMapName = c->name;
-                    self->dismissTelemetryModal();
-                    lv_async_call(&UIManager::openMapAsync, self);
-                }
-                break;
-            }
-        }
     }
 }
 
-void UIManager::openMapAsync(void* user) {
-    UIManager* self = static_cast<UIManager*>(user);
-    if (!self) return;
-    self->showMapScreen(self->_pendingMapLat, self->_pendingMapLon, self->_pendingMapName);
-}
-
 void UIManager::showMapScreen(double lat, double lon, const String& contactName) {
+    _prevScreenBeforeMap = _currentScreen;
+    showScreen(Screen::MAP);
     _mapScreen.open(lat, lon, contactName);
 }
 
-bool UIManager::evalCanMap(const uint8_t* pubKey) const {
-    if (!pubKey) return false;
-    const TelemetryData* td = TelemetryCache::instance().get(pubKey);
-    return td && td->hasLocation
-        && TelemetryCache::instance().isFresh(pubKey)
-        && TileLoader::instance().tilesAvailable();
-}
-
-void UIManager::buildTelemetryMsgbox(bool canMap) {
+void UIManager::buildTelemetryMsgbox() {
     // Tear down any existing msgbox widget (but keep _telemText/_telemContactId).
     if (_telemMsgbox) {
         restoreFromModalGroup();
@@ -1572,8 +1591,8 @@ void UIManager::buildTelemetryMsgbox(bool canMap) {
 
     _telemBtns[0] = t("btn_close");
     _telemBtns[1] = t("btn_refresh");
-    if (canMap) { _telemBtns[2] = t("btn_map"); _telemBtns[3] = ""; }
-    else        { _telemBtns[2] = "";           _telemBtns[3] = nullptr; }
+    _telemBtns[2] = "";
+    _telemBtns[3] = nullptr;
 
     String title = String(LV_SYMBOL_EYE_OPEN " ") + t("telem_title");
     _telemMsgbox = lv_msgbox_create(NULL, title.c_str(), _telemText.c_str(), _telemBtns, false);
@@ -1613,15 +1632,8 @@ void UIManager::updateTelemetryModal(const uint8_t* pubKey) {
             _telemText = buildTelemText(c, td);
             _telemPending = false;
 
-            const bool canMap = evalCanMap(pubKey);
-            const bool hadMap = (_telemBtns[2] && _telemBtns[2][0] != '\0');
-            if (canMap != hadMap) {
-                // Button set changed — recreate the msgbox so layout is correct.
-                buildTelemetryMsgbox(canMap);
-            } else {
-                // Text-only update.
-                lv_label_set_text(lv_msgbox_get_text(_telemMsgbox), _telemText.c_str());
-            }
+            // Text-only update.
+            lv_label_set_text(lv_msgbox_get_text(_telemMsgbox), _telemText.c_str());
             break;
         }
     }

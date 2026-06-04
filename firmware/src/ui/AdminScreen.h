@@ -17,7 +17,7 @@ public:
 
 private:
     lv_obj_t* _screen   = nullptr;
-    lv_obj_t* _closeBtn = nullptr;
+    lv_obj_t* _content  = nullptr;
 
     // Dynamic-count row state. Reset every show() since the row is rebuilt.
     lv_obj_t* _heardCountLabel = nullptr;
@@ -36,7 +36,7 @@ private:
     void showAddChannelModal();
     void hideAddChannelModal();
 
-    static void closeBtnCb(lv_event_t* e);
+    static void backBtnCb(lv_event_t* e);
     static void offgridToggleCb(lv_event_t* e);
     static void addChannelBtnCb(lv_event_t* e);
     static void addChannelConfirmCb(lv_event_t* e);

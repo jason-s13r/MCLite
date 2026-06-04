@@ -108,7 +108,7 @@ String formatAge(uint32_t lastHeardMs) {
 }  // namespace
 
 void HeardAdvertsScreen::create(lv_obj_t* parent) {
-    _screen = lv_obj_create(parent);
+    _screen = lv_win_create(parent, theme::CHAT_HEADER_HEIGHT);
     lv_obj_set_size(_screen, Display::width(),
                     Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT);
     lv_obj_align(_screen, LV_ALIGN_BOTTOM_MID, 0, -theme::FOOTER_HEIGHT);
@@ -116,14 +116,8 @@ void HeardAdvertsScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_bg_opa(_screen, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(_screen, 0, 0);
     lv_obj_set_style_radius(_screen, 0, 0);
-    lv_obj_set_style_pad_all(_screen, 0, 0);  // edge-to-edge; header carries its own inset
+    lv_obj_set_style_pad_all(_screen, 0, 0);
     lv_obj_set_style_pad_row(_screen, theme::PAD_SMALL, 0);
-    lv_obj_set_flex_flow(_screen, LV_FLEX_FLOW_COLUMN);
-    // Center header / list / empty-hint on the cross (X) axis — default
-    // would left-align them and the whole screen looks shifted left on
-    // T-Watch where CONTENT_WIDTH < Display::width().
-    lv_obj_set_flex_align(_screen, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_clear_flag(_screen, LV_OBJ_FLAG_SCROLLABLE);
 
 #ifdef PLATFORM_TWATCH
     lv_obj_clear_flag(_screen, LV_OBJ_FLAG_GESTURE_BUBBLE);
@@ -133,49 +127,58 @@ void HeardAdvertsScreen::create(lv_obj_t* parent) {
     }, LV_EVENT_GESTURE, nullptr);
 #endif
 
-    // Header row: title + clear + close. Inset slightly so the buttons don't
-    // touch the screen edges; list below stays full-width.
-    lv_obj_t* header = lv_obj_create(_screen);
-    lv_obj_set_size(header, theme::CONTENT_WIDTH, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_opa(header, LV_OPA_TRANSP, 0);
+    // Style the header
+    lv_obj_t* header = lv_win_get_header(_screen);
+    lv_obj_set_style_bg_color(header, theme::BG_STATUS_BAR, 0);
+    lv_obj_set_style_bg_opa(header, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(header, 0, 0);
-    lv_obj_set_style_pad_hor(header, theme::PAD_SMALL, 0);
-    lv_obj_set_style_pad_ver(header, theme::PAD_SMALL, 0);
-    lv_obj_set_style_pad_column(header, theme::PAD_SMALL, 0);
-    lv_obj_clear_flag(header, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_flex_flow(header, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(header, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_radius(header, 0, 0);
+    lv_obj_set_style_pad_all(header, theme::PAD_SMALL, 0);
+    lv_obj_set_style_pad_hor(header, theme::CHAT_HEADER_PAD_HOR, 0);
 
-    lv_obj_t* title = lv_label_create(header);
-    lv_obj_set_style_text_font(title, FONT_LARGE, 0);
+    // Back button
+    _backBtn = lv_win_add_btn(_screen, LV_SYMBOL_LEFT, theme::BTN_HEADER_BACK_W);
+    lv_obj_set_style_bg_opa(_backBtn, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_shadow_width(_backBtn, 0, 0);
+    lv_obj_set_style_border_width(_backBtn, 0, 0);
+    lv_obj_add_event_cb(_backBtn, backBtnCb, LV_EVENT_CLICKED, nullptr);
+
+    lv_obj_t* backLbl = lv_obj_get_child(_backBtn, 0);
+    lv_obj_set_style_text_font(backLbl, FONT_HEADING, 0);
+    lv_obj_set_style_text_color(backLbl, theme::ACCENT, 0);
+
+    // Title
+    lv_obj_t* title = lv_win_add_title(_screen, t("heard_adverts_title"));
+    lv_obj_set_style_text_font(title, FONT_HEADING, 0);
     lv_obj_set_style_text_color(title, theme::TEXT_PRIMARY, 0);
-    lv_obj_set_flex_grow(title, 1);  // title fills, buttons hug right
-    lv_label_set_text(title, t("heard_adverts_title"));
 
-    auto makeIconBtn = [](lv_obj_t* parent, const char* sym,
-                          lv_event_cb_t cb, void* user) {
-        lv_obj_t* btn = lv_btn_create(parent);
-        lv_obj_set_size(btn, theme::BTN_HEADER_ICON_W, theme::BTN_HEADER_ICON_H);
+    // Icon buttons on the right: clear + advert
+    auto makeIconBtn = [this](const char* sym, lv_event_cb_t cb, void* user) {
+        lv_obj_t* btn = lv_win_add_btn(_screen, sym, theme::BTN_HEADER_ICON_W);
         lv_obj_set_style_bg_color(btn, theme::BG_SECONDARY, 0);
         lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
         lv_obj_set_style_radius(btn, 4, 0);
         lv_obj_set_style_bg_color(btn, theme::ACCENT, LV_STATE_FOCUSED);
         lv_obj_set_style_bg_opa(btn, LV_OPA_60, LV_STATE_FOCUSED);
         lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, user);
-        lv_obj_t* lbl = lv_label_create(btn);
+        lv_obj_t* lbl = lv_obj_get_child(btn, 0);
         lv_obj_set_style_text_font(lbl, FONT_HEADING, 0);
         lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
-        lv_label_set_text(lbl, sym);
-        lv_obj_center(lbl);
         return btn;
     };
 
-    _advertBtn = makeIconBtn(header, LV_SYMBOL_UPLOAD, advertBtnCb, this);
-    _clearBtn  = makeIconBtn(header, LV_SYMBOL_TRASH,  clearBtnCb,  this);
-    _closeBtn  = makeIconBtn(header, LV_SYMBOL_CLOSE,  closeBtnCb,  nullptr);
+    _clearBtn  = makeIconBtn(LV_SYMBOL_TRASH,  clearBtnCb,  this);
+    _advertBtn = makeIconBtn(LV_SYMBOL_UPLOAD, advertBtnCb, this);
 
-    // Scrollable list container — full screen width
-    _list = lv_obj_create(_screen);
+    // Content area — scrollable list container
+    lv_obj_t* cont = lv_win_get_content(_screen);
+    lv_obj_set_style_bg_opa(cont, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(cont, 0, 0);
+    lv_obj_set_style_pad_all(cont, 0, 0);
+    lv_obj_set_style_pad_row(cont, 1, 0);
+    lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
+
+    _list = lv_obj_create(cont);
     lv_obj_set_size(_list, theme::CONTENT_WIDTH, LV_SIZE_CONTENT);
     lv_obj_set_flex_grow(_list, 1);
     lv_obj_set_style_bg_opa(_list, LV_OPA_TRANSP, 0);
@@ -190,8 +193,8 @@ void HeardAdvertsScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_bg_opa(_list, LV_OPA_50, LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_color(_list, theme::TEXT_SECONDARY, LV_PART_SCROLLBAR);
 
-    // Empty hint
-    _emptyHint = lv_label_create(_screen);
+    // Empty hint — lives in the content area
+    _emptyHint = lv_label_create(cont);
     lv_obj_set_style_text_font(_emptyHint, FONT_HEADING, 0);
     lv_obj_set_style_text_color(_emptyHint, theme::TEXT_SECONDARY, 0);
     lv_obj_set_style_text_align(_emptyHint, LV_TEXT_ALIGN_CENTER, 0);
@@ -222,7 +225,7 @@ void HeardAdvertsScreen::hide() {
         }
         lv_group_remove_obj(_advertBtn);
         lv_group_remove_obj(_clearBtn);
-        lv_group_remove_obj(_closeBtn);
+        lv_group_remove_obj(_backBtn);
     }
 
     lv_obj_add_flag(_screen, LV_OBJ_FLAG_HIDDEN);
@@ -261,14 +264,14 @@ void HeardAdvertsScreen::rebuild() {
         }
         lv_group_remove_obj(_advertBtn);
         lv_group_remove_obj(_clearBtn);
-        lv_group_remove_obj(_closeBtn);
+        lv_group_remove_obj(_backBtn);
     }
     // Clear any stale visual state. PRESSED can persist if a click handler
     // ran a screen transition before LVGL dispatched the release event;
     // FOCUSED can linger across show/hide cycles in some LVGL paths.
     lv_obj_clear_state(_advertBtn, LV_STATE_FOCUSED | LV_STATE_PRESSED);
     lv_obj_clear_state(_clearBtn, LV_STATE_FOCUSED | LV_STATE_PRESSED);
-    lv_obj_clear_state(_closeBtn, LV_STATE_FOCUSED | LV_STATE_PRESSED);
+    lv_obj_clear_state(_backBtn, LV_STATE_FOCUSED | LV_STATE_PRESSED);
     lv_obj_clean(_list);
 
     int n = cache.count();
@@ -276,9 +279,9 @@ void HeardAdvertsScreen::rebuild() {
         lv_obj_clear_flag(_emptyHint, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(_clearBtn, LV_OBJ_FLAG_HIDDEN);  // nothing to clear
         if (grp) {
+            lv_group_add_obj(grp, _backBtn);
             lv_group_add_obj(grp, _advertBtn);
-            lv_group_add_obj(grp, _closeBtn);
-            lv_group_focus_obj(_advertBtn);
+            lv_group_focus_obj(_backBtn);
         }
         return;
     }
@@ -381,13 +384,13 @@ void HeardAdvertsScreen::rebuild() {
         lv_label_set_text(age, formatAge(e.lastHeardMs).c_str());
     }
 
-    // Group: trackball cycles rows → advert → clear → close → rows
+    // Group: trackball cycles rows → back → clear → advert → rows
     if (grp) {
-        lv_group_add_obj(grp, _advertBtn);
+        lv_group_add_obj(grp, _backBtn);
         lv_group_add_obj(grp, _clearBtn);
-        lv_group_add_obj(grp, _closeBtn);
+        lv_group_add_obj(grp, _advertBtn);
 
-        // Restore focus by pubkey if possible; otherwise top row, otherwise close button
+        // Restore focus by pubkey if possible; otherwise top row, otherwise back button
         bool restored = false;
         if (hadFocus) {
             uint32_t cnt = lv_obj_get_child_cnt(_list);
@@ -407,7 +410,7 @@ void HeardAdvertsScreen::rebuild() {
             if (lv_obj_get_child_cnt(_list) > 0) {
                 lv_group_focus_obj(lv_obj_get_child(_list, 0));
             } else {
-                lv_group_focus_obj(_closeBtn);
+                lv_group_focus_obj(_backBtn);
             }
         }
     }
@@ -566,8 +569,8 @@ void HeardAdvertsScreen::closeDetail() {
     _detailMode   = DETAIL_INFO;
 }
 
-void HeardAdvertsScreen::closeBtnCb(lv_event_t* e) {
-    UIManager::instance().goHome();
+void HeardAdvertsScreen::backBtnCb(lv_event_t* e) {
+    UIManager::instance().showScreen(Screen::ADMIN);
 }
 
 void HeardAdvertsScreen::clearBtnCb(lv_event_t* e) {

@@ -87,7 +87,7 @@
 #define LV_USE_SPINNER    0
 #define LV_USE_TABVIEW    0
 #define LV_USE_TILEVIEW   0
-#define LV_USE_WIN        0
+#define LV_USE_WIN        1
 
 /* Layouts */
 #define LV_USE_FLEX 1

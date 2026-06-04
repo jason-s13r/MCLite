@@ -15,7 +15,8 @@ enum class Screen {
     CONVO_LIST,
     CHAT,
     ADMIN,
-    HEARD_ADVERTS
+    HEARD_ADVERTS,
+    MAP
 };
 
 class UIManager {
@@ -184,16 +185,13 @@ private:
     const char* _telemBtns[4] = {nullptr, nullptr, nullptr, nullptr};
 
     void dismissTelemetryModal();
-    bool evalCanMap(const uint8_t* pubKey) const;
-    void buildTelemetryMsgbox(bool canMap);  // (re)creates the msgbox widget
+    void buildTelemetryMsgbox();  // (re)creates the msgbox widget
     static void telemBtnCb(lv_event_t* e);
 
     // Map screen state
     MapScreen _mapScreen;
-    double    _pendingMapLat = 0.0;
-    double    _pendingMapLon = 0.0;
-    String    _pendingMapName;
-    static void openMapAsync(void* user);
+    Screen    _prevScreenBeforeMap = Screen::CONVO_LIST;
+
 
     // ─── Room state (decisions #14, #15 from room-server-plan.md) ───
     static constexpr size_t MAX_ROOMS = 8;

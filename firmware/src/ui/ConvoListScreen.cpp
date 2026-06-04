@@ -190,32 +190,25 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
     lv_label_set_text(name, nameStr.c_str());
     lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
 
-    // Last-seen + telemetry badges for DM conversations
+    // --- Middle indicators (before time) ---
+    const Contact* dmContact = nullptr;
+
+    // Last-seen eye icon + telemetry badges for DM conversations
     if (convo->convoId.type == ConvoId::DM) {
         auto& contacts = ContactStore::instance();
         for (size_t i = 0; i < contacts.count(); i++) {
             const Contact* c = contacts.findByIndex(i);
             if (!c || c->shortId() != convo->convoId.id) continue;
+            dmContact = c;
 
-            // Online indicator + last-seen time
+            // Online indicator (eye icon if < 20min)
             if (c->lastSeen > 0) {
                 uint32_t age = millis() - c->lastSeen;
-
-                // Eye icon if < 20min (tolerates one missed advert cycle)
                 if (age < 1200000) {
                     lv_obj_t* seenIcon = lv_label_create(topLine);
                     lv_obj_set_style_text_font(seenIcon, FONT_BODY, 0);
                     lv_obj_set_style_text_color(seenIcon, theme::ONLINE_DOT, 0);
                     lv_label_set_text(seenIcon, LV_SYMBOL_EYE_OPEN);
-                }
-
-                // Time label
-                String seenText = formatLastSeen(c->lastSeen);
-                if (seenText.length() > 0) {
-                    lv_obj_t* seenLabel = lv_label_create(topLine);
-                    lv_obj_set_style_text_font(seenLabel, FONT_BODY, 0);
-                    lv_obj_set_style_text_color(seenLabel, theme::TEXT_TIMESTAMP, 0);
-                    lv_label_set_text(seenLabel, seenText.c_str());
                 }
             }
 
@@ -224,7 +217,7 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
             if (showTelem != "none") {
                 const TelemetryData* td = TelemetryCache::instance().get(c->publicKey);
                 if (td && TelemetryCache::instance().isFresh(c->publicKey)) {
-                    // Battery icon (tiered, same as own battery in status bar)
+                    // Battery icon
                     if (td->hasVoltage && (showTelem == "battery" || showTelem == "both")) {
                         int pct = constrain((int)((td->voltage - 3.0f) / 1.2f * 100.0f), 0, 100);
                         const char* battSym;
@@ -253,12 +246,32 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
         }
     }
 
-    // Timestamp — show for channels and rooms (DMs already have last-seen above)
+    // Mute indicator — before time
+    if (convo->muted) {
+        lv_obj_t* muteIcon = lv_label_create(topLine);
+        lv_obj_set_style_text_font(muteIcon, FONT_BODY, 0);
+        lv_obj_set_style_text_color(muteIcon, theme::TEXT_SECONDARY, 0);
+        lv_label_set_text(muteIcon, LV_SYMBOL_MUTE);
+    }
+
+    // --- Rightmost: time indicator ---
+
+    // DM: last-seen time
+    if (dmContact && dmContact->lastSeen > 0) {
+        String seenText = formatLastSeen(dmContact->lastSeen);
+        if (seenText.length() > 0) {
+            lv_obj_t* seenLabel = lv_label_create(topLine);
+            lv_obj_set_style_text_font(seenLabel, FONT_BODY, 0);
+            lv_obj_set_style_text_color(seenLabel, theme::TEXT_TIMESTAMP, 0);
+            lv_label_set_text(seenLabel, seenText.c_str());
+        }
+    }
+
+    // Channel / Room: last-message timestamp
     const Message* lastMsg = convo->lastMessage();
     if ((convo->convoId.type == ConvoId::CHANNEL ||
          convo->convoId.type == ConvoId::ROOM) && lastMsg &&
         lastMsg->timestamp > 1700000000 && GPS::instance().isTimeSynced()) {
-        // Use last message's Unix epoch timestamp for relative time display
         uint32_t now = GPS::instance().currentTimestamp();
         uint32_t diff = (now > lastMsg->timestamp) ? (now - lastMsg->timestamp) : 0;
         char timeBuf[32];
@@ -273,14 +286,6 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
         lv_label_set_text(ts, timeStr.c_str());
     }
 
-    // Mute indicator — shown on the right edge for muted conversations
-    if (convo->muted) {
-        lv_obj_t* muteIcon = lv_label_create(topLine);
-        lv_obj_set_style_text_font(muteIcon, FONT_BODY, 0);
-        lv_obj_set_style_text_color(muteIcon, theme::TEXT_SECONDARY, 0);
-        lv_label_set_text(muteIcon, LV_SYMBOL_MUTE);
-    }
-
     // Bottom line: last message preview
     const Message* last = convo->lastMessage();
     if (last && last->text.length() > 0) {
@@ -291,6 +296,13 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
         lv_label_set_long_mode(preview, LV_LABEL_LONG_DOT);
 
         String previewText = sanitizeForDisplay(last->text);
+        if (convo->convoId.type != ConvoId::DM) {
+            if (last->fromSelf) {
+                previewText = String(t("sender_me")) + ": " + previewText;
+            } else if (last->senderName.length() > 0) {
+                previewText = sanitizeForDisplay(last->senderName) + ": " + previewText;
+            }
+        }
         if (previewText.length() > 40) {
             previewText = previewText.substring(0, 40);
         }

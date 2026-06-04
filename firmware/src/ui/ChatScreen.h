@@ -12,6 +12,8 @@ using OnBackCallback  = std::function<void()>;
 using OnInfoCallback  = std::function<void(const ConvoId& id)>;
 using OnRetryCallback = std::function<void(const ConvoId& id, const String& text, uint32_t oldPacketId)>;
 using OnMuteCallback  = std::function<void(const ConvoId& id, bool muted)>;
+using OnRefreshCallback = std::function<void(const ConvoId& id)>;
+using OnMapCallback   = std::function<void(const ConvoId& id)>;
 
 class ChatScreen {
 public:
@@ -29,6 +31,8 @@ public:
     void onInfo(OnInfoCallback cb)   { _onInfo = cb; }
     void onRetry(OnRetryCallback cb) { _onRetry = cb; }
     void onMute(OnMuteCallback cb)  { _onMute = cb; }
+    void onRefresh(OnRefreshCallback cb) { _onRefresh = cb; }
+    void onMap(OnMapCallback cb)     { _onMap = cb; }
 
     const ConvoId* currentConvo() const { return _currentConvo.get(); }
     lv_obj_t* obj() { return _screen; }
@@ -49,6 +53,9 @@ private:
     lv_obj_t* _emojiOverlay  = nullptr;
     lv_obj_t* _headerName = nullptr;
     lv_obj_t* _muteIcon = nullptr;  // Mute indicator in header
+    lv_obj_t* _refreshBtn = nullptr;  // Refresh telemetry button (DMs only)
+    lv_obj_t* _mapBtn = nullptr;      // Open map button (DMs only)
+    lv_obj_t* _infoBtn = nullptr;   // Info button in header (DMs only)
 #ifdef PLATFORM_TWATCH
     lv_obj_t* _kbd        = nullptr;  // T-Watch only: on-screen keyboard
 #endif
@@ -60,11 +67,14 @@ private:
     OnInfoCallback  _onInfo;
     OnRetryCallback _onRetry;
     OnMuteCallback  _onMute;
+    OnRefreshCallback _onRefresh;
+    OnMapCallback   _onMap;
 
     void createHeader();
     void createChatArea();
     void createInputBar();
     void updateGpsButtonColor();
+    void updateMapButtonVisibility(const String& shortId);
     void showCannedPicker();
     void showEmojiPicker();
 #ifdef PLATFORM_TWATCH
@@ -82,7 +92,9 @@ private:
     static void gpsBtnCb(lv_event_t* e);
     static void backBtnCb(lv_event_t* e);
     static void textareaCb(lv_event_t* e);
-    static void headerNameCb(lv_event_t* e);
+    static void infoBtnCb(lv_event_t* e);
+    static void refreshBtnCb(lv_event_t* e);
+    static void mapBtnCb(lv_event_t* e);
     static void retryBtnCb(lv_event_t* e);
     static void senderNameCb(lv_event_t* e);
     static void cannedBtnCb(lv_event_t* e);

@@ -59,6 +59,7 @@ const DefaultString DEFAULT_STRINGS[] = {
 
     // Convo list
     {"no_contacts",         "No contacts configured.\nEdit config.json on SD card."},
+    {"sender_me",           "me"},
     {"time_s",              "%ds"},
     {"time_m",              "%dm"},
     {"time_h",              "%dh"},
