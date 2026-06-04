@@ -293,7 +293,6 @@ void AdminScreen::show() {
         // Trash icon button on the right (only for custom channels)
         if (ch.custom) {
             lv_obj_t* trashBtn = lv_btn_create(row);
-            lv_obj_set_size(trashBtn, 32, 32);
             lv_obj_set_style_bg_opa(trashBtn, LV_OPA_TRANSP, 0);
             lv_obj_set_style_border_width(trashBtn, 0, 0);
             lv_obj_set_style_shadow_width(trashBtn, 0, 0);
