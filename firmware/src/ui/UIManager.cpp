@@ -2,6 +2,7 @@
 #include "theme.h"
 #include "../mesh/MeshManager.h"
 #include "../mesh/ContactStore.h"
+#include <cstring>
 #include "../mesh/ChannelStore.h"
 #include "../hal/Display.h"
 #include "../hal/GPS.h"
@@ -104,7 +105,8 @@ bool UIManager::init() {
             if (c && c->shortId() == id.id) {
                 const TelemetryData* td = TelemetryCache::instance().get(c->publicKey);
                 if (td && td->hasLocation) {
-                    showMapScreen(td->lat, td->lon, c->name);
+                    uint32_t ageMs = millis() - td->receivedAt;
+                    showMapScreen(td->lat, td->lon, c->name, ageMs);
                 } else {
                     showToast(t("telem_no_data"));
                 }
@@ -1575,10 +1577,11 @@ void UIManager::telemBtnCb(lv_event_t* e) {
     }
 }
 
-void UIManager::showMapScreen(double lat, double lon, const String& contactName) {
+void UIManager::showMapScreen(double lat, double lon, const String& contactName,
+                                uint32_t contactLocationAgeMs) {
     _prevScreenBeforeMap = _currentScreen;
     showScreen(Screen::MAP);
-    _mapScreen.open(lat, lon, contactName);
+    _mapScreen.open(lat, lon, contactName, contactLocationAgeMs);
 }
 
 void UIManager::buildTelemetryMsgbox() {
@@ -1634,6 +1637,22 @@ void UIManager::updateTelemetryModal(const uint8_t* pubKey) {
 
             // Text-only update.
             lv_label_set_text(lv_msgbox_get_text(_telemMsgbox), _telemText.c_str());
+            break;
+        }
+    }
+}
+
+void UIManager::updateChatMapButton(const uint8_t* pubKey) {
+    if (!_chatScreen.currentConvo() || _chatScreen.currentConvo()->type != ConvoId::DM || !pubKey) {
+        return;
+    }
+
+    auto& contacts = ContactStore::instance();
+    for (size_t i = 0; i < contacts.count(); i++) {
+        const Contact* c = contacts.findByIndex(i);
+        if (!c) continue;
+        if (memcmp(c->publicKey, pubKey, 32) == 0 && c->shortId() == _chatScreen.currentConvo()->id) {
+            _chatScreen.refreshMapButtonVisibility(_chatScreen.currentConvo()->id);
             break;
         }
     }

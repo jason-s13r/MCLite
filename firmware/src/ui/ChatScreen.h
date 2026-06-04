@@ -25,6 +25,7 @@ public:
 
     void addMessageToView(const Message& msg);
     void refresh();  // Reload from MessageStore
+    void refreshMapButtonVisibility(const String& shortId);
 
     void onSend(OnSendCallback cb)   { _onSend = cb; }
     void onBack(OnBackCallback cb)   { _onBack = cb; }

@@ -632,6 +632,10 @@ void ChatScreen::updateMapButtonVisibility(const String& shortId) {
     }
 }
 
+void ChatScreen::refreshMapButtonVisibility(const String& shortId) {
+    updateMapButtonVisibility(shortId);
+}
+
 void ChatScreen::updateGpsButtonColor() {
     if (!_gpsBtn) return;
     lv_obj_t* lbl = lv_obj_get_child(_gpsBtn, 0);

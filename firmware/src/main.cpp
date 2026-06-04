@@ -288,6 +288,7 @@ static void setupMeshCallbacks() {
         TelemetryCache::instance().store(pubKey, data);
         ContactStore::instance().updateLastSeen(pubKey);
         UIManager::instance().updateTelemetryModal(pubKey);
+        UIManager::instance().updateChatMapButton(pubKey);
     });
 
     mesh.onRoomMessage([](size_t roomIdx, const String& roomName,

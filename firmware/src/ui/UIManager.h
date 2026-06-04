@@ -87,9 +87,11 @@ public:
     // Telemetry modal
     void showTelemetryModal(const ConvoId& id);
     void updateTelemetryModal(const uint8_t* pubKey);
+    void updateChatMapButton(const uint8_t* pubKey);
 
     // Map screen (opened from telemetry modal)
-    void showMapScreen(double lat, double lon, const String& contactName);
+    void showMapScreen(double lat, double lon, const String& contactName,
+                       uint32_t contactLocationAgeMs = UINT32_MAX);
 
     // Brief auto-dismissing toast on top layer. Non-modal — doesn't steal
     // focus and disappears after `durationMs` (default 1500ms).

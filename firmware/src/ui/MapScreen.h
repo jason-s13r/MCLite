@@ -23,7 +23,9 @@ public:
     void hide();
 
     // Open with contact data — sets lat/lon/name, shows, and renders.
-    void open(double contactLat, double contactLon, const String& contactName);
+    // contactLocationAgeMs is the estimated age of the remote location telemetry.
+    void open(double contactLat, double contactLon, const String& contactName,
+              uint32_t contactLocationAgeMs = UINT32_MAX);
 
     // Close — hides and fires onBack callback so UIManager restores prev screen.
     void close();
@@ -48,12 +50,17 @@ private:
     void drawCrosshair();
     void updateZoomButtons();
     void updateInfoLabel();
+    void panByViewPx(int dxPx, int dyPx);
 
     // --- input ---
     static void backBtnCb(lv_event_t* e);
     static void zoomInCb(lv_event_t* e);
     static void zoomOutCb(lv_event_t* e);
     static void centerBtnCb(lv_event_t* e);
+    static void panUpBtnCb(lv_event_t* e);
+    static void panDownBtnCb(lv_event_t* e);
+    static void panLeftBtnCb(lv_event_t* e);
+    static void panRightBtnCb(lv_event_t* e);
     static void screenKeyCb(lv_event_t* e);
     static void panPressedCb(lv_event_t* e);
     static void panPressingCb(lv_event_t* e);
@@ -67,8 +74,10 @@ private:
     lv_obj_t*   _backBtn      = nullptr;
     lv_obj_t*   _zoomInBtn    = nullptr;
     lv_obj_t*   _zoomOutBtn   = nullptr;
-    lv_obj_t*   _centerBtn    = nullptr;
-    lv_obj_t*   _infoLabel    = nullptr;
+    lv_obj_t*   _centerBtn    = nullptr;    lv_obj_t*   _panUpBtn     = nullptr;
+    lv_obj_t*   _panDownBtn   = nullptr;
+    lv_obj_t*   _panLeftBtn   = nullptr;
+    lv_obj_t*   _panRightBtn  = nullptr;    lv_obj_t*   _infoLabel    = nullptr;
     lv_obj_t*   _titleLabel   = nullptr;
     lv_group_t* _mapGroup     = nullptr;
     lv_group_t* _prevGroup    = nullptr;
@@ -80,6 +89,7 @@ private:
     // and the Center button. Constant for the lifetime of the screen.
     double   _contactLat = 0.0;
     double   _contactLon = 0.0;
+    uint32_t _contactLocationAgeMs = UINT32_MAX;
     String   _contactName;
 
     // Current viewport centre — starts at the contact location, mutated by

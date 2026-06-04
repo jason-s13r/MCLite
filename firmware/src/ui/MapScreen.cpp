@@ -44,82 +44,71 @@ void MapScreen::hide() {
     }
 }
 
-void MapScreen::open(double contactLat, double contactLon, const String& contactName) {
-    if (_screen) {
-        // Already created — just update data and show
-        _contactLat = contactLat;
-        _contactLon = contactLon;
-        _centerLat  = contactLat;
-        _centerLon  = contactLon;
-        _contactName = contactName;
-
-        _zooms = TileLoader::instance().availableZooms();
-        if (_zooms.empty()) {
-            Serial.println("[MapScreen] no tiles available; aborting open");
-            return;
-        }
-        pickInitialZoom();
-
-        // Update title
-        if (_titleLabel) {
-            lv_label_set_text(_titleLabel, _contactName.c_str());
-        }
-
-        show();
-        render();
-        return;
-    }
-
+void MapScreen::open(double contactLat, double contactLon, const String& contactName,
+                     uint32_t contactLocationAgeMs) {
     _contactLat = contactLat;
     _contactLon = contactLon;
     _centerLat  = contactLat;
     _centerLon  = contactLon;
     _contactName = contactName;
+    _contactLocationAgeMs = contactLocationAgeMs;
 
     _zooms = TileLoader::instance().availableZooms();
     if (_zooms.empty()) {
         Serial.println("[MapScreen] no tiles available; aborting open");
         return;
     }
+
+    if (!_screen) {
+        // Compute canvas size: full content area between status bar and footer
+        _canvasW = Display::width();
+        _canvasH = Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT;
+
+        // Canvas buffer lives in PSRAM and is reserved ONCE per device lifetime.
+        // We allocate for the full display size so the buffer is reusable even
+        // if dimensions change, but we only use _canvasW × _canvasH of it.
+        static lv_color_t* s_cbuf = nullptr;
+        const size_t bytes = (size_t)Display::width() * (size_t)Display::height() * sizeof(lv_color_t);
+        if (!s_cbuf) {
+            s_cbuf = (lv_color_t*)heap_caps_malloc(bytes,
+                MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        }
+        if (!s_cbuf) {
+            Serial.printf("[MapScreen] PSRAM alloc failed (%u B); free SPIRAM=%u "
+                          "largest=%u\n", (unsigned)bytes,
+                          (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                          (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
+            return;
+        }
+        _cbuf = s_cbuf;
+
+        buildWidgets();
+
+    #ifdef PLATFORM_TDECK
+        _prevGroup = UIManager::instance().inputGroup();
+        _mapGroup = lv_group_create();
+        lv_group_add_obj(_mapGroup, _backBtn);
+        lv_group_add_obj(_mapGroup, _zoomInBtn);
+        lv_group_add_obj(_mapGroup, _centerBtn);
+        lv_group_add_obj(_mapGroup, _panUpBtn);
+        lv_group_add_obj(_mapGroup, _panDownBtn);
+        lv_group_add_obj(_mapGroup, _panLeftBtn);
+        lv_group_add_obj(_mapGroup, _panRightBtn);
+        lv_group_add_obj(_mapGroup, _zoomOutBtn);
+        lv_group_focus_obj(_backBtn);
+        if (Keyboard::instance().indev())
+            lv_indev_set_group(Keyboard::instance().indev(), _mapGroup);
+        if (Trackball::instance().indev())
+            lv_indev_set_group(Trackball::instance().indev(), _mapGroup);
+    #endif
+    }
+
     pickInitialZoom();
 
-    // Compute canvas size: full content area between status bar and footer
-    _canvasW = Display::width();
-    _canvasH = Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT;
-
-    // Canvas buffer lives in PSRAM and is reserved ONCE per device lifetime.
-    // We allocate for the full display size so the buffer is reusable even
-    // if dimensions change, but we only use _canvasW × _canvasH of it.
-    static lv_color_t* s_cbuf = nullptr;
-    const size_t bytes = (size_t)Display::width() * (size_t)Display::height() * sizeof(lv_color_t);
-    if (!s_cbuf) {
-        s_cbuf = (lv_color_t*)heap_caps_malloc(bytes,
-            MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    // Update title
+    if (_titleLabel) {
+        lv_label_set_text(_titleLabel, _contactName.c_str());
     }
-    if (!s_cbuf) {
-        Serial.printf("[MapScreen] PSRAM alloc failed (%u B); free SPIRAM=%u "
-                      "largest=%u\n", (unsigned)bytes,
-                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
-                      (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
-        return;
-    }
-    _cbuf = s_cbuf;
-
-    buildWidgets();
-
-#ifdef PLATFORM_TDECK
-    _prevGroup = UIManager::instance().inputGroup();
-    _mapGroup = lv_group_create();
-    lv_group_add_obj(_mapGroup, _backBtn);
-    lv_group_add_obj(_mapGroup, _zoomInBtn);
-    lv_group_add_obj(_mapGroup, _centerBtn);
-    lv_group_add_obj(_mapGroup, _zoomOutBtn);
-    lv_group_focus_obj(_backBtn);
-    if (Keyboard::instance().indev())
-        lv_indev_set_group(Keyboard::instance().indev(), _mapGroup);
-    if (Trackball::instance().indev())
-        lv_indev_set_group(Trackball::instance().indev(), _mapGroup);
-#endif
 
     show();
     render();
@@ -149,16 +138,56 @@ void MapScreen::close() {
     Serial.println("[MapScreen] closed");
 }
 
+static uint8_t capZoomByTelemetryAge(uint32_t ageMs) {
+    if (ageMs == UINT32_MAX) return 14;
+    if (ageMs < 60UL * 1000UL) return 16;
+    if (ageMs < 180UL * 1000UL) return 15;
+    if (ageMs < 600UL * 1000UL) return 14;
+    if (ageMs < 1800UL * 1000UL) return 13;
+    return 12;
+}
+
+static double wrappedTileDelta(double a, double b, uint8_t z) {
+    double diff = fabs(a - b);
+    double wrap = (double)slippyTileCount(z);
+    if (diff > wrap / 2.0) diff = wrap - diff;
+    return diff;
+}
+
 void MapScreen::pickInitialZoom() {
     auto& loader = TileLoader::instance();
-    int chosen = (int)_zooms.size() - 1;
+    uint8_t safeMaxZoom = capZoomByTelemetryAge(_contactLocationAgeMs);
+
+    const GPS& gps = GPS::instance();
+    bool useOwnPosition = gps.fixStatus() == FixStatus::LIVE && gps.hasFix();
+
+    int chosen = 0;
     for (int i = (int)_zooms.size() - 1; i >= 0; i--) {
         uint8_t z = _zooms[i];
+        if (z > safeMaxZoom) continue;
+
+        if (useOwnPosition) {
+            TileFrac contactTile = latLonToTileXY(_contactLat, _contactLon, z);
+            TileFrac ownTile = latLonToTileXY(gps.lat(), gps.lon(), z);
+            double dx = wrappedTileDelta(contactTile.x, ownTile.x, z) * TILE;
+            double dy = fabs(contactTile.y - ownTile.y) * TILE;
+            const int halfW = _canvasW / 2;
+            const int halfH = _canvasH / 2;
+            const int padding = 28;
+            if (dx > (halfW - padding) || dy > (halfH - padding)) {
+                continue;
+            }
+        }
+
         TileFrac f = latLonToTileXY(_contactLat, _contactLon, z);
         int tx = (int)floor(f.x);
         int ty = (int)floor(f.y);
-        if (loader.tileExists(z, tx, ty)) { chosen = i; break; }
+        if (loader.tileExists(z, tx, ty)) {
+            chosen = i;
+            break;
+        }
     }
+
     _zoomIdx = chosen;
     _zoom = _zooms[_zoomIdx];
 }
@@ -248,24 +277,32 @@ void MapScreen::buildWidgets() {
         lv_obj_center(lbl);
     };
 
-    // Right-edge button stack
-    _zoomInBtn = lv_btn_create(content);
-    styleBtn(_zoomInBtn);
-    lv_obj_align(_zoomInBtn, LV_ALIGN_RIGHT_MID,
-                 -(theme::SAFE_AREA_RIGHT + theme::PAD_SMALL),
-                 -(MAP_BTN + theme::PAD_SMALL));
+    // Header zoom controls
+    _zoomOutBtn = lv_win_add_btn(_win, LV_SYMBOL_MINUS, MAP_BTN);
+    lv_obj_set_style_bg_opa(_zoomOutBtn, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_shadow_width(_zoomOutBtn, 0, 0);
+    lv_obj_set_style_border_width(_zoomOutBtn, 0, 0);
+    lv_obj_add_event_cb(_zoomOutBtn, &MapScreen::zoomOutCb, LV_EVENT_CLICKED, this);
     {
-        lv_obj_t* lbl = lv_label_create(_zoomInBtn);
-        lv_label_set_text(lbl, LV_SYMBOL_PLUS);
-        styleLbl(lbl);
+        lv_obj_t* lbl = lv_obj_get_child(_zoomOutBtn, 0);
+        if (lbl) styleLbl(lbl);
     }
+
+    _zoomInBtn = lv_win_add_btn(_win, LV_SYMBOL_PLUS, MAP_BTN);
+    lv_obj_set_style_bg_opa(_zoomInBtn, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_shadow_width(_zoomInBtn, 0, 0);
+    lv_obj_set_style_border_width(_zoomInBtn, 0, 0);
     lv_obj_add_event_cb(_zoomInBtn, &MapScreen::zoomInCb, LV_EVENT_CLICKED, this);
+    {
+        lv_obj_t* lbl = lv_obj_get_child(_zoomInBtn, 0);
+        if (lbl) styleLbl(lbl);
+    }
 
     _centerBtn = lv_btn_create(content);
     styleBtn(_centerBtn);
-    lv_obj_align(_centerBtn, LV_ALIGN_RIGHT_MID,
-                 -(theme::SAFE_AREA_RIGHT + theme::PAD_SMALL),
-                 0);
+    lv_obj_align(_centerBtn, LV_ALIGN_BOTTOM_RIGHT,
+                 -(theme::SAFE_AREA_RIGHT + theme::PAD_SMALL + MAP_BTN + theme::PAD_SMALL),
+                 -(theme::PAD_SMALL + MAP_BTN + theme::PAD_SMALL));
     {
         lv_obj_t* lbl = lv_label_create(_centerBtn);
         lv_label_set_text(lbl, LV_SYMBOL_GPS);
@@ -273,17 +310,45 @@ void MapScreen::buildWidgets() {
     }
     lv_obj_add_event_cb(_centerBtn, &MapScreen::centerBtnCb, LV_EVENT_CLICKED, this);
 
-    _zoomOutBtn = lv_btn_create(content);
-    styleBtn(_zoomOutBtn);
-    lv_obj_align(_zoomOutBtn, LV_ALIGN_RIGHT_MID,
-                 -(theme::SAFE_AREA_RIGHT + theme::PAD_SMALL),
-                  (MAP_BTN + theme::PAD_SMALL));
+    _panUpBtn = lv_btn_create(content);
+    styleBtn(_panUpBtn);
+    lv_obj_align_to(_panUpBtn, _centerBtn, LV_ALIGN_OUT_TOP_MID, 0, -theme::PAD_SMALL);
     {
-        lv_obj_t* lbl = lv_label_create(_zoomOutBtn);
-        lv_label_set_text(lbl, LV_SYMBOL_MINUS);
+        lv_obj_t* lbl = lv_label_create(_panUpBtn);
+        lv_label_set_text(lbl, LV_SYMBOL_UP);
         styleLbl(lbl);
     }
-    lv_obj_add_event_cb(_zoomOutBtn, &MapScreen::zoomOutCb, LV_EVENT_CLICKED, this);
+    lv_obj_add_event_cb(_panUpBtn, &MapScreen::panUpBtnCb, LV_EVENT_CLICKED, this);
+
+    _panDownBtn = lv_btn_create(content);
+    styleBtn(_panDownBtn);
+    lv_obj_align_to(_panDownBtn, _centerBtn, LV_ALIGN_OUT_BOTTOM_MID, 0, theme::PAD_SMALL);
+    {
+        lv_obj_t* lbl = lv_label_create(_panDownBtn);
+        lv_label_set_text(lbl, LV_SYMBOL_DOWN);
+        styleLbl(lbl);
+    }
+    lv_obj_add_event_cb(_panDownBtn, &MapScreen::panDownBtnCb, LV_EVENT_CLICKED, this);
+
+    _panLeftBtn = lv_btn_create(content);
+    styleBtn(_panLeftBtn);
+    lv_obj_align_to(_panLeftBtn, _centerBtn, LV_ALIGN_OUT_LEFT_MID, -theme::PAD_SMALL, 0);
+    {
+        lv_obj_t* lbl = lv_label_create(_panLeftBtn);
+        lv_label_set_text(lbl, LV_SYMBOL_LEFT);
+        styleLbl(lbl);
+    }
+    lv_obj_add_event_cb(_panLeftBtn, &MapScreen::panLeftBtnCb, LV_EVENT_CLICKED, this);
+
+    _panRightBtn = lv_btn_create(content);
+    styleBtn(_panRightBtn);
+    lv_obj_align_to(_panRightBtn, _centerBtn, LV_ALIGN_OUT_RIGHT_MID, theme::PAD_SMALL, 0);
+    {
+        lv_obj_t* lbl = lv_label_create(_panRightBtn);
+        lv_label_set_text(lbl, LV_SYMBOL_RIGHT);
+        styleLbl(lbl);
+    }
+    lv_obj_add_event_cb(_panRightBtn, &MapScreen::panRightBtnCb, LV_EVENT_CLICKED, this);
 
     // Info label (bottom-left)
     _infoLabel = lv_label_create(content);
@@ -487,6 +552,44 @@ void MapScreen::centerBtnCb(lv_event_t* e) {
     self->_centerLat = self->_contactLat;
     self->_centerLon = self->_contactLon;
     self->render();
+}
+
+void MapScreen::panByViewPx(int dxPx, int dyPx) {
+    const double s = 360.0 / (256.0 * (double)(1 << _zoom));
+    const double lonDelta = (double)dxPx * s;
+    const double latDelta = (double)dyPx * s;
+    const double cosLat = cos(_centerLat * M_PI / 180.0);
+    _centerLon += lonDelta;
+    _centerLat += latDelta * cosLat;
+    if (_centerLat >  SLIPPY_LAT_MAX) _centerLat =  SLIPPY_LAT_MAX;
+    if (_centerLat < -SLIPPY_LAT_MAX) _centerLat = -SLIPPY_LAT_MAX;
+    while (_centerLon >= 180.0) _centerLon -= 360.0;
+    while (_centerLon < -180.0) _centerLon += 360.0;
+    render();
+}
+
+void MapScreen::panUpBtnCb(lv_event_t* e) {
+    MapScreen* self = static_cast<MapScreen*>(lv_event_get_user_data(e));
+    if (!self) return;
+    self->panByViewPx(0, self->_canvasH / 2);
+}
+
+void MapScreen::panDownBtnCb(lv_event_t* e) {
+    MapScreen* self = static_cast<MapScreen*>(lv_event_get_user_data(e));
+    if (!self) return;
+    self->panByViewPx(0, -(self->_canvasH / 2));
+}
+
+void MapScreen::panLeftBtnCb(lv_event_t* e) {
+    MapScreen* self = static_cast<MapScreen*>(lv_event_get_user_data(e));
+    if (!self) return;
+    self->panByViewPx(-(self->_canvasW / 2), 0);
+}
+
+void MapScreen::panRightBtnCb(lv_event_t* e) {
+    MapScreen* self = static_cast<MapScreen*>(lv_event_get_user_data(e));
+    if (!self) return;
+    self->panByViewPx(self->_canvasW / 2, 0);
 }
 
 void MapScreen::screenKeyCb(lv_event_t* e) {
