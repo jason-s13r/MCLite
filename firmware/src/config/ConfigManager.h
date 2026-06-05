@@ -104,6 +104,8 @@ struct AppConfig {
     int8_t          gpsClockOffset = 0;  // UTC offset in hours (legacy fallback)
     String          gpsTimezone;         // POSIX TZ string for auto-DST (e.g. "CET-1CEST,M3.5.0/2,M10.5.0/3")
     uint16_t        gpsLastKnownMaxAge = 1800;  // Seconds before last-known expires
+    bool            locationAdvertEnabled = false; // Include location in periodic adverts
+    uint8_t         locationPrecision = 32;        // 0=off, 10-19=obfuscated, 32=full precision
     BatteryConfig   battery;
     SecurityConfig  security;
     OffgridConfig   offgrid;

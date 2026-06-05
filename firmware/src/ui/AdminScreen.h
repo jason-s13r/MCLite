@@ -42,6 +42,11 @@ private:
     static void addChannelConfirmCb(lv_event_t* e);
     static void addChannelCancelCb(lv_event_t* e);
     static void channelDeleteCb(lv_event_t* e);
+
+    // GPS location-advert controls (rebuilt each show())
+    static void locationAdvertToggleCb(lv_event_t* e);
+    static void locationPrecisionChangedCb(lv_event_t* e);
+    static const char* precisionLabel(uint8_t precision);
 };
 
 }  // namespace mclite

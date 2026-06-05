@@ -438,6 +438,82 @@ void AdminScreen::show() {
         } else if (cfg.gpsClockOffset != 0) {
             addRow("Clock Offset", String(cfg.gpsClockOffset) + "h");
         }
+
+        // Location advert toggle
+        {
+            lv_obj_t* row = lv_obj_create(_content);
+            lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+            lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
+            lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_width(row, 0, 0);
+            lv_obj_set_style_radius(row, 4, 0);
+            lv_obj_set_style_pad_all(row, theme::PAD_SMALL, 0);
+            lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+            lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+            lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+            lv_obj_t* lbl = lv_label_create(row);
+            lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
+            lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
+            lv_label_set_text(lbl, t("gps_loc_advert"));
+
+            lv_obj_t* sw = lv_switch_create(row);
+            lv_obj_set_size(sw, 40, 20);
+            if (cfg.locationAdvertEnabled) {
+                lv_obj_add_state(sw, LV_STATE_CHECKED);
+            }
+
+            lv_obj_add_event_cb(sw, locationAdvertToggleCb, LV_EVENT_VALUE_CHANGED, nullptr);
+        }
+
+        // Location precision slider
+        {
+            lv_obj_t* row = lv_obj_create(_content);
+            lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+            lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
+            lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_width(row, 0, 0);
+            lv_obj_set_style_radius(row, 4, 0);
+            lv_obj_set_style_pad_all(row, theme::PAD_SMALL, 0);
+            lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_set_flex_flow(row, LV_FLEX_FLOW_COLUMN);
+            lv_obj_set_style_pad_row(row, 2, 0);
+
+            // Label row
+            lv_obj_t* labelRow = lv_obj_create(row);
+            lv_obj_set_size(labelRow, LV_PCT(100), LV_SIZE_CONTENT);
+            lv_obj_set_style_bg_opa(labelRow, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(labelRow, 0, 0);
+            lv_obj_set_style_pad_all(labelRow, 0, 0);
+            lv_obj_clear_flag(labelRow, LV_OBJ_FLAG_SCROLLABLE);
+            lv_obj_set_flex_flow(labelRow, LV_FLEX_FLOW_ROW);
+            lv_obj_set_flex_align(labelRow, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+            lv_obj_t* lbl = lv_label_create(labelRow);
+            lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
+            lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
+            lv_label_set_text(lbl, t("gps_loc_precision"));
+
+            lv_obj_t* valLbl = lv_label_create(labelRow);
+            lv_obj_set_style_text_font(valLbl, FONT_BODY, 0);
+            lv_obj_set_style_text_color(valLbl, theme::TEXT_SECONDARY, 0);
+            lv_label_set_text(valLbl, precisionLabel(cfg.locationPrecision));
+
+            // Slider: 0-12 maps to [0, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 32]
+            lv_obj_t* slider = lv_slider_create(row);
+            lv_obj_set_width(slider, LV_PCT(100));
+            lv_slider_set_range(slider, 0, 12);
+            int sliderVal = 0;
+            if (cfg.locationPrecision == 32) {
+                sliderVal = 12;
+            } else if (cfg.locationPrecision >= 10 && cfg.locationPrecision <= 19) {
+                sliderVal = cfg.locationPrecision - 9;
+            }
+            lv_slider_set_value(slider, sliderVal, LV_ANIM_OFF);
+
+            lv_obj_add_event_cb(slider, locationPrecisionChangedCb, LV_EVENT_VALUE_CHANGED, valLbl);
+        }
     }
 
     // --- Sound ---
@@ -894,6 +970,55 @@ void AdminScreen::addChannelConfirmCb(lv_event_t* e) {
 void AdminScreen::addChannelCancelCb(lv_event_t* e) {
     AdminScreen* self = static_cast<AdminScreen*>(lv_event_get_user_data(e));
     if (self) self->hideAddChannelModal();
+}
+
+// ---- GPS location-advert callbacks ----
+
+const char* AdminScreen::precisionLabel(uint8_t precision) {
+    if (precision == 0) return t("gps_prec_off");
+    if (precision == 32) return t("gps_prec_full");
+    switch (precision) {
+        case 10: return "~23 km";
+        case 11: return "~12 km";
+        case 12: return "~5.8 km";
+        case 13: return "~2.9 km";
+        case 14: return "~1.5 km";
+        case 15: return "~729 m";
+        case 16: return "~364 m";
+        case 17: return "~182 m";
+        case 18: return "~91 m";
+        case 19: return "~45 m";
+        default: return t("gps_prec_full");
+    }
+}
+
+void AdminScreen::locationAdvertToggleCb(lv_event_t* e) {
+    lv_obj_t* sw = lv_event_get_target(e);
+    bool enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    auto& mgr = ConfigManager::instance();
+    mgr.config().locationAdvertEnabled = enabled;
+    mgr.save();
+    UIManager::instance().showToast(enabled ? t("enabled") : t("disabled"));
+}
+
+void AdminScreen::locationPrecisionChangedCb(lv_event_t* e) {
+    lv_obj_t* slider = lv_event_get_target(e);
+    lv_obj_t* valLbl = (lv_obj_t*)lv_event_get_user_data(e);
+    int v = lv_slider_get_value(slider);
+    uint8_t precision = 0;
+    if (v == 0) {
+        precision = 0;
+    } else if (v == 12) {
+        precision = 32;
+    } else {
+        precision = v + 9; // 1..11 -> 10..19
+    }
+    auto& mgr = ConfigManager::instance();
+    mgr.config().locationPrecision = precision;
+    mgr.save();
+    if (valLbl) {
+        lv_label_set_text(valLbl, precisionLabel(precision));
+    }
 }
 
 // ---- Channel delete (trash icon) ----

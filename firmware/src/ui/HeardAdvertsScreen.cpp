@@ -155,11 +155,9 @@ void HeardAdvertsScreen::create(lv_obj_t* parent) {
     // Icon buttons on the right: clear + advert
     auto makeIconBtn = [this](const char* sym, lv_event_cb_t cb, void* user) {
         lv_obj_t* btn = lv_win_add_btn(_screen, sym, theme::BTN_HEADER_ICON_W);
-        lv_obj_set_style_bg_color(btn, theme::BG_SECONDARY, 0);
-        lv_obj_set_style_bg_opa(btn, LV_OPA_COVER, 0);
-        lv_obj_set_style_radius(btn, 4, 0);
-        lv_obj_set_style_bg_color(btn, theme::ACCENT, LV_STATE_FOCUSED);
-        lv_obj_set_style_bg_opa(btn, LV_OPA_60, LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_opa(btn, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_shadow_width(btn, 0, 0);
+        lv_obj_set_style_border_width(btn, 0, 0);
         lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, user);
         lv_obj_t* lbl = lv_obj_get_child(btn, 0);
         lv_obj_set_style_text_font(lbl, FONT_HEADING, 0);
@@ -221,7 +219,12 @@ void HeardAdvertsScreen::hide() {
     if (grp && _list) {
         uint32_t cnt = lv_obj_get_child_cnt(_list);
         for (uint32_t i = 0; i < cnt; i++) {
-            lv_group_remove_obj(lv_obj_get_child(_list, i));
+            lv_obj_t* row = lv_obj_get_child(_list, i);
+            uint32_t rcnt = lv_obj_get_child_cnt(row);
+            for (uint32_t j = 0; j < rcnt; j++) {
+                lv_group_remove_obj(lv_obj_get_child(row, j));
+            }
+            lv_group_remove_obj(row);
         }
         lv_group_remove_obj(_advertBtn);
         lv_group_remove_obj(_clearBtn);
@@ -244,7 +247,8 @@ void HeardAdvertsScreen::rebuild() {
         if (focused) {
             uint32_t cnt = lv_obj_get_child_cnt(_list);
             for (uint32_t i = 0; i < cnt; i++) {
-                if (lv_obj_get_child(_list, i) == focused) {
+                lv_obj_t* row = lv_obj_get_child(_list, i);
+                if (row == focused || lv_obj_get_parent(focused) == row) {
                     int slot = (int)(intptr_t)lv_obj_get_user_data(focused);
                     if (slot >= 0 && slot < cache.count()) {
                         memcpy(focusedKey, cache.entries()[slot].pubKey, 32);
@@ -260,7 +264,12 @@ void HeardAdvertsScreen::rebuild() {
     if (grp && _list) {
         uint32_t cnt = lv_obj_get_child_cnt(_list);
         for (uint32_t i = 0; i < cnt; i++) {
-            lv_group_remove_obj(lv_obj_get_child(_list, i));
+            lv_obj_t* row = lv_obj_get_child(_list, i);
+            uint32_t rcnt = lv_obj_get_child_cnt(row);
+            for (uint32_t j = 0; j < rcnt; j++) {
+                lv_group_remove_obj(lv_obj_get_child(row, j));
+            }
+            lv_group_remove_obj(row);
         }
         lv_group_remove_obj(_advertBtn);
         lv_group_remove_obj(_clearBtn);
@@ -313,7 +322,6 @@ void HeardAdvertsScreen::rebuild() {
 
         lv_obj_set_style_bg_color(row, theme::ACCENT, LV_STATE_FOCUSED);
         lv_obj_set_style_bg_opa(row, LV_OPA_40, LV_STATE_FOCUSED);
-        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
 
         if (grp) lv_group_add_obj(grp, row);
         lv_obj_add_event_cb(row, [](lv_event_t* ev) {
@@ -322,7 +330,6 @@ void HeardAdvertsScreen::rebuild() {
 
         // Stash the slot index in user_data (no allocation, no delete cleanup needed)
         lv_obj_set_user_data(row, (void*)(intptr_t)slot);
-        lv_obj_add_event_cb(row, rowClickCb, LV_EVENT_CLICKED, this);
 
         const Contact* known = contacts.findByPublicKey(e.pubKey);
         bool queued = e.savePending && !known;
@@ -382,6 +389,46 @@ void HeardAdvertsScreen::rebuild() {
         lv_obj_set_style_text_font(age, FONT_BODY, 0);
         lv_obj_set_style_text_color(age, theme::TEXT_TIMESTAMP, 0);
         lv_label_set_text(age, formatAge(e.lastHeardMs).c_str());
+
+        // Info button — opens detail dialog
+        lv_obj_t* infoBtn = lv_btn_create(row);
+        lv_obj_set_size(infoBtn, theme::BTN_HEADER_ICON_W, theme::BTN_HEADER_ICON_W);
+        lv_obj_set_style_bg_opa(infoBtn, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(infoBtn, 0, 0);
+        lv_obj_set_style_shadow_width(infoBtn, 0, 0);
+        lv_obj_set_style_pad_all(infoBtn, 0, 0);
+        lv_obj_set_user_data(infoBtn, (void*)(intptr_t)slot);
+        lv_obj_add_event_cb(infoBtn, rowInfoBtnCb, LV_EVENT_CLICKED, this);
+
+        lv_obj_t* infoIcon = lv_label_create(infoBtn);
+        lv_obj_set_style_text_font(infoIcon, FONT_HEADING, 0);
+        lv_obj_set_style_text_color(infoIcon, theme::TEXT_SECONDARY, 0);
+        lv_obj_set_style_text_color(infoIcon, theme::ACCENT, LV_STATE_FOCUSED);
+        lv_label_set_text(infoIcon, LV_SYMBOL_SETTINGS);
+        lv_obj_center(infoIcon);
+
+        if (grp) lv_group_add_obj(grp, infoBtn);
+
+        // Map button — only for entries with a known location
+        if (e.hasGps) {
+            lv_obj_t* mapBtn = lv_btn_create(row);
+            lv_obj_set_size(mapBtn, theme::BTN_HEADER_ICON_W, theme::BTN_HEADER_ICON_W);
+            lv_obj_set_style_bg_opa(mapBtn, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_border_width(mapBtn, 0, 0);
+            lv_obj_set_style_shadow_width(mapBtn, 0, 0);
+            lv_obj_set_style_pad_all(mapBtn, 0, 0);
+            lv_obj_set_user_data(mapBtn, (void*)(intptr_t)slot);
+            lv_obj_add_event_cb(mapBtn, rowMapBtnCb, LV_EVENT_CLICKED, this);
+
+            lv_obj_t* mapIcon = lv_label_create(mapBtn);
+            lv_obj_set_style_text_font(mapIcon, FONT_HEADING, 0);
+            lv_obj_set_style_text_color(mapIcon, theme::ACCENT, 0);
+            lv_obj_set_style_text_color(mapIcon, theme::TEXT_PRIMARY, LV_STATE_FOCUSED);
+            lv_label_set_text(mapIcon, LV_SYMBOL_GPS);
+            lv_obj_center(mapIcon);
+
+            if (grp) lv_group_add_obj(grp, mapBtn);
+        }
     }
 
     // Group: trackball cycles rows → back → clear → advert → rows
@@ -598,11 +645,35 @@ void HeardAdvertsScreen::advertBtnCb(lv_event_t* e) {
     }
 }
 
-void HeardAdvertsScreen::rowClickCb(lv_event_t* e) {
+void HeardAdvertsScreen::rowInfoBtnCb(lv_event_t* e) {
     HeardAdvertsScreen* self = (HeardAdvertsScreen*)lv_event_get_user_data(e);
     if (!self) return;
     int slot = (int)(intptr_t)lv_obj_get_user_data(lv_event_get_current_target(e));
     self->openDetail(slot);
+}
+
+void HeardAdvertsScreen::rowMapBtnCb(lv_event_t* e) {
+    HeardAdvertsScreen* self = (HeardAdvertsScreen*)lv_event_get_user_data(e);
+    if (!self) return;
+    int slot = (int)(intptr_t)lv_obj_get_user_data(lv_event_get_current_target(e));
+    auto& cache = HeardAdvertCache::instance();
+    if (slot < 0 || slot >= cache.count()) return;
+    const HeardAdvert& entry = cache.entries()[slot];
+    if (!entry.hasGps) return;
+
+    String name;
+    auto& contacts = ContactStore::instance();
+    const Contact* known = contacts.findByPublicKey(entry.pubKey);
+    if (known && known->name.length() > 0) {
+        name = known->name;
+    } else if (entry.name[0] != '\0') {
+        name = entry.name;
+    } else {
+        name = pubKeyToShortId(entry.pubKey);
+    }
+
+    UIManager::instance().showMapScreen(entry.gpsLat / 1e6, entry.gpsLon / 1e6, name,
+                                        millis() - entry.lastHeardMs);
 }
 
 void HeardAdvertsScreen::detailBtnCb(lv_event_t* e) {

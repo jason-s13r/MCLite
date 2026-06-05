@@ -278,13 +278,42 @@ void MCLiteMesh::loop() {
 bool MCLiteMesh::advertise(const char* name) {
     if (!_ready) return false;
 
-    // Create advertisement without GPS coordinates
-    // Location is only shared via telemetry response to authorized contacts
-    mesh::Packet* pkt = createSelfAdvert(name);
-    if (!pkt) return false;
+    const auto& cfg = ConfigManager::instance().config();
+    mesh::Packet* pkt = nullptr;
 
+    if (cfg.locationAdvertEnabled && cfg.locationPrecision > 0) {
+        auto& gps = GPS::instance();
+        FixStatus fs = gps.fixStatus();
+        if (fs == FixStatus::LIVE || fs == FixStatus::LAST_KNOWN) {
+            double lat = gps.cachedLat();
+            double lon = gps.cachedLon();
+
+            if (cfg.locationPrecision < 32) {
+                // Obfuscate by truncating low-order bits (Meshtastic-style precision).
+                // Coordinates are scaled by 1e7 (MeshCore fixed-point convention).
+                // Dropping (32 - precision) bits gives the grid step sizes in the table.
+                auto obfuscate = [](double coord, uint8_t precision) -> double {
+                    uint8_t shift = 32 - precision;
+                    int32_t scaled = (int32_t)(coord * 1e7);
+                    scaled = (scaled >> shift) << shift;
+                    return scaled / 1e7;
+                };
+                lat = obfuscate(lat, cfg.locationPrecision);
+                lon = obfuscate(lon, cfg.locationPrecision);
+            }
+
+            pkt = createSelfAdvert(name, lat, lon);
+            Serial.printf("[MCLiteMesh] Advertised as %s (%.5f, %.5f)\n", name, lat, lon);
+        }
+    }
+
+    if (!pkt) {
+        pkt = createSelfAdvert(name);
+        Serial.printf("[MCLiteMesh] Advertised as %s\n", name);
+    }
+
+    if (!pkt) return false;
     sendWithScope(_globalScope, pkt, 0);
-    Serial.printf("[MCLiteMesh] Advertised as %s\n", name);
     return true;
 }
 

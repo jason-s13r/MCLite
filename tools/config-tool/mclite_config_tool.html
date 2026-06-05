@@ -2700,6 +2700,34 @@ body.v4 *::-webkit-scrollbar-thumb:hover { background: var(--shell-line-2); }
         <div class="error">60–7200</div>
       </div>
     </div>
+    <div class="row">
+      <div class="field">
+        <label>Location Adverts<button type="button" class="info-icon" onclick="toggleHint(this)" aria-label="Toggle hint">i</button></label>
+        <select id="gpsLocationAdvertEnabled">
+          <option value="false" selected>Off</option>
+          <option value="true">On</option>
+        </select>
+        <div class="hint collapsible">Include your location in periodic mesh adverts.</div>
+      </div>
+      <div class="field">
+        <label>Location Precision<button type="button" class="info-icon" onclick="toggleHint(this)" aria-label="Toggle hint">i</button></label>
+        <select id="gpsLocationPrecision">
+          <option value="0">Off (no location)</option>
+          <option value="10">~23 km</option>
+          <option value="11">~12 km</option>
+          <option value="12">~5.8 km</option>
+          <option value="13">~2.9 km</option>
+          <option value="14">~1.5 km</option>
+          <option value="15">~729 m</option>
+          <option value="16">~364 m</option>
+          <option value="17">~182 m</option>
+          <option value="18">~91 m</option>
+          <option value="19">~45 m</option>
+          <option value="32" selected>Full precision</option>
+        </select>
+        <div class="hint collapsible">Obfuscates coordinates before sending. 0 = never send location, 32 = full precision.</div>
+      </div>
+    </div>
   </div>
 
   <!-- Battery -->
@@ -3811,7 +3839,9 @@ function buildConfig() {
       enabled: document.getElementById('gpsEnabled').value === 'true',
       ...(document.getElementById('gpsTimezone').value ? { timezone: document.getElementById('gpsTimezone').value } : {}),
       clock_offset: parseInt(document.getElementById('gpsClockOffset').value) || 0,
-      last_known_max_age: parseInt(document.getElementById('gpsLastKnownMaxAge').value) || 1800
+      last_known_max_age: parseInt(document.getElementById('gpsLastKnownMaxAge').value) || 1800,
+      location_advert_enabled: document.getElementById('gpsLocationAdvertEnabled').value === 'true',
+      location_precision: parseInt(document.getElementById('gpsLocationPrecision').value) || 32
     },
     battery: {
       low_alert_enabled: document.getElementById('batteryAlertEnabled').value === 'true',
@@ -4121,6 +4151,8 @@ async function applyPresetFromUrl(b64) {
     if (cfg.gps.timezone !== undefined) setTimezoneDropdown(cfg.gps.timezone);
     if (cfg.gps.clock_offset !== undefined) document.getElementById('gpsClockOffset').value = cfg.gps.clock_offset;
     if (cfg.gps.last_known_max_age !== undefined) document.getElementById('gpsLastKnownMaxAge').value = cfg.gps.last_known_max_age;
+    if (cfg.gps.location_advert_enabled !== undefined) document.getElementById('gpsLocationAdvertEnabled').value = String(cfg.gps.location_advert_enabled);
+    if (cfg.gps.location_precision !== undefined) document.getElementById('gpsLocationPrecision').value = String(cfg.gps.location_precision);
   }
   if (cfg.battery) {
     if (cfg.battery.low_alert_enabled !== undefined) document.getElementById('batteryAlertEnabled').value = String(cfg.battery.low_alert_enabled);
@@ -4301,6 +4333,8 @@ function loadConfig(cfg) {
   document.getElementById('gpsClockOffset').value = cfg.gps?.clock_offset ?? 0;
   document.getElementById('gpsCoordFormat').value = cfg.messaging?.location_format || 'decimal';
   document.getElementById('gpsLastKnownMaxAge').value = cfg.gps?.last_known_max_age ?? 1800;
+  document.getElementById('gpsLocationAdvertEnabled').value = String(cfg.gps?.location_advert_enabled ?? false);
+  document.getElementById('gpsLocationPrecision').value = String(cfg.gps?.location_precision ?? 32);
 
   // Battery
   document.getElementById('batteryAlertEnabled').value = String(cfg.battery?.low_alert_enabled ?? false);

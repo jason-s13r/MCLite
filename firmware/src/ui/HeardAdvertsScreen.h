@@ -43,7 +43,8 @@ private:
     static void backBtnCb(lv_event_t* e);
     static void clearBtnCb(lv_event_t* e);
     static void advertBtnCb(lv_event_t* e);
-    static void rowClickCb(lv_event_t* e);
+    static void rowInfoBtnCb(lv_event_t* e);
+    static void rowMapBtnCb(lv_event_t* e);
     static void detailBtnCb(lv_event_t* e);
 
     uint32_t _lastAdvertTapMs = 0;  // simple tap rate-limit (avoid duty-cycle spam)

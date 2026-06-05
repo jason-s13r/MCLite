@@ -53,6 +53,8 @@ constexpr bool     GPS_ENABLED           = true;
 constexpr int8_t   GPS_CLOCK_OFFSET      = 0;    // UTC offset in hours (-12 to +14) — legacy fallback
 constexpr const char* GPS_TIMEZONE        = "";   // POSIX TZ string (empty = use clock_offset)
 constexpr uint16_t GPS_LAST_KNOWN_MAX_AGE = 1800; // Seconds (30 min) before last-known becomes NO_FIX
+constexpr bool     GPS_LOCATION_ADVERT_ENABLED = false; // Include location in periodic adverts
+constexpr uint8_t  GPS_LOCATION_PRECISION = 0;  // 0=off, 10-19=obfuscated, 32=full precision
 
 // Battery
 constexpr bool     BATTERY_LOW_ALERT_ENABLED   = false;
