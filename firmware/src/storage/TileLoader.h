@@ -25,6 +25,10 @@ public:
     // True if the specific tile file exists on SD.
     bool tileExists(uint8_t z, int tx, int ty);
 
+    // Compute the geographic center of all tiles at the highest available zoom.
+    // Returns true and fills lat/lon if tiles exist; false otherwise.
+    bool computeCenterFromTiles(double& lat, double& lon);
+
     // Decode the tile into the RGB565 canvas buffer, with the tile's top-left
     // landing at (dstX, dstY) in canvas pixels. Out-of-canvas pixels are
     // clipped. Missing tile -> grey-fills the tile area within the canvas.

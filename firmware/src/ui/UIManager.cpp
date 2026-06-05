@@ -44,6 +44,7 @@ bool UIManager::init() {
 
     // Create all UI components
     _statusBar.create(_mainScreen);
+    _homeScreen.create(_mainScreen);
     _convoList.create(_mainScreen);
     _chatScreen.create(_mainScreen);
     _adminScreen.create(_mainScreen);
@@ -51,6 +52,18 @@ bool UIManager::init() {
     _mapScreen.create(_mainScreen);
 
     // Wire up callbacks
+    _homeScreen.onChat([this]() {
+        openConvoList();
+    });
+
+    _homeScreen.onMap([this]() {
+        showOwnLocationMap();
+    });
+
+    _convoList.onBack([this]() {
+        popScreen();
+    });
+
     _convoList.onSelect([this](const ConvoId& id) {
         openChat(id);
     });
@@ -64,15 +77,34 @@ bool UIManager::init() {
     });
 
     _chatScreen.onBack([this]() {
-        goHome();
+        popScreen();
     });
 
     _mapScreen.onBack([this]() {
-        if (_prevScreenBeforeMap == Screen::CHAT) {
-            showScreen(Screen::CHAT);
-            _chatScreen.show();
+        popScreen();
+    });
+
+    _mapScreen.onRefresh([this]() {
+        // Refresh: re-request telemetry for the current contact if viewing
+        // their map, or just re-center on own GPS if in own-location mode.
+        if (_mapScreen.isOwnLocationMode()) {
+            // Re-center on current GPS (or last known)
+            _mapScreen.recenter();
         } else {
-            showScreen(_prevScreenBeforeMap);
+            // Find contact and request fresh telemetry
+            auto& contacts = ContactStore::instance();
+            for (size_t i = 0; i < contacts.count(); i++) {
+                const Contact* c = contacts.findByIndex(i);
+                if (c && c->name == _mapScreen.contactName()) {
+                    uint32_t estTimeout = 0;
+                    if (MeshManager::instance().requestTelemetry(i, estTimeout)) {
+                        showToast(t("telem_requesting"));
+                    } else {
+                        showToast(t("telem_send_failed"));
+                    }
+                    break;
+                }
+            }
         }
     });
 
@@ -160,8 +192,8 @@ void UIManager::update() {
     // Suppressed while the screen is key-locked or PIN-locked so the lock
     // can't be bypassed to reach Admin.
     if (Pmu::instance().consumeShortPress() && !_keyLocked && !_isLocked) {
-        if (_currentScreen == Screen::ADMIN) goHome();
-        else                                  showScreen(Screen::ADMIN);
+        if (_currentScreen == Screen::ADMIN) popScreen();
+        else                                  pushScreen(Screen::ADMIN);
         _lastActivity = now;
     }
 #endif
@@ -214,7 +246,8 @@ void UIManager::update() {
     }
 
     // Periodic convo list refresh (update timestamps like "12s", "3m")
-    if (_currentScreen == Screen::CONVO_LIST && now - _lastConvoRefresh >= CONVO_REFRESH_MS) {
+    if ((_currentScreen == Screen::CONVO_LIST || _currentScreen == Screen::HOME)
+        && now - _lastConvoRefresh >= CONVO_REFRESH_MS) {
         _convoList.refresh();
         _lastConvoRefresh = now;
     }
@@ -282,7 +315,8 @@ void UIManager::checkWake() {
 
 void UIManager::loadMainScreen() {
     lv_scr_load(_mainScreen);
-    showScreen(Screen::CONVO_LIST);
+    _navStack.clear();
+    showScreen(Screen::HOME);
     lv_timer_handler();
 }
 
@@ -290,6 +324,7 @@ void UIManager::showScreen(Screen screen) {
     // Dismiss telemetry modal if open (it's a top-level overlay)
     if (_telemMsgbox) dismissTelemetryModal();
 
+    _homeScreen.hide();
     _convoList.hide();
     _chatScreen.hide();
     _adminScreen.hide();
@@ -297,6 +332,9 @@ void UIManager::showScreen(Screen screen) {
     _mapScreen.hide();
 
     switch (screen) {
+        case Screen::HOME:
+            _homeScreen.show();
+            break;
         case Screen::CONVO_LIST:
             _convoList.show();
             _lastConvoRefresh = millis();
@@ -329,7 +367,7 @@ void UIManager::showScreen(Screen screen) {
 }
 
 void UIManager::openChat(const ConvoId& id) {
-    showScreen(Screen::CHAT);  // Hide other screens first
+    pushScreen(Screen::CHAT);  // Push current screen, then hide others
     _chatScreen.open(id);      // open() calls show() internally
 
     // Decision #14 — re-login on ROOM ChatScreen open. Wakes any server-side
@@ -347,7 +385,38 @@ void UIManager::openChat(const ConvoId& id) {
 }
 
 void UIManager::goHome() {
-    showScreen(Screen::CONVO_LIST);
+    _navStack.clear();
+    showScreen(Screen::HOME);
+}
+
+void UIManager::openConvoList() {
+    pushScreen(Screen::CONVO_LIST);
+}
+
+void UIManager::pushScreen(Screen screen) {
+    // Don't push duplicates of the same screen consecutively
+    if (_currentScreen != screen) {
+        _navStack.push_back(_currentScreen);
+    }
+    showScreen(screen);
+}
+
+void UIManager::popScreen() {
+    if (_navStack.empty()) {
+        goHome();
+        return;
+    }
+    Screen prev = _navStack.back();
+    _navStack.pop_back();
+    showScreen(prev);
+    // ChatScreen needs an explicit show() because showScreen(CHAT) is a no-op
+    if (prev == Screen::CHAT) {
+        _chatScreen.show();
+    }
+}
+
+bool UIManager::canGoBack() const {
+    return !_navStack.empty();
 }
 
 void UIManager::onIncomingMessage(const ConvoId& id, const Message& msg) {
@@ -367,8 +436,8 @@ void UIManager::onIncomingMessage(const ConvoId& id, const Message& msg) {
         MessageStore::instance().markRead(id);
     }
 
-    // If on convo list, refresh it
-    if (_currentScreen == Screen::CONVO_LIST) {
+    // If on convo list or home, refresh it
+    if (_currentScreen == Screen::CONVO_LIST || _currentScreen == Screen::HOME) {
         _convoList.refresh();
     }
 
@@ -1159,7 +1228,7 @@ void UIManager::sendSOSToAll() {
     // Refresh chat view if open
     if (_currentScreen == Screen::CHAT) {
         _chatScreen.refresh();
-    } else if (_currentScreen == Screen::CONVO_LIST) {
+    } else if (_currentScreen == Screen::CONVO_LIST || _currentScreen == Screen::HOME) {
         _convoList.refresh();
     }
 
@@ -1579,9 +1648,13 @@ void UIManager::telemBtnCb(lv_event_t* e) {
 
 void UIManager::showMapScreen(double lat, double lon, const String& contactName,
                                 uint32_t contactLocationAgeMs) {
-    _prevScreenBeforeMap = _currentScreen;
-    showScreen(Screen::MAP);
+    pushScreen(Screen::MAP);
     _mapScreen.open(lat, lon, contactName, contactLocationAgeMs);
+}
+
+void UIManager::showOwnLocationMap() {
+    pushScreen(Screen::MAP);
+    _mapScreen.openOwnLocation();
 }
 
 void UIManager::buildTelemetryMsgbox() {

@@ -27,6 +27,9 @@ public:
     void open(double contactLat, double contactLon, const String& contactName,
               uint32_t contactLocationAgeMs = UINT32_MAX);
 
+    // Open centered on the user's own GPS position (no contact marker).
+    void openOwnLocation();
+
     // Close — hides and fires onBack callback so UIManager restores prev screen.
     void close();
 
@@ -34,6 +37,15 @@ public:
 
     // Callback when user presses back / Esc
     void onBack(std::function<void()> cb) { _onBack = cb; }
+
+    // Callback when user presses refresh (request telemetry + re-center)
+    void onRefresh(std::function<void()> cb) { _onRefresh = cb; }
+
+    bool isOwnLocationMode() const { return _ownLocationMode; }
+    const String& contactName() const { return _contactName; }
+
+    // Re-center on the current contact or own GPS position
+    void recenter();
 
 private:
     // --- lifecycle ---
@@ -54,6 +66,7 @@ private:
 
     // --- input ---
     static void backBtnCb(lv_event_t* e);
+    static void refreshBtnCb(lv_event_t* e);
     static void zoomInCb(lv_event_t* e);
     static void zoomOutCb(lv_event_t* e);
     static void centerBtnCb(lv_event_t* e);
@@ -72,6 +85,7 @@ private:
     lv_obj_t*   _canvas       = nullptr;
     lv_color_t* _cbuf         = nullptr;
     lv_obj_t*   _backBtn      = nullptr;
+    lv_obj_t*   _refreshBtn   = nullptr;
     lv_obj_t*   _zoomInBtn    = nullptr;
     lv_obj_t*   _zoomOutBtn   = nullptr;
     lv_obj_t*   _centerBtn    = nullptr;    lv_obj_t*   _panUpBtn     = nullptr;
@@ -83,6 +97,7 @@ private:
     lv_group_t* _prevGroup    = nullptr;
 
     std::function<void()> _onBack;
+    std::function<void()> _onRefresh;
     lv_obj_t* _parent = nullptr;
 
     // Original contact location — set once in open(), used by drawContactMarker
@@ -91,6 +106,7 @@ private:
     double   _contactLon = 0.0;
     uint32_t _contactLocationAgeMs = UINT32_MAX;
     String   _contactName;
+    bool     _ownLocationMode = false;
 
     // Current viewport centre — starts at the contact location, mutated by
     // drag-to-pan and reset by the Center button.

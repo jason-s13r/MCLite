@@ -1,6 +1,7 @@
 #include "MapScreen.h"
 #include "UIManager.h"
 #include "theme.h"
+#include "../i18n/I18n.h"
 #include "../storage/TileLoader.h"
 #include "../util/slippy.h"
 #include "../hal/GPS.h"
@@ -46,6 +47,7 @@ void MapScreen::hide() {
 
 void MapScreen::open(double contactLat, double contactLon, const String& contactName,
                      uint32_t contactLocationAgeMs) {
+    _ownLocationMode = false;
     _contactLat = contactLat;
     _contactLon = contactLon;
     _centerLat  = contactLat;
@@ -105,9 +107,118 @@ void MapScreen::open(double contactLat, double contactLon, const String& contact
 
     pickInitialZoom();
 
-    // Update title
+    // Update title with breadcrumb: "@ {name} > Map"
     if (_titleLabel) {
-        lv_label_set_text(_titleLabel, _contactName.c_str());
+        String titleText = String("@ ") + _contactName + " > Map";
+        lv_label_set_text(_titleLabel, titleText.c_str());
+    }
+
+    show();
+    render();
+}
+
+void MapScreen::openOwnLocation() {
+    _ownLocationMode = true;
+    _contactName = t("map_my_location");
+
+    auto& gps = GPS::instance();
+    FixStatus fs = gps.fixStatus();
+    bool noFix = (fs == FixStatus::NO_FIX);
+
+    if (fs == FixStatus::LIVE) {
+        _centerLat = gps.lat();
+        _centerLon = gps.lon();
+    } else if (fs == FixStatus::LAST_KNOWN) {
+        _centerLat = gps.cachedLat();
+        _centerLon = gps.cachedLon();
+    } else {
+        // No fix at all — try to derive a meaningful center so the map is usable
+        _centerLat = 0.0;
+        _centerLon = 0.0;
+        auto& loader = TileLoader::instance();
+        if (loader.computeCenterFromTiles(_centerLat, _centerLon)) {
+            Serial.printf("[MapScreen] no fix: using tile-derived center %.5f,%.5f\n",
+                          _centerLat, _centerLon);
+        } else if (gps.loadLastLocation()) {
+            _centerLat = gps.cachedLat();
+            _centerLon = gps.cachedLon();
+            Serial.printf("[MapScreen] no fix: using SD-persisted last location %.5f,%.5f\n",
+                          _centerLat, _centerLon);
+        } else {
+            Serial.println("[MapScreen] no fix: no tiles or persisted location; defaulting to 0,0");
+        }
+    }
+    _contactLat = _centerLat;
+    _contactLon = _centerLon;
+    _contactLocationAgeMs = UINT32_MAX;
+
+    _zooms = TileLoader::instance().availableZooms();
+    if (_zooms.empty()) {
+        Serial.println("[MapScreen] no tiles available; aborting openOwnLocation");
+        return;
+    }
+
+    if (!_screen) {
+        _canvasW = Display::width();
+        _canvasH = Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT;
+
+        static lv_color_t* s_cbuf = nullptr;
+        const size_t bytes = (size_t)Display::width() * (size_t)Display::height() * sizeof(lv_color_t);
+        if (!s_cbuf) {
+            s_cbuf = (lv_color_t*)heap_caps_malloc(bytes,
+                MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        }
+        if (!s_cbuf) {
+            Serial.printf("[MapScreen] PSRAM alloc failed (%u B); free SPIRAM=%u "
+                          "largest=%u\n", (unsigned)bytes,
+                          (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                          (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
+            return;
+        }
+        _cbuf = s_cbuf;
+
+        buildWidgets();
+
+    #ifdef PLATFORM_TDECK
+        _prevGroup = UIManager::instance().inputGroup();
+        _mapGroup = lv_group_create();
+        lv_group_add_obj(_mapGroup, _backBtn);
+        lv_group_add_obj(_mapGroup, _zoomInBtn);
+        lv_group_add_obj(_mapGroup, _centerBtn);
+        lv_group_add_obj(_mapGroup, _panUpBtn);
+        lv_group_add_obj(_mapGroup, _panDownBtn);
+        lv_group_add_obj(_mapGroup, _panLeftBtn);
+        lv_group_add_obj(_mapGroup, _panRightBtn);
+        lv_group_add_obj(_mapGroup, _zoomOutBtn);
+        lv_group_focus_obj(_backBtn);
+        if (Keyboard::instance().indev())
+            lv_indev_set_group(Keyboard::instance().indev(), _mapGroup);
+        if (Trackball::instance().indev())
+            lv_indev_set_group(Trackball::instance().indev(), _mapGroup);
+    #endif
+    }
+
+    // Pick zoom: when no fix, force zoom=6 (or closest available ≤6)
+    _zoomIdx = 0;
+    if (noFix) {
+        for (int i = (int)_zooms.size() - 1; i >= 0; i--) {
+            if (_zooms[i] <= 6) {
+                _zoomIdx = i;
+                break;
+            }
+        }
+    } else {
+        for (int i = (int)_zooms.size() - 1; i >= 0; i--) {
+            if (_zooms[i] <= 15) {
+                _zoomIdx = i;
+                break;
+            }
+        }
+    }
+    _zoom = _zooms[_zoomIdx];
+
+    if (_titleLabel) {
+        lv_label_set_text(_titleLabel, "Map");
     }
 
     show();
@@ -240,7 +351,23 @@ void MapScreen::buildWidgets() {
     lv_obj_t* title = lv_win_add_title(_win, _contactName.c_str());
     lv_obj_set_style_text_font(title, FONT_HEADING, 0);
     lv_obj_set_style_text_color(title, theme::TEXT_PRIMARY, 0);
+    lv_obj_set_flex_grow(title, 1);  // let title expand to fill space
     _titleLabel = title;
+
+    // Refresh button (rightmost in header)
+    _refreshBtn = lv_win_add_btn(_win, LV_SYMBOL_REFRESH, MAP_BTN);
+    lv_obj_set_style_bg_opa(_refreshBtn, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_shadow_width(_refreshBtn, 0, 0);
+    lv_obj_set_style_border_width(_refreshBtn, 0, 0);
+    lv_obj_add_event_cb(_refreshBtn, &MapScreen::refreshBtnCb, LV_EVENT_CLICKED, this);
+    {
+        lv_obj_t* lbl = lv_obj_get_child(_refreshBtn, 0);
+        if (lbl) {
+            lv_obj_set_style_text_font(lbl, MAP_BTN_FONT, 0);
+            lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
+            lv_obj_center(lbl);
+        }
+    }
 
     // Content area
     lv_obj_t* content = lv_win_get_content(_win);
@@ -377,7 +504,9 @@ void MapScreen::render() {
     if (!_canvas || !_cbuf) return;
     renderTiles();
     drawOwnMarker();
-    drawContactMarker();
+    if (!_ownLocationMode) {
+        drawContactMarker();
+    }
     drawCrosshair();
     drawScaleBar();
     lv_obj_invalidate(_canvas);
@@ -524,6 +653,32 @@ void MapScreen::updateZoomButtons() {
 void MapScreen::backBtnCb(lv_event_t* e) {
     MapScreen* self = static_cast<MapScreen*>(lv_event_get_user_data(e));
     if (self) self->close();
+}
+
+void MapScreen::refreshBtnCb(lv_event_t* e) {
+    MapScreen* self = static_cast<MapScreen*>(lv_event_get_user_data(e));
+    if (!self) return;
+    if (self->_onRefresh) self->_onRefresh();
+}
+
+void MapScreen::recenter() {
+    if (_ownLocationMode) {
+        auto& gps = GPS::instance();
+        FixStatus fs = gps.fixStatus();
+        if (fs == FixStatus::LIVE) {
+            _centerLat = gps.lat();
+            _centerLon = gps.lon();
+        } else if (fs == FixStatus::LAST_KNOWN) {
+            _centerLat = gps.cachedLat();
+            _centerLon = gps.cachedLon();
+        }
+        _contactLat = _centerLat;
+        _contactLon = _centerLon;
+    } else {
+        _centerLat = _contactLat;
+        _centerLon = _contactLon;
+    }
+    render();
 }
 
 void MapScreen::zoomInCb(lv_event_t* e) {

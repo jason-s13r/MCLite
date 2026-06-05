@@ -37,6 +37,14 @@ inline TileFrac latLonToTileXY(double lat, double lon, uint8_t z) {
     return out;
 }
 
+// Inverse: fractional tile XY → lat/lon.
+inline void tileXYToLatLon(double x, double y, uint8_t z, double& lat, double& lon) {
+    const double n = (double)slippyTileCount(z);
+    lon = x / n * 360.0 - 180.0;
+    const double latRad = atan(sinh(M_PI * (1.0 - 2.0 * y / n)));
+    lat = latRad * 180.0 / M_PI;
+}
+
 // Ground distance per pixel at the given latitude and zoom (meters/pixel).
 // Web Mercator standard: 156543.03 * cos(lat) / 2^z.
 inline double metersPerPixel(double lat, uint8_t z) {

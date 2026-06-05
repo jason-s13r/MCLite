@@ -59,6 +59,11 @@ public:
     // Format with explicit fix status and age qualifier
     String   formatLocationWithStatus() const;
 
+    // Persist / restore last known location to SD so the map can open
+    // without a live GPS fix. Saved automatically on every good fix.
+    void saveLastLocation();
+    bool loadLastLocation();
+
     TinyGPSPlus& raw() { return _gps; }
 
     static GPS& instance();

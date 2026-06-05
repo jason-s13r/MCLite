@@ -323,14 +323,14 @@ static void handleKeyShortcuts() {
         return;
     }
 
-    if (key == 0x1B && ui.currentScreen() != Screen::CONVO_LIST) {
+    if (key == 0x1B && ui.currentScreen() != Screen::HOME) {
         ui.goHome();
         IInput::instance().clearKey();
         return;
     }
-    if (key == '0' && ui.currentScreen() == Screen::CONVO_LIST &&
+    if (key == '0' && ui.currentScreen() == Screen::HOME &&
         ConfigManager::instance().config().security.adminEnabled) {
-        ui.showScreen(Screen::ADMIN);
+        ui.pushScreen(Screen::ADMIN);
         IInput::instance().clearKey();
         return;
     }

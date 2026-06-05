@@ -38,7 +38,7 @@ void AdminScreen::create(lv_obj_t* parent) {
     lv_obj_clear_flag(_screen, LV_OBJ_FLAG_GESTURE_BUBBLE);
     lv_obj_add_event_cb(_screen, [](lv_event_t* e) {
         lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-        if (dir == LV_DIR_RIGHT) UIManager::instance().goHome();
+        if (dir == LV_DIR_RIGHT) UIManager::instance().popScreen();
     }, LV_EVENT_GESTURE, nullptr);
 #endif
 
@@ -194,7 +194,7 @@ void AdminScreen::show() {
         lv_label_set_text(chev, LV_SYMBOL_RIGHT);
 
         lv_obj_add_event_cb(row, [](lv_event_t* e) {
-            UIManager::instance().showScreen(Screen::HEARD_ADVERTS);
+            UIManager::instance().pushScreen(Screen::HEARD_ADVERTS);
         }, LV_EVENT_CLICKED, nullptr);
     }
 
@@ -574,7 +574,7 @@ void AdminScreen::show() {
 }
 
 void AdminScreen::backBtnCb(lv_event_t* e) {
-    UIManager::instance().goHome();
+    UIManager::instance().popScreen();
 }
 
 void AdminScreen::offgridToggleCb(lv_event_t* e) {

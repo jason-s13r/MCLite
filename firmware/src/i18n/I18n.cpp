@@ -173,6 +173,11 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"toast_muted",         "Chat muted"},
     {"toast_unmuted",       "Chat unmuted"},
 
+    // Home screen
+    {"btn_chat",            "Chat"},
+    {"chats_title",         "Chats"},
+    {"map_my_location",     "My Location"},
+
     {nullptr, nullptr}  // sentinel
 };
 

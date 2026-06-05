@@ -23,10 +23,53 @@ void ConvoListScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_pad_all(_screen, 0, 0);
     lv_obj_clear_flag(_screen, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Scrollable list container
-    _list = lv_obj_create(_screen);
-    lv_obj_set_size(_list, theme::CONTENT_WIDTH,
+    _win = lv_win_create(_screen, theme::CHAT_HEADER_HEIGHT);
+    lv_obj_set_size(_win, Display::width(),
                     Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT);
+    lv_obj_align(_win, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_set_style_bg_color(_win, theme::BG_PRIMARY, 0);
+    lv_obj_set_style_bg_opa(_win, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(_win, 0, 0);
+    lv_obj_set_style_radius(_win, 0, 0);
+    lv_obj_set_style_pad_all(_win, 0, 0);
+    lv_obj_clear_flag(_win, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Style the header
+    lv_obj_t* header = lv_win_get_header(_win);
+    lv_obj_set_style_bg_color(header, theme::BG_STATUS_BAR, 0);
+    lv_obj_set_style_bg_opa(header, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(header, 0, 0);
+    lv_obj_set_style_radius(header, 0, 0);
+    lv_obj_set_style_pad_all(header, theme::PAD_SMALL, 0);
+    lv_obj_set_style_pad_hor(header, theme::CHAT_HEADER_PAD_HOR, 0);
+
+    // Back button
+    lv_obj_t* backBtn = lv_win_add_btn(_win, LV_SYMBOL_LEFT, theme::BTN_HEADER_BACK_W);
+    lv_obj_set_style_bg_opa(backBtn, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_shadow_width(backBtn, 0, 0);
+    lv_obj_set_style_border_width(backBtn, 0, 0);
+    lv_obj_add_event_cb(backBtn, backBtnCb, LV_EVENT_CLICKED, this);
+
+    lv_obj_t* backLbl = lv_obj_get_child(backBtn, 0);
+    lv_obj_set_style_text_font(backLbl, FONT_HEADING, 0);
+    lv_obj_set_style_text_color(backLbl, theme::ACCENT, 0);
+
+    // Title
+    lv_obj_t* title = lv_win_add_title(_win, t("chats_title"));
+    lv_obj_set_style_text_font(title, FONT_HEADING, 0);
+    lv_obj_set_style_text_color(title, theme::TEXT_PRIMARY, 0);
+
+    // Content area
+    lv_obj_t* content = lv_win_get_content(_win);
+    lv_obj_set_style_bg_opa(content, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(content, 0, 0);
+    lv_obj_set_style_pad_all(content, 0, 0);
+    lv_obj_clear_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+
+    // Scrollable list container inside content
+    _list = lv_obj_create(content);
+    lv_obj_set_size(_list, theme::CONTENT_WIDTH,
+                    Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT - theme::CHAT_HEADER_HEIGHT);
     lv_obj_align(_list, LV_ALIGN_TOP_MID, 0, 0);
     lv_obj_set_style_bg_opa(_list, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(_list, 0, 0);
@@ -43,16 +86,26 @@ void ConvoListScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_bg_color(_list, theme::TEXT_SECONDARY, LV_PART_SCROLLBAR);
 
     // Empty state hint
-    _emptyHint = lv_label_create(_screen);
+    _emptyHint = lv_label_create(content);
     lv_obj_set_style_text_font(_emptyHint, FONT_HEADING, 0);
     lv_obj_set_style_text_color(_emptyHint, theme::TEXT_SECONDARY, 0);
     lv_label_set_text(_emptyHint, t("no_contacts"));
     lv_obj_set_style_text_align(_emptyHint, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(_emptyHint, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_flag(_emptyHint, LV_OBJ_FLAG_HIDDEN);
-    // On T-Watch admin is reached via the upper power button (AXP2101 PEK
-    // short-press). On T-Deck via the QWERTY '0' shortcut. No on-screen
-    // gear button on either board.
+
+#ifdef PLATFORM_TWATCH
+    lv_obj_clear_flag(_screen, LV_OBJ_FLAG_GESTURE_BUBBLE);
+    lv_obj_add_event_cb(_screen, [](lv_event_t* e) {
+        lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
+        if (dir == LV_DIR_RIGHT) {
+            ConvoListScreen* self = static_cast<ConvoListScreen*>(lv_event_get_user_data(e));
+            if (self && self->_onBack) self->_onBack();
+        }
+    }, LV_EVENT_GESTURE, this);
+#endif
+
+    lv_obj_add_flag(_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
 void ConvoListScreen::refresh() {
@@ -337,6 +390,11 @@ void ConvoListScreen::rowLongPressCb(lv_event_t* e) {
 
     // Refresh the row to update the mute indicator
     self->refresh();
+}
+
+void ConvoListScreen::backBtnCb(lv_event_t* e) {
+    ConvoListScreen* self = static_cast<ConvoListScreen*>(lv_event_get_user_data(e));
+    if (self && self->_onBack) self->_onBack();
 }
 
 void ConvoListScreen::show() {

@@ -47,7 +47,7 @@ void ChatScreen::create(lv_obj_t* parent) {
         auto* self = static_cast<ChatScreen*>(lv_event_get_user_data(e));
         if (self->_kbd && !lv_obj_has_flag(self->_kbd, LV_OBJ_FLAG_HIDDEN)) return;
         lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_get_act());
-        if (dir == LV_DIR_RIGHT) UIManager::instance().goHome();
+        if (dir == LV_DIR_RIGHT) UIManager::instance().popScreen();
     }, LV_EVENT_GESTURE, this);
 #endif
 

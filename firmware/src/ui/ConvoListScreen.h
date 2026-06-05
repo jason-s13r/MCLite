@@ -8,6 +8,7 @@ namespace mclite {
 
 using OnConvoSelectCallback = std::function<void(const ConvoId& id)>;
 using OnConvoMuteCallback   = std::function<void(const ConvoId& id, bool muted)>;
+using OnConvoBackCallback   = std::function<void()>;
 
 class ConvoListScreen {
 public:
@@ -18,20 +19,24 @@ public:
 
     void onSelect(OnConvoSelectCallback cb) { _onSelect = cb; }
     void onMute(OnConvoMuteCallback cb)   { _onMute = cb; }
+    void onBack(OnConvoBackCallback cb)   { _onBack = cb; }
 
     lv_obj_t* obj() { return _screen; }
 
 private:
     lv_obj_t* _screen    = nullptr;
+    lv_obj_t* _win       = nullptr;
     lv_obj_t* _list      = nullptr;
     lv_obj_t* _emptyHint = nullptr;
 
     OnConvoSelectCallback _onSelect;
     OnConvoMuteCallback   _onMute;
+    OnConvoBackCallback   _onBack;
 
     void addConvoRow(Conversation* convo);
     static void rowClickCb(lv_event_t* e);
     static void rowLongPressCb(lv_event_t* e);
+    static void backBtnCb(lv_event_t* e);
 
     // Format last-seen age from millis() timestamp
     static String formatLastSeen(uint32_t lastSeenMs);

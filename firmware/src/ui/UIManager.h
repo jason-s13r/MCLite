@@ -1,7 +1,9 @@
 #pragma once
 
 #include <lvgl.h>
+#include <vector>
 #include "StatusBar.h"
+#include "HomeScreen.h"
 #include "ConvoListScreen.h"
 #include "ChatScreen.h"
 #include "AdminScreen.h"
@@ -12,6 +14,7 @@
 namespace mclite {
 
 enum class Screen {
+    HOME,
     CONVO_LIST,
     CHAT,
     ADMIN,
@@ -28,6 +31,13 @@ public:
     void showScreen(Screen screen);
     void openChat(const ConvoId& id);
     void goHome();
+    void openConvoList();
+
+    // Navigation stack: push current screen before opening a new one,
+    // pop to go back. Replaces the old single _prevScreenBeforeMap.
+    void pushScreen(Screen screen);
+    void popScreen();
+    bool canGoBack() const;
 
     // Called when a new message arrives (from MeshManager callback)
     void onIncomingMessage(const ConvoId& id, const Message& msg);
@@ -89,9 +99,10 @@ public:
     void updateTelemetryModal(const uint8_t* pubKey);
     void updateChatMapButton(const uint8_t* pubKey);
 
-    // Map screen (opened from telemetry modal)
+    // Map screen (opened from telemetry modal or home screen)
     void showMapScreen(double lat, double lon, const String& contactName,
                        uint32_t contactLocationAgeMs = UINT32_MAX);
+    void showOwnLocationMap();
 
     // Brief auto-dismissing toast on top layer. Non-modal — doesn't steal
     // focus and disappears after `durationMs` (default 1500ms).
@@ -108,9 +119,10 @@ public:
 
 private:
     UIManager() = default;
-    Screen _currentScreen = Screen::CONVO_LIST;
+    Screen _currentScreen = Screen::HOME;
 
     StatusBar           _statusBar;
+    HomeScreen          _homeScreen;
     ConvoListScreen     _convoList;
     ChatScreen          _chatScreen;
     AdminScreen         _adminScreen;
@@ -192,7 +204,7 @@ private:
 
     // Map screen state
     MapScreen _mapScreen;
-    Screen    _prevScreenBeforeMap = Screen::CONVO_LIST;
+    std::vector<Screen> _navStack;
 
 
     // ─── Room state (decisions #14, #15 from room-server-plan.md) ───

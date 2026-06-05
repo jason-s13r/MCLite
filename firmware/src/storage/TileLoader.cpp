@@ -1,5 +1,6 @@
 #include "TileLoader.h"
 #include "SDCard.h"
+#include "../util/slippy.h"
 #include <PNGdec.h>
 #include <SD.h>
 #include <Arduino.h>
@@ -176,6 +177,78 @@ bool TileLoader::tileExists(uint8_t z, int tx, int ty) {
     char path[48];
     snprintf(path, sizeof(path), "/tiles/%u/%d/%d.png", (unsigned)z, tx, ty);
     return SDCard::instance().fileExists(path);
+}
+
+bool TileLoader::computeCenterFromTiles(double& lat, double& lon) {
+    if (!tilesAvailable() || _zooms.empty()) return false;
+
+    // Use the highest zoom level (most detailed / most focused area)
+    uint8_t z = _zooms.back();
+    char zPath[24];
+    snprintf(zPath, sizeof(zPath), "/tiles/%u", (unsigned)z);
+
+    auto& sd = SDCard::instance();
+    if (!sd.isMounted() || !sd.dirExists(zPath)) return false;
+
+    File zRoot = SD.open(zPath);
+    if (!zRoot || !zRoot.isDirectory()) {
+        if (zRoot) zRoot.close();
+        return false;
+    }
+
+    int64_t sumX = 0, sumY = 0;
+    uint32_t count = 0;
+    int minX = INT_MAX, maxX = INT_MIN;
+    int minY = INT_MAX, maxY = INT_MIN;
+
+    File xDir = zRoot.openNextFile();
+    while (xDir) {
+        if (xDir.isDirectory()) {
+            String xName = xDir.name();
+            int slash = xName.lastIndexOf('/');
+            if (slash >= 0) xName = xName.substring(slash + 1);
+            if (!xName.startsWith("._")) {
+                int tx = xName.toInt();
+                if (tx >= 0 || xName == "0") {
+                    File yFile = xDir.openNextFile();
+                    while (yFile) {
+                        String yName = yFile.name();
+                        int ySlash = yName.lastIndexOf('/');
+                        if (ySlash >= 0) yName = yName.substring(ySlash + 1);
+                        if (!yName.startsWith("._") && yName.endsWith(".png")) {
+                            String core = yName.substring(0, yName.length() - 4);
+                            int ty = core.toInt();
+                            if (ty >= 0 || core == "0") {
+                                sumX += tx;
+                                sumY += ty;
+                                if (tx < minX) minX = tx;
+                                if (tx > maxX) maxX = tx;
+                                if (ty < minY) minY = ty;
+                                if (ty > maxY) maxY = ty;
+                                count++;
+                            }
+                        }
+                        yFile.close();
+                        yFile = xDir.openNextFile();
+                    }
+                }
+            }
+        }
+        xDir.close();
+        xDir = zRoot.openNextFile();
+    }
+    zRoot.close();
+
+    if (count == 0) return false;
+
+    // Use the bounding-box center (more robust than mean against outliers)
+    double cx = (minX + maxX) / 2.0 + 0.5;  // +0.5 for tile center
+    double cy = (minY + maxY) / 2.0 + 0.5;
+    tileXYToLatLon(cx, cy, z, lat, lon);
+
+    Serial.printf("[TileLoader] tile center: z=%u tiles=%u bbox(%d,%d)-(%d,%d) -> %.5f,%.5f\n",
+                  (unsigned)z, count, minX, minY, maxX, maxY, lat, lon);
+    return true;
 }
 
 bool TileLoader::ensurePngWorkspace() {
