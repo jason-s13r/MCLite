@@ -3,12 +3,16 @@
 #include "theme.h"
 #include "../i18n/I18n.h"
 #include "../storage/TileLoader.h"
+#include "../storage/HeardAdvertCache.h"
+#include "../storage/TelemetryCache.h"
+#include "../mesh/ContactStore.h"
 #include "../util/slippy.h"
 #include "../hal/GPS.h"
 #ifdef PLATFORM_TDECK
 #include "../input/Keyboard.h"
 #include "../input/Trackball.h"
 #endif
+#include <helpers/AdvertDataHelpers.h>
 #include <math.h>
 #include <algorithm>
 #include <esp_heap_caps.h>
@@ -504,6 +508,7 @@ void MapScreen::render() {
     if (!_canvas || !_cbuf) return;
     renderTiles();
     drawOwnMarker();
+    drawNodeMarkers();
     if (!_ownLocationMode) {
         drawContactMarker();
     }
@@ -567,6 +572,63 @@ static void drawRect(lv_color_t* buf, int bufW, int bufH, int x0, int y0, int w,
             if (x < 0 || x >= bufW) continue;
             buf[y * bufW + x] = c;
         }
+    }
+}
+
+void MapScreen::drawNodeMarkers() {
+    TileFrac fc = latLonToTileXY(_centerLat, _centerLon, _zoom);
+
+    // 1. Contacts with known GPS from telemetry cache
+    auto& contacts = ContactStore::instance();
+    auto& telemCache = TelemetryCache::instance();
+    for (const auto& c : contacts.all()) {
+        const TelemetryData* td = telemCache.get(c.publicKey);
+        if (!td || !td->hasLocation) continue;
+
+        TileFrac f = latLonToTileXY(td->lat, td->lon, _zoom);
+        int dx = (int)((f.x - fc.x) * (double)TILE);
+        int dy = (int)((f.y - fc.y) * (double)TILE);
+        int px = _canvasW / 2 + dx;
+        int py = _canvasH / 2 + dy;
+        if (px < -4 || px >= _canvasW + 4 || py < -4 || py >= _canvasH + 4) continue;
+        drawDot(_cbuf, _canvasW, _canvasH, px, py, 3, theme::ACCENT, lv_color_black());
+    }
+
+    // 2. Heard adverts with GPS (skip pubkeys already drawn as contacts)
+    auto& heardCache = HeardAdvertCache::instance();
+    const HeardAdvert* entries = heardCache.entries();
+    int heardCount = heardCache.count();
+    for (int i = 0; i < heardCount; i++) {
+        const HeardAdvert& e = entries[i];
+        if (!e.hasGps) continue;
+
+        bool isContact = false;
+        for (const auto& c : contacts.all()) {
+            if (memcmp(c.publicKey, e.pubKey, 32) == 0) {
+                isContact = true;
+                break;
+            }
+        }
+        if (isContact) continue;
+
+        double lat = e.gpsLat / 1e6;
+        double lon = e.gpsLon / 1e6;
+        TileFrac f = latLonToTileXY(lat, lon, _zoom);
+        int dx = (int)((f.x - fc.x) * (double)TILE);
+        int dy = (int)((f.y - fc.y) * (double)TILE);
+        int px = _canvasW / 2 + dx;
+        int py = _canvasH / 2 + dy;
+        if (px < -4 || px >= _canvasW + 4 || py < -4 || py >= _canvasH + 4) continue;
+
+        lv_color_t color;
+        switch (e.type) {
+            case ADV_TYPE_CHAT:     color = theme::ACCENT; break;
+            case ADV_TYPE_REPEATER: color = theme::TEXT_PRIMARY; break;
+            case ADV_TYPE_ROOM:     color = theme::ROOM_ACCENT; break;
+            case ADV_TYPE_SENSOR:   color = theme::OFFGRID_ACCENT; break;
+            default:                color = theme::TEXT_TIMESTAMP; break;
+        }
+        drawDot(_cbuf, _canvasW, _canvasH, px, py, 3, color, lv_color_black());
     }
 }
 

@@ -58,6 +58,7 @@ private:
     void renderTiles();
     void drawContactMarker();
     void drawOwnMarker();
+    void drawNodeMarkers();
     void drawScaleBar();
     void drawCrosshair();
     void updateZoomButtons();
