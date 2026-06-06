@@ -182,8 +182,17 @@ bool TileLoader::tileExists(uint8_t z, int tx, int ty) {
 bool TileLoader::computeCenterFromTiles(double& lat, double& lon) {
     if (!tilesAvailable() || _zooms.empty()) return false;
 
-    // Use the highest zoom level (most detailed / most focused area)
-    uint8_t z = _zooms.back();
+    // Pick a zoom level for scanning: prefer a mid-range zoom (6-10) which has
+    // far fewer tiles than high zooms (e.g. 19). This avoids freezing when
+    // the user has deep tile pyramids. Fall back to lowest zoom if no mid.
+    uint8_t z = _zooms.front();
+    for (uint8_t candidate : _zooms) {
+        if (candidate >= 6 && candidate <= 10) {
+            z = candidate;
+            break;
+        }
+    }
+
     char zPath[24];
     snprintf(zPath, sizeof(zPath), "/tiles/%u", (unsigned)z);
 
@@ -196,10 +205,10 @@ bool TileLoader::computeCenterFromTiles(double& lat, double& lon) {
         return false;
     }
 
-    int64_t sumX = 0, sumY = 0;
-    uint32_t count = 0;
     int minX = INT_MAX, maxX = INT_MIN;
     int minY = INT_MAX, maxY = INT_MIN;
+    uint32_t count = 0;
+    constexpr uint32_t MAX_SCAN = 2000;  // hard cap to prevent UI freeze
 
     File xDir = zRoot.openNextFile();
     while (xDir) {
@@ -212,6 +221,10 @@ bool TileLoader::computeCenterFromTiles(double& lat, double& lon) {
                 if (tx >= 0 || xName == "0") {
                     File yFile = xDir.openNextFile();
                     while (yFile) {
+                        if (count >= MAX_SCAN) {
+                            yFile.close();
+                            break;
+                        }
                         String yName = yFile.name();
                         int ySlash = yName.lastIndexOf('/');
                         if (ySlash >= 0) yName = yName.substring(ySlash + 1);
@@ -219,8 +232,6 @@ bool TileLoader::computeCenterFromTiles(double& lat, double& lon) {
                             String core = yName.substring(0, yName.length() - 4);
                             int ty = core.toInt();
                             if (ty >= 0 || core == "0") {
-                                sumX += tx;
-                                sumY += ty;
                                 if (tx < minX) minX = tx;
                                 if (tx > maxX) maxX = tx;
                                 if (ty < minY) minY = ty;
@@ -235,6 +246,7 @@ bool TileLoader::computeCenterFromTiles(double& lat, double& lon) {
             }
         }
         xDir.close();
+        if (count >= MAX_SCAN) break;
         xDir = zRoot.openNextFile();
     }
     zRoot.close();
@@ -246,8 +258,8 @@ bool TileLoader::computeCenterFromTiles(double& lat, double& lon) {
     double cy = (minY + maxY) / 2.0 + 0.5;
     tileXYToLatLon(cx, cy, z, lat, lon);
 
-    Serial.printf("[TileLoader] tile center: z=%u tiles=%u bbox(%d,%d)-(%d,%d) -> %.5f,%.5f\n",
-                  (unsigned)z, count, minX, minY, maxX, maxY, lat, lon);
+    Serial.printf("[TileLoader] tile center: z=%u tiles=%u (capped=%d) bbox(%d,%d)-(%d,%d) -> %.5f,%.5f\n",
+                  (unsigned)z, count, (int)(count >= MAX_SCAN), minX, minY, maxX, maxY, lat, lon);
     return true;
 }
 
