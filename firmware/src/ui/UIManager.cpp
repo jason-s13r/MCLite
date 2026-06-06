@@ -442,12 +442,11 @@ void UIManager::onIncomingMessage(const ConvoId& id, const Message& msg) {
     }
 
     // Check SOS before normal notification
-    if (checkSOS(id, msg)) {
-        // SOS alert handled — skip normal notification
-    } else {
+    bool isSos = checkSOS(id, msg);
+    bool chatMuted = MessageStore::instance().isMuted(id);
+    if (!isSos) {
         // Normal notification with per-contact always-sound check
         // Skip sound if this specific chat is muted
-        bool chatMuted = MessageStore::instance().isMuted(id);
         auto& speaker = Speaker::instance();
         if (!speaker.isMuted() && !chatMuted) {
             speaker.playNotification();
@@ -470,16 +469,18 @@ void UIManager::onIncomingMessage(const ConvoId& id, const Message& msg) {
 #endif
     }
 
-    // Wake display
-    if (_dimmed) {
-        const auto& dispCfg = ConfigManager::instance().config().display;
-        Display::instance().setBrightness(dispCfg.brightness);
-        if (dispCfg.kbdBacklight) {
-            IInput::instance().setBacklight(dispCfg.kbdBrightness);
+    // Wake display (skip for muted chats unless it's an SOS)
+    if (!chatMuted || isSos) {
+        if (_dimmed) {
+            const auto& dispCfg = ConfigManager::instance().config().display;
+            Display::instance().setBrightness(dispCfg.brightness);
+            if (dispCfg.kbdBacklight) {
+                IInput::instance().setBacklight(dispCfg.kbdBrightness);
+            }
+            _dimmed = false;
         }
-        _dimmed = false;
+        _lastActivity = millis();
     }
-    _lastActivity = millis();
 }
 
 bool UIManager::checkSOS(const ConvoId& id, const Message& msg) {
