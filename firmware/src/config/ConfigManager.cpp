@@ -282,6 +282,11 @@ bool ConfigManager::parseJson(const String& json) {
     // Offgrid — missing block defaults to enabled=false (backwards compat)
     _config.offgrid.enabled = doc["offgrid"]["enabled"] | false;
 
+    // WiFi — missing block defaults to empty (disabled). Used for firmware auto-update.
+    _config.wifi.ssid       = doc["wifi"]["ssid"]        | "";
+    _config.wifi.password   = doc["wifi"]["password"]    | "";
+    _config.wifi.autoUpdate = doc["wifi"]["auto_update"] | false;
+
     Serial.printf("[Config] Loaded: device=%s, contacts=%d, channels=%d\n",
                   _config.deviceName.c_str(),
                   _config.contacts.size(),
@@ -396,6 +401,13 @@ String ConfigManager::toJson() const {
     doc["security"]["admin_enabled"] = _config.security.adminEnabled;
 
     doc["offgrid"]["enabled"] = _config.offgrid.enabled;
+
+    // WiFi — only emit when an SSID is set, to keep config.json clean on devices that don't use it.
+    if (_config.wifi.ssid.length() > 0) {
+        doc["wifi"]["ssid"]        = _config.wifi.ssid;
+        doc["wifi"]["password"]    = _config.wifi.password;
+        doc["wifi"]["auto_update"] = _config.wifi.autoUpdate;
+    }
 
     String output;
     serializeJsonPretty(doc, output);

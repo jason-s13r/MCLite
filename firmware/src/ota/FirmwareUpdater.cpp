@@ -2,12 +2,17 @@
 
 #include <SD.h>
 #include <Update.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
 
 #include "../storage/SDCard.h"
 #include "../config/defaults.h"
 #include "../util/version.h"
 
 namespace mclite {
+
+// arduino-esp32 embeds a Mozilla root-CA bundle; this symbol points at it.
+extern const uint8_t rootca_crt_bundle_start[] asm("_binary_x509_crt_bundle_start");
 
 // App image lives at this offset inside the merged bin (matches the app0/ota_0
 // partition offset on both boards and merge_firmware.py's firmware_offset).
@@ -149,6 +154,71 @@ bool FirmwareUpdater::flashFromSd(const char* path, ProgressCb cb, void* user) {
     }
 
     Serial.println("[OTA] flash OK — rebooting into new firmware");
+    return true;
+}
+
+bool FirmwareUpdater::downloadToSd(const char* url, const char* destPath,
+                                   ProgressCb cb, void* user) {
+    if (!SDCard::instance().isMounted()) return false;
+    SDCard::instance().mkdir("/firmware");  // no-op if it already exists
+
+    WiFiClientSecure client;
+    client.setCACertBundle(rootca_crt_bundle_start);
+
+    HTTPClient http;
+    http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);  // GitHub → CDN redirect
+    http.setUserAgent("MCLite");
+    if (!http.begin(client, url)) { Serial.println("[OTA] http.begin failed"); return false; }
+
+    int code = http.GET();
+    if (code != HTTP_CODE_OK) {
+        Serial.printf("[OTA] download HTTP %d\n", code);
+        http.end();
+        return false;
+    }
+
+    int total = http.getSize();  // -1 if the server didn't send Content-Length
+    File f = SD.open(destPath, FILE_WRITE);
+    if (!f) { Serial.printf("[OTA] cannot open %s for write\n", destPath); http.end(); return false; }
+
+    WiFiClient* stream = http.getStreamPtr();
+    const size_t CHUNK = 4096;
+    uint8_t buf[CHUNK];
+    int written = 0;
+    uint8_t lastPct = 255;
+    int sinceYield = 0;
+
+    while (http.connected() && (total < 0 || written < total)) {
+        size_t avail = stream->available();
+        if (avail) {
+            int n = stream->readBytes(buf, avail > CHUNK ? CHUNK : avail);
+            if (n <= 0) break;
+            if (f.write(buf, n) != (size_t)n) {
+                Serial.println("[OTA] SD write short");
+                f.close(); http.end(); SD.remove(destPath);
+                return false;
+            }
+            written += n;
+            if (cb && total > 0) {
+                uint8_t p = (uint8_t)(((int64_t)written * 100) / total);
+                if (p != lastPct) { cb(p, user); lastPct = p; }
+            }
+        } else {
+            delay(2);
+        }
+        yield();
+        if (++sinceYield >= 16) { delay(1); sinceYield = 0; }
+    }
+
+    f.close();
+    http.end();
+
+    if ((total > 0 && written < total) || written <= 0x10000) {
+        Serial.printf("[OTA] download incomplete (%d/%d)\n", written, total);
+        SD.remove(destPath);
+        return false;
+    }
+    Serial.printf("[OTA] downloaded %d bytes -> %s\n", written, destPath);
     return true;
 }
 

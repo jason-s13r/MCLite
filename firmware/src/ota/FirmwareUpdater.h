@@ -33,6 +33,13 @@ public:
     // Blocking; the caller should ESP.restart() after a true return.
     static bool flashFromSd(const char* path, ProgressCb cb = nullptr, void* user = nullptr);
 
+    // Download a merged firmware bin from `url` (HTTPS, GitHub) to `destPath` on
+    // the SD card. Requires an active WiFi connection. TLS is validated against
+    // the built-in root-CA bundle. Blocking; returns true on a complete download.
+    // The caller then hands `destPath` to flashFromSd().
+    static bool downloadToSd(const char* url, const char* destPath,
+                             ProgressCb cb = nullptr, void* user = nullptr);
+
 private:
     static bool matchName(const String& base, String& versionOut);
 };

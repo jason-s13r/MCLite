@@ -9,6 +9,7 @@
 #include "../mesh/ChannelStore.h"
 #include "../mesh/MeshManager.h"
 #include "../storage/HeardAdvertCache.h"
+#include "../net/WiFiManager.h"
 #include "../storage/MessageStore.h"
 #include "../hal/Battery.h"
 #include "../hal/GPS.h"
@@ -200,6 +201,48 @@ void AdminScreen::show() {
 
         lv_obj_add_event_cb(row, [](lv_event_t* e) {
             UIManager::instance().showScreen(Screen::HEARD_ADVERTS);
+        }, LV_EVENT_CLICKED, nullptr);
+    }
+
+    // WiFi setup shortcut — shows the configured network (or "not configured"),
+    // tap to scan/connect on-device.
+    {
+        lv_obj_t* row = lv_obj_create(_screen);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
+        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_radius(row, 4, 0);
+        lv_obj_set_style_pad_all(row, theme::PAD_SMALL, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_bg_color(row, theme::ACCENT, LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_opa(row, LV_OPA_40, LV_STATE_FOCUSED);
+        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t* wl = lv_label_create(row);
+        lv_obj_set_style_text_font(wl, FONT_BODY, 0);
+        lv_obj_set_style_text_color(wl, theme::TEXT_PRIMARY, 0);
+        String wtxt = String(LV_SYMBOL_WIFI " ");
+        if (WiFiManager::instance().isConnected()) {
+            wtxt += WiFiManager::instance().connectedSsid();          // really connected
+        } else {
+            const String& ssid = ConfigManager::instance().config().wifi.ssid;
+            wtxt += ssid.length() ? String(t("wifi_off"))            // saved but off
+                                  : String(t("wifi_not_configured"));
+        }
+        lv_label_set_text(wl, wtxt.c_str());
+        _wifiRowLabel = wl;
+        _wifiLastConnected = WiFiManager::instance().isConnected();
+
+        lv_obj_t* chev = lv_label_create(row);
+        lv_obj_set_style_text_font(chev, FONT_BODY, 0);
+        lv_obj_set_style_text_color(chev, theme::TEXT_SECONDARY, 0);
+        lv_label_set_text(chev, LV_SYMBOL_RIGHT);
+
+        lv_obj_add_event_cb(row, [](lv_event_t* e) {
+            UIManager::instance().showScreen(Screen::WIFI_SETUP);
         }, LV_EVENT_CLICKED, nullptr);
     }
 
@@ -579,17 +622,36 @@ void AdminScreen::hide() {
 
 void AdminScreen::tick() {
     if (!_screen || lv_obj_has_flag(_screen, LV_OBJ_FLAG_HIDDEN)) return;
-    if (!_heardCountLabel) return;
 
-    uint32_t v = HeardAdvertCache::instance().version();
-    if (v == _heardCacheVersion) return;
-    _heardCacheVersion = v;
+    // WiFi row — refresh when the connection state changes
+    if (_wifiRowLabel) {
+        bool c = WiFiManager::instance().isConnected();
+        if (c != _wifiLastConnected) {
+            _wifiLastConnected = c;
+            String wtxt = String(LV_SYMBOL_WIFI " ");
+            if (c) {
+                wtxt += WiFiManager::instance().connectedSsid();
+            } else {
+                const String& ssid = ConfigManager::instance().config().wifi.ssid;
+                wtxt += ssid.length() ? String(t("wifi_off"))
+                                      : String(t("wifi_not_configured"));
+            }
+            lv_label_set_text(_wifiRowLabel, wtxt.c_str());
+        }
+    }
 
-    char rowBuf[40];
-    snprintf(rowBuf, sizeof(rowBuf), "%s (%d)",
-             t("heard_adverts_title"),
-             HeardAdvertCache::instance().count());
-    lv_label_set_text(_heardCountLabel, rowBuf);
+    // Heard-adverts count
+    if (_heardCountLabel) {
+        uint32_t v = HeardAdvertCache::instance().version();
+        if (v != _heardCacheVersion) {
+            _heardCacheVersion = v;
+            char rowBuf[40];
+            snprintf(rowBuf, sizeof(rowBuf), "%s (%d)",
+                     t("heard_adverts_title"),
+                     HeardAdvertCache::instance().count());
+            lv_label_set_text(_heardCountLabel, rowBuf);
+        }
+    }
 }
 
 }  // namespace mclite

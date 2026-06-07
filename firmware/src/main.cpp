@@ -213,6 +213,8 @@ void setup() {
     //     No-ops when SD has none or a PIN lock is active.
     if (configResult == ConfigManager::LOAD_OK) {
         UIManager::instance().checkForSdFirmware();
+        // 12. WiFi auto-update (if enabled): connect, check GitHub, prompt if newer.
+        UIManager::instance().checkForWiFiUpdateOnBoot();
     }
 
     Serial.println("[Boot] Ready!");

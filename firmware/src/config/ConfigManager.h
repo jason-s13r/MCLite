@@ -86,6 +86,12 @@ struct OffgridConfig {
     bool enabled = false;  // When true, forward packets + switch to closest offgrid freq (433/869/918)
 };
 
+struct WiFiConfig {
+    String ssid;                 // "" = WiFi disabled / not configured
+    String password;
+    bool   autoUpdate = false;   // Check GitHub for a newer firmware on boot (over WiFi) and prompt
+};
+
 struct AppConfig {
     String          deviceName;
     String          language;    // "" = English, "de" = German, etc.
@@ -107,6 +113,7 @@ struct AppConfig {
     BatteryConfig   battery;
     SecurityConfig  security;
     OffgridConfig   offgrid;
+    WiFiConfig      wifi;
 };
 
 class ConfigManager {

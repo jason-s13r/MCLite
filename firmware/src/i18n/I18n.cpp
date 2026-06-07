@@ -117,6 +117,21 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"fw_installing",            "Installing...\nDo not power off"},
     {"fw_update_failed",         "Install failed"},
 
+    // WiFi setup / auto-update
+    {"wifi_setup_title",         "WiFi Setup"},
+    {"wifi_scanning",            "Scanning..."},
+    {"wifi_scan_empty",          "No networks found"},
+    {"wifi_password",            "Password"},
+    {"wifi_connecting",          "Connecting..."},
+    {"wifi_connect_failed",      "Connection failed"},
+    {"wifi_no_update",           "Firmware is up to date"},
+    {"wifi_not_configured",      "Not configured"},
+    {"wifi_off",                 "WiFi off"},
+    {"wifi_connected",           "Connected: %s"},
+    {"wifi_check_updates",       "Check for updates"},
+    {"wifi_checking",            "Checking..."},
+    {"wifi_ssid_not_found",      "Network not found"},
+
     // Telemetry
     {"telem_title",         "Contact Info"},
     {"telem_battery",       "Battery: %.2fV (~%d%%)"},

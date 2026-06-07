@@ -6,6 +6,7 @@
 #include "ChatScreen.h"
 #include "AdminScreen.h"
 #include "HeardAdvertsScreen.h"
+#include "WiFiSetupScreen.h"
 #include "MapScreen.h"
 #include "../storage/MessageStore.h"
 
@@ -15,7 +16,8 @@ enum class Screen {
     CONVO_LIST,
     CHAT,
     ADMIN,
-    HEARD_ADVERTS
+    HEARD_ADVERTS,
+    WIFI_SETUP
 };
 
 class UIManager {
@@ -32,6 +34,13 @@ public:
     // newer/different one is found, prompt to install it. Call once after the
     // main screen loads.
     void checkForSdFirmware();
+
+    // WiFi auto-update: if configured + enabled, connect, check GitHub for a
+    // newer release, and prompt to download+install. Call after checkForSdFirmware().
+    void checkForWiFiUpdateOnBoot();
+
+    // Offer a WiFi-downloaded update (used by the boot check + WiFi setup screen).
+    void showWiFiInstallModal(const String& version, const String& url);
 
     // Called when a new message arrives (from MeshManager callback)
     void onIncomingMessage(const ConvoId& id, const Message& msg);
@@ -117,6 +126,7 @@ private:
     ChatScreen          _chatScreen;
     AdminScreen         _adminScreen;
     HeardAdvertsScreen  _heardAdvertsScreen;
+    WiFiSetupScreen     _wifiSetupScreen;
 
     lv_obj_t*  _mainScreen = nullptr;
     lv_group_t* _inputGroup = nullptr;
@@ -182,13 +192,16 @@ private:
 
     // Firmware-update (SD install) modal state
     lv_obj_t* _fwBar = nullptr;            // progress bar during install
-    String    _fwPath;                     // SD path of the bin being offered
+    String    _fwPath;                     // SD path of the bin being offered (SD install)
+    String    _fwUrl;                      // download URL (WiFi install; empty = SD install)
     String    _fwVersion;                  // its parsed version
     bool      _fwPromptDismissed = false;  // don't re-prompt after Abort this session
     void showFirmwareInstallModal(const String& path, const String& version);
+    void buildFwInstallModal();            // shared modal builder (uses _fwVersion)
     void doFirmwareInstall();
     static void fwModalBtnCb(lv_event_t* e);
-    static void fwProgressCb(uint8_t percent, void* user);
+    static void fwProgressCb(uint8_t percent, void* user);          // flash phase
+    static void fwDownloadProgressCb(uint8_t percent, void* user);  // download phase (WiFi)
 
     // Telemetry modal state
     lv_obj_t*   _telemMsgbox = nullptr;

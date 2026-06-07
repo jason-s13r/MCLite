@@ -18,7 +18,10 @@
 #include "../hal/twatch/Haptic.h"
 #endif
 #include "../util/distance.h"
+#include "../util/version.h"
 #include "../ota/FirmwareUpdater.h"
+#include "../ota/UpdateChecker.h"
+#include "../net/WiFiManager.h"
 #include "../util/hex.h"
 #include "../util/mgrs.h"
 #include "../util/TimeHelper.h"
@@ -47,6 +50,7 @@ bool UIManager::init() {
     _chatScreen.create(_mainScreen);
     _adminScreen.create(_mainScreen);
     _heardAdvertsScreen.create(_mainScreen);
+    _wifiSetupScreen.create(_mainScreen);
 
     // Wire up callbacks
     _convoList.onSelect([this](const ConvoId& id) {
@@ -160,6 +164,7 @@ void UIManager::update() {
     // Both no-op cheaply when not visible / version unchanged.
     _heardAdvertsScreen.tick();
     _adminScreen.tick();
+    _wifiSetupScreen.tick();
 
     // Room login tick (boot path with backoff). No-op for already-logged-in rooms.
     roomLoginTick();
@@ -231,6 +236,7 @@ void UIManager::showScreen(Screen screen) {
     _chatScreen.hide();
     _adminScreen.hide();
     _heardAdvertsScreen.hide();
+    _wifiSetupScreen.hide();
 
     switch (screen) {
         case Screen::CONVO_LIST:
@@ -245,6 +251,9 @@ void UIManager::showScreen(Screen screen) {
             break;
         case Screen::HEARD_ADVERTS:
             _heardAdvertsScreen.show();
+            break;
+        case Screen::WIFI_SETUP:
+            _wifiSetupScreen.show();
             break;
     }
     _currentScreen = screen;
@@ -803,6 +812,7 @@ void UIManager::showSetupScreen(SetupReason reason) {
     _chatScreen.hide();
     _adminScreen.hide();
     _heardAdvertsScreen.hide();
+    _wifiSetupScreen.hide();
 
     // Full-screen overlay on top of everything
     lv_obj_t* overlay = lv_obj_create(lv_layer_top());
@@ -1681,11 +1691,22 @@ void UIManager::checkForSdFirmware() {
 
 void UIManager::showFirmwareInstallModal(const String& path, const String& version) {
     _fwPath = path;
+    _fwUrl = "";              // SD install
     _fwVersion = version;
+    buildFwInstallModal();
+}
 
+void UIManager::showWiFiInstallModal(const String& version, const String& url) {
+    _fwPath = "";
+    _fwUrl = url;             // WiFi install — download then flash
+    _fwVersion = version;
+    buildFwInstallModal();
+}
+
+void UIManager::buildFwInstallModal() {
     static char bodyBuf[160];
     snprintf(bodyBuf, sizeof(bodyBuf), t("fw_update_body"),
-             version.c_str(), MCLITE_VERSION);
+             _fwVersion.c_str(), MCLITE_VERSION);
 
     static const char* btns[3];
     btns[0] = t("btn_cancel");
@@ -1718,14 +1739,28 @@ void UIManager::fwModalBtnCb(lv_event_t* e) {
         self.doFirmwareInstall();        // Install
     } else {
         self._fwPromptDismissed = true;  // Abort — don't nag again this session
+        if (self._fwUrl.length()) {      // WiFi offer declined — drop the link
+            WiFiManager::instance().disconnect();
+            self._fwUrl = "";
+        }
     }
 }
 
 void UIManager::fwProgressCb(uint8_t percent, void* user) {
     UIManager* self = static_cast<UIManager*>(user);
     if (self && self->_fwBar) {
-        lv_bar_set_value(self->_fwBar, percent, LV_ANIM_OFF);
-        lv_refr_now(NULL);  // repaint between SD chunks (single-threaded)
+        // WiFi install: flash is the second half (50-100%); SD install: full range.
+        uint8_t v = self->_fwUrl.length() ? (uint8_t)(50 + percent / 2) : percent;
+        lv_bar_set_value(self->_fwBar, v, LV_ANIM_OFF);
+        lv_refr_now(NULL);  // repaint between chunks (single-threaded)
+    }
+}
+
+void UIManager::fwDownloadProgressCb(uint8_t percent, void* user) {
+    UIManager* self = static_cast<UIManager*>(user);
+    if (self && self->_fwBar) {
+        lv_bar_set_value(self->_fwBar, percent / 2, LV_ANIM_OFF);  // download = first half
+        lv_refr_now(NULL);
     }
 }
 
@@ -1756,7 +1791,16 @@ void UIManager::doFirmwareInstall() {
 
     lv_refr_now(NULL);
 
-    bool ok = FirmwareUpdater::flashFromSd(_fwPath.c_str(), fwProgressCb, this);
+    bool ok;
+    if (_fwUrl.length() > 0) {
+        // WiFi: download to SD (0-50%), then flash (50-100%).
+        const char* dest = "/firmware/_ota.bin";
+        bool dok = FirmwareUpdater::downloadToSd(_fwUrl.c_str(), dest, fwDownloadProgressCb, this);
+        ok = dok && FirmwareUpdater::flashFromSd(dest, fwProgressCb, this);
+        WiFiManager::instance().disconnect();
+    } else {
+        ok = FirmwareUpdater::flashFromSd(_fwPath.c_str(), fwProgressCb, this);
+    }
 
     if (ok) {
         delay(300);
@@ -1770,7 +1814,29 @@ void UIManager::doFirmwareInstall() {
     delay(1800);
     _fwBar = nullptr;
     lv_obj_del(ov);
+    _fwUrl = "";
     _fwPromptDismissed = true;
+}
+
+void UIManager::checkForWiFiUpdateOnBoot() {
+    if (_isLocked) return;
+    if (_modalGroup) return;  // an SD-install prompt is already up — let it win
+    const auto& cfg = ConfigManager::instance().config();
+    if (!cfg.wifi.autoUpdate || cfg.wifi.ssid.length() == 0) return;
+
+    if (!WiFiManager::instance().connect(cfg.wifi.ssid, cfg.wifi.password)) {
+        WiFiManager::instance().disconnect();  // quiet: no WiFi, no nag
+        return;
+    }
+
+    RemoteRelease rel;
+    bool found = UpdateChecker::checkLatest(rel);
+    if (found && compareVersions(rel.version.c_str(), MCLITE_VERSION) > 0) {
+        // Keep WiFi up — the install reuses the live connection for the download.
+        showWiFiInstallModal(rel.version, rel.url);
+    } else {
+        WiFiManager::instance().disconnect();  // up-to-date / error → drop the link
+    }
 }
 
 void UIManager::dismissTelemetryModal() {
