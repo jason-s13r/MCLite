@@ -67,6 +67,9 @@ const DefaultString DEFAULT_STRINGS[] = {
 
     // Admin screen
     {"admin_title",         "Device Info"},
+    {"radio_gps_title",     "Radio & GPS Settings"},
+    {"display_sound_battery_title", "Device Settings"},
+    {"messaging_contacts_channels_rooms_title", "Chat Settings"},
     {"sec_device",          "Device"},
     {"sec_radio",           "Radio"},
     {"sec_contacts",        "Contacts (%d)"},
@@ -123,13 +126,36 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"confirm_delete_body", "Remove '%s' permanently. This cannot be undone."},
 
     // Offgrid mode (tap-to-toggle on admin screen)
-    {"offgrid_off",              "OFF"},
+    {"offgrid_repeater_mode", "Off-grid Repeater Mode"},
     {"offgrid_on",               "ON"},
     {"offgrid_confirm_on_title", "Enable offgrid mode?"},
     {"offgrid_confirm_on_body",  "Switch to %d MHz and relay packets for other offgrid nodes. Device will reboot."},
     {"offgrid_confirm_off_title","Disable offgrid mode?"},
     {"offgrid_confirm_off_body", "Return to normal frequency (%.3f MHz). Device will reboot."},
     {"reboot_now",               "Reboot now"},
+
+    // Radio settings editing
+    {"radio_presets",            "Presets"},
+    {"radio_preset_title",       "Select Preset"},
+    {"radio_preset_empty",       "No presets found"},
+    {"radio_edit_title",         "Edit %s"},
+    {"radio_edit_freq",          "Frequency (MHz)"},
+    {"radio_edit_sf",            "Spreading Factor"},
+    {"radio_edit_bw",            "Bandwidth (kHz)"},
+    {"radio_edit_cr",            "Coding Rate"},
+    {"radio_edit_txp",           "TX Power (dBm)"},
+    {"radio_edit_scope",         "Scope"},
+    {"radio_edit_path",          "Path Hash Mode"},
+    {"btn_save",                 "Save"},
+    {"reboot_to_apply",          "Reboot to apply changes?"},
+    {"reboot_later",             "Later"},
+    {"invalid_value",            "Invalid value"},
+
+    // Device settings
+    {"device_brightness",        "Brightness"},
+    {"device_kbd_backlight",     "Keyboard Backlight"},
+    {"device_boot_text",         "Boot Text"},
+    {"device_edit_boot_text",    "Edit Boot Text"},
 
     // Telemetry
     {"telem_title",         "Contact Info"},

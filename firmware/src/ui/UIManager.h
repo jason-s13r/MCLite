@@ -9,6 +9,9 @@
 #include "AdminScreen.h"
 #include "HeardAdvertsScreen.h"
 #include "MapScreen.h"
+#include "RadioGpsScreen.h"
+#include "DisplaySoundBatteryScreen.h"
+#include "MessagingContactsChannelsRoomsScreen.h"
 #include "../storage/MessageStore.h"
 
 namespace mclite {
@@ -19,7 +22,10 @@ enum class Screen {
     CHAT,
     ADMIN,
     HEARD_ADVERTS,
-    MAP
+    MAP,
+    RADIO_GPS,
+    DISPLAY_SOUND_BATTERY,
+    MESSAGING_CONTACTS_CHANNELS_ROOMS
 };
 
 class UIManager {
@@ -121,12 +127,15 @@ private:
     UIManager() = default;
     Screen _currentScreen = Screen::HOME;
 
-    StatusBar           _statusBar;
-    HomeScreen          _homeScreen;
-    ConvoListScreen     _convoList;
-    ChatScreen          _chatScreen;
-    AdminScreen         _adminScreen;
-    HeardAdvertsScreen  _heardAdvertsScreen;
+    StatusBar                           _statusBar;
+    HomeScreen                          _homeScreen;
+    ConvoListScreen                     _convoList;
+    ChatScreen                          _chatScreen;
+    AdminScreen                         _adminScreen;
+    HeardAdvertsScreen                  _heardAdvertsScreen;
+    RadioGpsScreen                      _radioGpsScreen;
+    DisplaySoundBatteryScreen           _displaySoundBatteryScreen;
+    MessagingContactsChannelsRoomsScreen _messagingContactsChannelsRoomsScreen;
 
     lv_obj_t*  _mainScreen = nullptr;
     lv_group_t* _inputGroup = nullptr;

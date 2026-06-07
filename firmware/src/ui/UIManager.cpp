@@ -50,6 +50,9 @@ bool UIManager::init() {
     _adminScreen.create(_mainScreen);
     _heardAdvertsScreen.create(_mainScreen);
     _mapScreen.create(_mainScreen);
+    _radioGpsScreen.create(_mainScreen);
+    _displaySoundBatteryScreen.create(_mainScreen);
+    _messagingContactsChannelsRoomsScreen.create(_mainScreen);
 
     // Wire up callbacks
     _homeScreen.onChat([this]() {
@@ -330,6 +333,9 @@ void UIManager::showScreen(Screen screen) {
     _adminScreen.hide();
     _heardAdvertsScreen.hide();
     _mapScreen.hide();
+    _radioGpsScreen.hide();
+    _displaySoundBatteryScreen.hide();
+    _messagingContactsChannelsRoomsScreen.hide();
 
     switch (screen) {
         case Screen::HOME:
@@ -350,6 +356,15 @@ void UIManager::showScreen(Screen screen) {
             break;
         case Screen::MAP:
             _mapScreen.show();
+            break;
+        case Screen::RADIO_GPS:
+            _radioGpsScreen.show();
+            break;
+        case Screen::DISPLAY_SOUND_BATTERY:
+            _displaySoundBatteryScreen.show();
+            break;
+        case Screen::MESSAGING_CONTACTS_CHANNELS_ROOMS:
+            _messagingContactsChannelsRoomsScreen.show();
             break;
     }
     _currentScreen = screen;
