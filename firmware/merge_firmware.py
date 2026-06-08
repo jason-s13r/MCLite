@@ -10,7 +10,7 @@ Usage (automatic via platformio.ini extra_scripts):
     Runs after each successful build.
 
 Manual flash:
-    esptool.py write_flash 0x0 mclite-v0.2.0.bin
+    esptool.py write_flash 0x0 mclite-v0.2.2.bin
 """
 
 Import("env")

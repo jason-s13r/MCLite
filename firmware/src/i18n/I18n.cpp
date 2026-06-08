@@ -157,6 +157,28 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"device_boot_text",         "Boot Text"},
     {"device_edit_boot_text",    "Edit Boot Text"},
 
+    // Firmware update (SD-card install)
+    {"fw_update_title",          "Install firmware?"},
+    {"fw_update_body",           "Install %s?\nCurrent: %s\nThe device will reboot."},
+    {"fw_install",               "Install"},
+    {"fw_installing",            "Installing...\nDo not power off"},
+    {"fw_update_failed",         "Install failed"},
+
+    // WiFi setup / auto-update
+    {"wifi_setup_title",         "WiFi Setup"},
+    {"wifi_scanning",            "Scanning..."},
+    {"wifi_scan_empty",          "No networks found"},
+    {"wifi_password",            "Password"},
+    {"wifi_connecting",          "Connecting..."},
+    {"wifi_connect_failed",      "Connection failed"},
+    {"wifi_no_update",           "Firmware is up to date"},
+    {"wifi_not_configured",      "Not configured"},
+    {"wifi_off",                 "WiFi off"},
+    {"wifi_connected",           "Connected: %s"},
+    {"wifi_check_updates",       "Check for updates"},
+    {"wifi_checking",            "Checking..."},
+    {"wifi_ssid_not_found",      "Network not found"},
+
     // Telemetry
     {"telem_title",         "Contact Info"},
     {"telem_battery",       "Battery: %.2fV (~%d%%)"},

@@ -8,6 +8,7 @@
 #include "ChatScreen.h"
 #include "AdminScreen.h"
 #include "HeardAdvertsScreen.h"
+#include "WiFiSetupScreen.h"
 #include "MapScreen.h"
 #include "RadioGpsScreen.h"
 #include "DisplaySoundBatteryScreen.h"
@@ -25,7 +26,8 @@ enum class Screen {
     MAP,
     RADIO_GPS,
     DISPLAY_SOUND_BATTERY,
-    MESSAGING_CONTACTS_CHANNELS_ROOMS
+    MESSAGING_CONTACTS_CHANNELS_ROOMS,
+    WIFI_SETUP
 };
 
 class UIManager {
@@ -44,6 +46,18 @@ public:
     void pushScreen(Screen screen);
     void popScreen();
     bool canGoBack() const;
+
+    // Firmware update: scan SD for a board-matching firmware bin and, if a
+    // newer/different one is found, prompt to install it. Call once after the
+    // main screen loads.
+    void checkForSdFirmware();
+
+    // WiFi auto-update: if configured + enabled, connect, check GitHub for a
+    // newer release, and prompt to download+install. Call after checkForSdFirmware().
+    void checkForWiFiUpdateOnBoot();
+
+    // Offer a WiFi-downloaded update (used by the boot check + WiFi setup screen).
+    void showWiFiInstallModal(const String& version, const String& url);
 
     // Called when a new message arrives (from MeshManager callback)
     void onIncomingMessage(const ConvoId& id, const Message& msg);
@@ -136,6 +150,7 @@ private:
     RadioGpsScreen                      _radioGpsScreen;
     DisplaySoundBatteryScreen           _displaySoundBatteryScreen;
     MessagingContactsChannelsRoomsScreen _messagingContactsChannelsRoomsScreen;
+    WiFiSetupScreen                     _wifiSetupScreen;
 
     lv_obj_t*  _mainScreen = nullptr;
     lv_group_t* _inputGroup = nullptr;
@@ -198,6 +213,19 @@ private:
 
     // Modal input group — isolates trackball/keyboard to modal while open
     lv_group_t* _modalGroup = nullptr;
+
+    // Firmware-update (SD install) modal state
+    lv_obj_t* _fwBar = nullptr;            // progress bar during install
+    String    _fwPath;                     // SD path of the bin being offered (SD install)
+    String    _fwUrl;                      // download URL (WiFi install; empty = SD install)
+    String    _fwVersion;                  // its parsed version
+    bool      _fwPromptDismissed = false;  // don't re-prompt after Abort this session
+    void showFirmwareInstallModal(const String& path, const String& version);
+    void buildFwInstallModal();            // shared modal builder (uses _fwVersion)
+    void doFirmwareInstall();
+    static void fwModalBtnCb(lv_event_t* e);
+    static void fwProgressCb(uint8_t percent, void* user);          // flash phase
+    static void fwDownloadProgressCb(uint8_t percent, void* user);  // download phase (WiFi)
 
     // Telemetry modal state
     lv_obj_t*   _telemMsgbox = nullptr;

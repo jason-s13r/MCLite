@@ -66,7 +66,7 @@
 #define LV_USE_LINE       1   /* boot-screen MCLite mark in Display::buildBootLogo */
 #define LV_USE_ROLLER     0
 #define LV_USE_SLIDER     1
-#define LV_USE_SWITCH     1
+#define LV_USE_SWITCH     1   /* WiFi on/off toggle in WiFiSetupScreen */
 #define LV_USE_TEXTAREA   1
 #define LV_USE_TABLE      0
 

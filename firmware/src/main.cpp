@@ -209,6 +209,14 @@ void setup() {
         }
     }
 
+    // 11. Offer SD-card firmware install if a newer/different bin is present.
+    //     No-ops when SD has none or a PIN lock is active.
+    if (configResult == ConfigManager::LOAD_OK) {
+        UIManager::instance().checkForSdFirmware();
+        // 12. WiFi auto-update (if enabled): connect, check GitHub, prompt if newer.
+        UIManager::instance().checkForWiFiUpdateOnBoot();
+    }
+
     Serial.println("[Boot] Ready!");
 }
 

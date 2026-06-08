@@ -7,6 +7,7 @@
 #include "../config/ConfigManager.h"
 #include "../util/TimeHelper.h"
 #include "../util/TextSanitizer.h"
+#include "../net/WiFiManager.h"
 
 namespace mclite {
 
@@ -79,6 +80,12 @@ void StatusBar::create(lv_obj_t* parent) {
     lv_obj_set_style_text_font(_gpsIcon, FONT_STATUSBAR_ICON, 0);
     lv_obj_set_style_text_color(_gpsIcon, theme::TEXT_SECONDARY, 0);
 
+    _wifiIcon = lv_label_create(_iconRow);  // between GPS and battery
+    lv_obj_set_style_text_font(_wifiIcon, FONT_STATUSBAR_ICON, 0);
+    lv_obj_set_style_text_color(_wifiIcon, theme::ACCENT, 0);
+    lv_label_set_text(_wifiIcon, LV_SYMBOL_WIFI);
+    lv_obj_add_flag(_wifiIcon, LV_OBJ_FLAG_HIDDEN);
+
     _lblBatt = lv_label_create(_iconRow);
     lv_obj_set_style_text_font(_lblBatt, FONT_STATUSBAR_ICON, 0);
     lv_obj_set_style_text_color(_lblBatt, theme::TEXT_PRIMARY, 0);
@@ -141,6 +148,13 @@ void StatusBar::create(lv_obj_t* parent) {
     lv_obj_set_style_text_font(_gpsIcon, FONT_SMALL, 0);
     lv_obj_set_style_text_color(_gpsIcon, theme::TEXT_SECONDARY, 0);
 
+    // WiFi indicator (between GPS and battery) — shown only while connected
+    _wifiIcon = lv_label_create(_bar);
+    lv_obj_set_style_text_font(_wifiIcon, FONT_SMALL, 0);
+    lv_obj_set_style_text_color(_wifiIcon, theme::ACCENT, 0);
+    lv_label_set_text(_wifiIcon, LV_SYMBOL_WIFI);
+    lv_obj_add_flag(_wifiIcon, LV_OBJ_FLAG_HIDDEN);
+
     // Battery
     _lblBatt = lv_label_create(_bar);
     lv_obj_set_style_text_font(_lblBatt, FONT_SMALL, 0);
@@ -202,6 +216,12 @@ void StatusBar::update() {
     }
     lv_obj_set_style_text_color(_lblBatt,
         pct <= 20 ? theme::BATTERY_LOW : theme::TEXT_PRIMARY, 0);
+
+    // WiFi icon — visible only while actually connected
+    if (_wifiIcon) {
+        if (WiFiManager::instance().isConnected()) lv_obj_clear_flag(_wifiIcon, LV_OBJ_FLAG_HIDDEN);
+        else                                       lv_obj_add_flag(_wifiIcon, LV_OBJ_FLAG_HIDDEN);
+    }
 
     // Clock — show HH:MM in local time (auto-DST via POSIX TZ). Prefer GPS
     // when locked; fall back to the system clock (which is seeded from the

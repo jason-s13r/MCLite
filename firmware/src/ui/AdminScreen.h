@@ -23,6 +23,10 @@ private:
     lv_obj_t* _heardCountLabel = nullptr;
     uint32_t  _heardCacheVersion = 0;
 
+    // WiFi row — refreshed live on connection-state change.
+    lv_obj_t* _wifiRowLabel    = nullptr;
+    bool      _wifiLastConnected = false;
+
     static void backBtnCb(lv_event_t* e);
     static void navRadioGpsCb(lv_event_t* e);
     static void navDisplaySoundBatteryCb(lv_event_t* e);

@@ -19,6 +19,10 @@
 #include "../hal/twatch/Haptic.h"
 #endif
 #include "../util/distance.h"
+#include "../util/version.h"
+#include "../ota/FirmwareUpdater.h"
+#include "../ota/UpdateChecker.h"
+#include "../net/WiFiManager.h"
 #include "../util/hex.h"
 #include "../util/mgrs.h"
 #include "../util/TimeHelper.h"
@@ -53,6 +57,7 @@ bool UIManager::init() {
     _radioGpsScreen.create(_mainScreen);
     _displaySoundBatteryScreen.create(_mainScreen);
     _messagingContactsChannelsRoomsScreen.create(_mainScreen);
+    _wifiSetupScreen.create(_mainScreen);
 
     // Wire up callbacks
     _homeScreen.onChat([this]() {
@@ -259,6 +264,7 @@ void UIManager::update() {
     // Both no-op cheaply when not visible / version unchanged.
     _heardAdvertsScreen.tick();
     _adminScreen.tick();
+    _wifiSetupScreen.tick();
 
     // Room login tick (boot path with backoff). No-op for already-logged-in rooms.
     roomLoginTick();
@@ -336,6 +342,7 @@ void UIManager::showScreen(Screen screen) {
     _radioGpsScreen.hide();
     _displaySoundBatteryScreen.hide();
     _messagingContactsChannelsRoomsScreen.hide();
+    _wifiSetupScreen.hide();
 
     switch (screen) {
         case Screen::HOME:
@@ -365,6 +372,9 @@ void UIManager::showScreen(Screen screen) {
             break;
         case Screen::MESSAGING_CONTACTS_CHANNELS_ROOMS:
             _messagingContactsChannelsRoomsScreen.show();
+            break;
+        case Screen::WIFI_SETUP:
+            _wifiSetupScreen.show();
             break;
     }
     _currentScreen = screen;
@@ -957,6 +967,7 @@ void UIManager::showSetupScreen(SetupReason reason) {
     _chatScreen.hide();
     _adminScreen.hide();
     _heardAdvertsScreen.hide();
+    _wifiSetupScreen.hide();
 
     // Full-screen overlay on top of everything
     lv_obj_t* overlay = lv_obj_create(lv_layer_top());
@@ -1804,6 +1815,167 @@ void UIManager::restoreFromModalGroup() {
     if (_modalGroup) {
         lv_group_del(_modalGroup);
         _modalGroup = nullptr;
+    }
+}
+
+// ─── Firmware update (SD-card install) ──────────────────────────────────────
+
+void UIManager::checkForSdFirmware() {
+    if (_fwPromptDismissed) return;
+    if (_isLocked) return;  // don't surface the install prompt behind a PIN lock
+    String ver;
+    String path = FirmwareUpdater::findSdFirmware(/*autoMode=*/true, ver);
+    if (path.length() == 0) return;
+    showFirmwareInstallModal(path, ver);
+}
+
+void UIManager::showFirmwareInstallModal(const String& path, const String& version) {
+    _fwPath = path;
+    _fwUrl = "";              // SD install
+    _fwVersion = version;
+    buildFwInstallModal();
+}
+
+void UIManager::showWiFiInstallModal(const String& version, const String& url) {
+    _fwPath = "";
+    _fwUrl = url;             // WiFi install — download then flash
+    _fwVersion = version;
+    buildFwInstallModal();
+}
+
+void UIManager::buildFwInstallModal() {
+    static char bodyBuf[160];
+    snprintf(bodyBuf, sizeof(bodyBuf), t("fw_update_body"),
+             _fwVersion.c_str(), MCLITE_VERSION);
+
+    static const char* btns[3];
+    btns[0] = t("btn_cancel");
+    btns[1] = t("fw_install");
+    btns[2] = "";
+
+    lv_obj_t* msgbox = lv_msgbox_create(NULL, t("fw_update_title"), bodyBuf, btns, false);
+    lv_obj_center(msgbox);
+    lv_obj_set_width(msgbox, theme::MODAL_TEXT_WIDTH);
+    lv_obj_set_style_bg_color(msgbox, theme::BG_SECONDARY, 0);
+    lv_obj_set_style_text_color(msgbox, theme::TEXT_PRIMARY, 0);
+    lv_obj_set_style_text_font(msgbox, FONT_HEADING, 0);
+
+    lv_obj_t* btnm = lv_msgbox_get_btns(msgbox);
+    if (btnm) switchToModalGroup(btnm);
+
+    lv_obj_add_event_cb(msgbox, fwModalBtnCb, LV_EVENT_VALUE_CHANGED, this);
+}
+
+void UIManager::fwModalBtnCb(lv_event_t* e) {
+    lv_obj_t* mbox = lv_event_get_current_target(e);
+    uint16_t btnIdx = lv_msgbox_get_active_btn(mbox);
+    if (btnIdx == LV_BTNMATRIX_BTN_NONE) return;
+
+    UIManager& self = UIManager::instance();
+    self.restoreFromModalGroup();
+    lv_msgbox_close(mbox);
+
+    if (btnIdx == 1) {
+        self.doFirmwareInstall();        // Install
+    } else {
+        self._fwPromptDismissed = true;  // Abort — don't nag again this session
+        if (self._fwUrl.length()) {      // WiFi offer declined — drop the link
+            WiFiManager::instance().disconnect();
+            self._fwUrl = "";
+        }
+    }
+}
+
+void UIManager::fwProgressCb(uint8_t percent, void* user) {
+    UIManager* self = static_cast<UIManager*>(user);
+    if (self && self->_fwBar) {
+        // WiFi install: flash is the second half (50-100%); SD install: full range.
+        uint8_t v = self->_fwUrl.length() ? (uint8_t)(50 + percent / 2) : percent;
+        lv_bar_set_value(self->_fwBar, v, LV_ANIM_OFF);
+        lv_refr_now(NULL);  // repaint between chunks (single-threaded)
+    }
+}
+
+void UIManager::fwDownloadProgressCb(uint8_t percent, void* user) {
+    UIManager* self = static_cast<UIManager*>(user);
+    if (self && self->_fwBar) {
+        lv_bar_set_value(self->_fwBar, percent / 2, LV_ANIM_OFF);  // download = first half
+        lv_refr_now(NULL);
+    }
+}
+
+void UIManager::doFirmwareInstall() {
+    // Full-screen "installing" overlay with a progress bar.
+    lv_obj_t* ov = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(ov, Display::width(), Display::height());
+    lv_obj_set_pos(ov, 0, 0);
+    lv_obj_set_style_bg_color(ov, theme::BG_PRIMARY, 0);
+    lv_obj_set_style_bg_opa(ov, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(ov, 0, 0);
+    lv_obj_clear_flag(ov, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t* lbl = lv_label_create(ov);
+    lv_label_set_text(lbl, t("fw_installing"));
+    lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
+    lv_obj_set_style_text_font(lbl, FONT_HEADING, 0);
+    lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);
+    lv_obj_set_width(lbl, theme::MODAL_TEXT_WIDTH);
+    lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, -30);
+
+    _fwBar = lv_bar_create(ov);
+    lv_obj_set_size(_fwBar, theme::MODAL_TEXT_WIDTH, 16);
+    lv_obj_align(_fwBar, LV_ALIGN_CENTER, 0, 20);
+    lv_bar_set_range(_fwBar, 0, 100);
+    lv_bar_set_value(_fwBar, 0, LV_ANIM_OFF);
+
+    lv_refr_now(NULL);
+
+    bool ok;
+    if (_fwUrl.length() > 0) {
+        // WiFi: download to SD (0-50%), then flash (50-100%).
+        const char* dest = "/firmware/_ota.bin";
+        bool dok = FirmwareUpdater::downloadToSd(_fwUrl.c_str(), dest, fwDownloadProgressCb, this);
+        ok = dok && FirmwareUpdater::flashFromSd(dest, fwProgressCb, this);
+        WiFiManager::instance().disconnect();
+    } else {
+        ok = FirmwareUpdater::flashFromSd(_fwPath.c_str(), fwProgressCb, this);
+    }
+
+    if (ok) {
+        delay(300);
+        ESP.restart();
+        return;
+    }
+
+    // Failure: surface it briefly, then drop the overlay and carry on.
+    lv_label_set_text(lbl, t("fw_update_failed"));
+    lv_refr_now(NULL);
+    delay(1800);
+    _fwBar = nullptr;
+    lv_obj_del(ov);
+    _fwUrl = "";
+    _fwPromptDismissed = true;
+}
+
+void UIManager::checkForWiFiUpdateOnBoot() {
+    if (_isLocked) return;
+    if (_modalGroup) return;  // an SD-install prompt is already up — let it win
+    const auto& cfg = ConfigManager::instance().config();
+    if (!cfg.wifi.autoUpdate || cfg.wifi.ssid.length() == 0) return;
+
+    if (!WiFiManager::instance().connect(cfg.wifi.ssid, cfg.wifi.password)) {
+        WiFiManager::instance().disconnect();  // quiet: no WiFi, no nag
+        return;
+    }
+
+    RemoteRelease rel;
+    bool found = UpdateChecker::checkLatest(rel);
+    if (found && compareVersions(rel.version.c_str(), MCLITE_VERSION) > 0) {
+        // Keep WiFi up — the install reuses the live connection for the download.
+        showWiFiInstallModal(rel.version, rel.url);
+    } else {
+        WiFiManager::instance().disconnect();  // up-to-date / error → drop the link
     }
 }
 

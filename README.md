@@ -55,6 +55,8 @@ MCLite runs on two LilyGo ESP32-S3 boards. They share the same SX1262 LoRa radio
 - **Region scope** -- tag outgoing packets with MeshCore transport codes so repeaters can filter by region. Set a global scope or override per channel/room
 - **Path hash mode** -- configurable repeater path fingerprint size (1/2/3 bytes per hop). Larger sizes reduce path collisions in dense meshes at the cost of a few extra bytes per hop. Defaults to 1 byte for compatibility with pre-v1.15 peers
 - **Offgrid mode** -- one-flag toggle that switches to the community offgrid frequency (433/869/918 MHz, auto-picked from your normal frequency) and relays packets for other offgrid nodes. Camping / hiking / SAR scenarios where no repeaters exist. Toggle on-device from the admin screen or via config tool, reboot to apply. While offgrid, only other offgrid peers receive your messages, SOS, and battery alerts.
+- **Update from SD card** -- drop a firmware `.bin` on the SD card and the device offers to install it on boot (or from the admin screen) -- no USB needed
+- **Update over WiFi** -- optionally connect to WiFi on-device (scan + enter password) and check GitHub for newer firmware; download and install with one tap. Off by default
 - **Zero-config for end users** -- all settings live in one JSON file on the SD card. Set it up once, copy to every device in your group
 
 ## Getting Started
@@ -70,11 +72,18 @@ Visit the [MCLite Web Flasher](https://laserir.github.io/MCLite/tools/web-flashe
 Download the latest binary for your board from the [Releases](../../releases) page -- `mclite-v*.bin` for the **T-Deck Plus**, `mclite-watch-v*.bin` for the **T-Watch Ultra** -- and flash with esptool at offset `0x0`:
 
 ```
-esptool.py write_flash 0x0 mclite-v0.2.0.bin          # T-Deck Plus
-esptool.py write_flash 0x0 mclite-watch-v0.2.0.bin    # T-Watch Ultra
+esptool.py write_flash 0x0 mclite-v0.2.2.bin          # T-Deck Plus
+esptool.py write_flash 0x0 mclite-watch-v0.2.2.bin    # T-Watch Ultra
 ```
 
 The T-Watch Ultra has no power switch -- if esptool can't connect, put it in download mode manually: hold **BOOT**, tap **RST**, release **BOOT**.
+
+### Updating the firmware (on-device, no USB)
+
+Once MCLite is installed you can update it without a computer:
+
+- **From SD card** -- copy a newer merged binary (`mclite-v*.bin` for the T-Deck Plus, `mclite-watch-v*.bin` for the T-Watch Ultra) to the SD card. On the next boot the device detects it and offers **Install / Cancel**, then flashes and reboots. The file is renamed afterwards so it won't re-prompt.
+- **Over WiFi** -- on the device go to **Admin → WiFi**, switch WiFi on, pick your network and enter the password (saved for next time), then tap **Check for updates**. If a newer release exists on GitHub it downloads and installs. Enable **auto-update** (config tool → WiFi, or it checks on boot when on) to be prompted automatically.
 
 ### Set up your config
 
