@@ -32,6 +32,16 @@ MCLite runs on two LilyGo ESP32-S3 boards. They share the same SX1262 LoRa radio
 - **[T-Deck Plus](https://lilygo.cc/products/t-deck-plus)** -- handheld with a physical QWERTY keyboard, trackball, GPS, and a 2.8" display. The original, fully-featured target.
 - **[T-Watch Ultra](https://lilygo.cc/products/t-watch-ultra)** -- wrist-worn device with a 2.01" AMOLED touchscreen. Fully touch-driven with an on-screen keyboard.
 
+## Quick Start
+
+New here? Three steps, no toolchain or install needed:
+
+1. **Flash** your T-Deck Plus or T-Watch Ultra from the browser with the [web flasher](https://laserir.github.io/MCLite/tools/web-flasher/) (Chrome or Edge).
+2. **Configure** your identity, contacts, and channels in the offline [config tool](https://laserir.github.io/MCLite/tools/config-tool/mclite_config_tool.html), then download `config.json`.
+3. **Copy** `config.json` to the SD card, insert it, and power on.
+
+That's it. Full walkthrough — including updates and companion mode — in [Getting Started](#getting-started) below.
+
 ## Features
 
 - **Direct messages** -- private encrypted conversations between contacts
