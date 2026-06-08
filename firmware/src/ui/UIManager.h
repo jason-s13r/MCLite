@@ -118,6 +118,7 @@ public:
     void showTelemetryModal(const ConvoId& id);
     void updateTelemetryModal(const uint8_t* pubKey);
     void updateChatMapButton(const uint8_t* pubKey);
+    void onTelemetryRetry(uint32_t newTimeoutMs);
 
     // Map screen (opened from telemetry modal or home screen)
     void showMapScreen(double lat, double lon, const String& contactName,
