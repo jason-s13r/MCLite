@@ -86,33 +86,44 @@ Once MCLite is installed you can update it without a computer:
 - **From SD card** -- copy a newer merged binary (`mclite-v*.bin` for the T-Deck Plus, `mclite-watch-v*.bin` for the T-Watch Ultra) to the SD card. On the next boot the device detects it and offers **Install / Cancel**, then flashes and reboots. The file is renamed afterwards so it won't re-prompt.
 - **Over WiFi** -- on the device go to **Admin → WiFi**, switch WiFi on, pick your network and enter the password (saved for next time), then tap **Check for updates**. If a newer release exists on GitHub it downloads and installs. Enable **auto-update** (config tool → WiFi, or it checks on boot when on) to be prompted automatically.
 
-### WiFi companion mode
+### Companion mode
 
-Use a phone, desktop, or CLI as a companion to the radio while the device keeps working normally — messages appear in both places at once.
+Use a phone, desktop, or CLI as a companion to the radio while the device keeps working normally — messages appear in **both** places at once. MCLite speaks the standard MeshCore companion protocol over three transports (**one active at a time**): **Bluetooth**, **WiFi**, and **USB**. Messaging is **read-only for config** — a companion can read contacts/channels and send/receive messages, but can't change radio settings, contacts, channels, or keys.
+
+#### Bluetooth (official mobile apps)
+
+The way to use the official MeshCore **iOS / Android** apps.
+
+1. On the device: **Admin → Bluetooth**. The screen shows a 6-digit **pairing PIN** (generated once and saved).
+2. Turn the **Bluetooth Companion** switch on — the device advertises as `MeshCore-<name>`.
+3. In the app: scan, pick this device, and enter the PIN when prompted. It bonds once and reconnects automatically.
+
+The Bluetooth status-bar icon turns **green** while a client is connected.
+
+#### WiFi (desktop / CLI on your LAN)
 
 1. On the device: **Admin → WiFi**, switch WiFi **on** and connect to your network.
 2. Turn on the **WiFi Companion** switch (enabled once WiFi is connected). The row shows `Companion <ip>:5000`.
-3. From a computer on the same network, connect a MeshCore companion client to that address, e.g.:
+3. From a computer on the same network:
    ```
    pip install meshcore-cli
    meshcore-cli -t <device-ip> -p 5000 infos      # or: contacts, recv, chan_msg, etc.
    ```
-   (`meshcore.js` and `meshcore_py` work too.) The status-bar WiFi icon turns **green** while a client is attached.
+   (`meshcore.js` and `meshcore_py` work too.) The status-bar WiFi icon turns **green** while a client is attached. Note: the WiFi transport has **no pairing/auth** (the protocol's only auth is the Bluetooth passkey) — only enable it on networks you trust.
 
-**Over USB instead:** turn on the **USB Companion** switch (top of the WiFi screen — it works with WiFi off entirely) and connect over the USB-CDC port:
+#### USB (wired, computer)
+
+Turn on the **USB Companion** switch (**Admin → USB**; works with WiFi off), then connect over the USB-CDC port:
 ```
 meshcore-cli -s /dev/ttyACM0 infos
 ```
-While USB companion is active the device's **serial debug logging is muted** — the binary protocol and log text can't share the one USB port (and there's no spare log UART on these boards). Logs resume the moment you turn it off. The battery icon turns **green** while a USB client is bridging.
+While USB companion is active the device's **serial debug logging is muted** — the binary protocol and log text can't share the one USB port (there's no spare log UART on these boards). Logs resume the moment you turn it off. The charge bolt turns **green** while a USB client is bridging.
 
-**Over Bluetooth (mobile apps):** turn on **Bluetooth Companion** (Admin → Bluetooth). The screen shows a 6-digit **pairing PIN**. In the official MeshCore phone app, scan and pick this device (it advertises as `MeshCore-…`), then enter the PIN when prompted. The phone bonds once and reconnects automatically; the Bluetooth status-bar icon turns **green** while connected. The PIN is generated once and saved.
+#### Notes
 
-Notes:
-- **One transport, one client at a time** — WiFi/USB/BLE companion modes are mutually exclusive by design (the protocol is single-session). Turning one on turns the others off.
-- **WiFi vs Bluetooth** — these can't run together (they share the 2.4 GHz radio and there isn't enough RAM for both). Enabling Bluetooth turns WiFi off; once Bluetooth has been used, **switching back to WiFi needs a reboot** (the BLE stack can't be freed at runtime). The WiFi screen shows a reminder when this applies.
-- **Read-only config** — the companion can read contacts/channels and send/receive messages, but cannot change radio settings, contacts, channels, or keys.
-- **No LAN auth** — the WiFi transport has no pairing (the protocol's only auth is BLE pairing). Only enable it on networks you trust. Real auth arrives with the BLE transport.
-- **Known limitation** — messages **typed on the device itself** do not appear in the companion app. The MeshCore companion protocol has no event for a firmware-composed message (it assumes the app is the sole composer). Everything else mirrors both ways: received messages and app-sent messages show on the device and in the app.
+- **One transport, one client at a time** — the modes are mutually exclusive by design (the protocol is single-session). Turning one on turns the others off.
+- **WiFi vs Bluetooth can't run together** — they share the 2.4 GHz radio and there isn't enough RAM for both. Enabling Bluetooth turns WiFi off; once Bluetooth has been used, **switching back to WiFi needs a reboot** (the BLE stack can't be freed at runtime). The WiFi screen shows a notice and a **Reboot** button when this applies.
+- **Known limitation** — messages **typed on the device itself** do not appear in the companion app. The MeshCore companion protocol has no event for a firmware-composed message (it assumes the app is the sole composer). Everything else mirrors both ways: received messages and app-sent messages show on the device *and* in the app.
 
 ### Set up your config
 
