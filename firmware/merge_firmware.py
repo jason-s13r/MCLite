@@ -25,21 +25,38 @@ ENV_TO_BIN_PREFIX = {
     "twatch_ultra": "mclite-watch",
 }
 
+def find_version_from_env(env):
+    build_flags = os.getenv('PLATFORMIO_BUILD_FLAGS') or ''
+    m = re.search(r'-DMCLITE_VERSION=\\"([^\\]+)\\"', build_flags)
 
-def merge_bin(source, target, env):
+    if not m:
+        return None
+    if not m.group(1):
+        return None
+    
+    return m.group(1)
+
+def find_version_from_defaults(env):
     # Extract version from defaults.h
     defaults_path = os.path.join(env.subst("$PROJECT_SRC_DIR"), "config", "defaults.h")
-    version = "unknown"
+
     try:
+        version = None
         with open(defaults_path, "r") as f:
             for line in f:
                 m = re.search(r'#define\s+MCLITE_VERSION\s+"([^"]+)"', line)
                 if m:
                     version = m.group(1)
                     break
+        return version
     except FileNotFoundError:
         print("WARNING: defaults.h not found, using 'unknown' version")
 
+    return None
+
+def merge_bin(source, target, env):
+    # Extract version from defaults.h
+    version = find_version_from_env(env) or find_version_from_defaults(env) or 'unknown'
     env_name = env["PIOENV"]
     bin_prefix = ENV_TO_BIN_PREFIX.get(env_name, f"mclite-{env_name}")
 

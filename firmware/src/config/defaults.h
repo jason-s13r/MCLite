@@ -2,7 +2,16 @@
 
 // MCLite default configuration values
 
+#ifndef MCLITE_VERSION
 #define MCLITE_VERSION "0.2.2"
+#endif
+// GitHub repository used for OTA update checks (can be overridden at build time)
+#ifndef MCLITE_REPO_OWNER
+#define MCLITE_REPO_OWNER "laserir"
+#endif
+#ifndef MCLITE_REPO_NAME
+#define MCLITE_REPO_NAME "MCLite"
+#endif
 
 namespace mclite {
 namespace defaults {

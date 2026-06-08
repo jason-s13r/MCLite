@@ -3,6 +3,7 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include "../config/defaults.h"
 
 namespace mclite {
 
@@ -10,7 +11,7 @@ namespace mclite {
 extern const uint8_t rootca_crt_bundle_start[] asm("_binary_x509_crt_bundle_start");
 
 static const char* API_URL =
-    "https://api.github.com/repos/laserir/MCLite/releases/latest";
+    "https://api.github.com/repos/" MCLITE_REPO_OWNER "/" MCLITE_REPO_NAME "/releases/latest";
 
 #ifdef PLATFORM_TWATCH
 static const char* ASSET_PREFIX = "mclite-watch-v";
