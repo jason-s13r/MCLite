@@ -16,3 +16,4 @@ dist/
 *.swp
 *.swo
 *.bak
+.env
