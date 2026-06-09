@@ -89,8 +89,9 @@ void MapScreen::buildMarkers() {
         for (auto& m : _markers) if (memcmp(m.key, k, 32) == 0) return true;
         return false;
     };
-    auto add = [&](double lat, double lon, uint8_t type, const char* name, const uint8_t* key) {
-        MapMarker m; m.lat = lat; m.lon = lon; m.type = type;
+    auto add = [&](double lat, double lon, uint8_t type, bool isContact,
+                   const char* name, const uint8_t* key) {
+        MapMarker m; m.lat = lat; m.lon = lon; m.type = type; m.isContact = isContact;
         strncpy(m.name, name ? name : "", sizeof(m.name) - 1); m.name[sizeof(m.name) - 1] = 0;
         memcpy(m.key, key, 32);
         _markers.push_back(m);
@@ -105,9 +106,9 @@ void MapScreen::buildMarkers() {
             if (!c) continue;
             const TelemetryData* td = TelemetryCache::instance().get(c->id.pub_key);
             if (td && td->hasLocation && TelemetryCache::instance().isFresh(c->id.pub_key)) {
-                add(td->lat, td->lon, c->type, c->name, c->id.pub_key);
+                add(td->lat, td->lon, c->type, true, c->name, c->id.pub_key);
             } else if (c->gps_lat || c->gps_lon) {
-                add(c->gps_lat / 1e6, c->gps_lon / 1e6, c->type, c->name, c->id.pub_key);
+                add(c->gps_lat / 1e6, c->gps_lon / 1e6, c->type, true, c->name, c->id.pub_key);
             }
         }
     }
@@ -117,7 +118,7 @@ void MapScreen::buildMarkers() {
     const HeardAdvert* es = cache.entries();
     for (int i = 0; i < cache.count(); i++) {
         if (!es[i].hasGps || seen(es[i].pubKey)) continue;
-        add(es[i].gpsLat / 1e6, es[i].gpsLon / 1e6, es[i].type, es[i].name, es[i].pubKey);
+        add(es[i].gpsLat / 1e6, es[i].gpsLon / 1e6, es[i].type, false, es[i].name, es[i].pubKey);
     }
 }
 
@@ -466,12 +467,13 @@ bool MapScreen::markerScreenPos(double lat, double lon, int& px, int& py) const 
     return (px >= -8 && px < CANVAS_W + 8 && py >= -8 && py < CANVAS_H + 8);
 }
 
-// ~2px ring at radius r (selection highlight).
-static void drawRing(lv_color_t* buf, int bufW, int bufH, int cx, int cy, int r, lv_color_t c) {
-    const int r0 = (r - 1) * (r - 1), r1 = (r + 1) * (r + 1);
-    for (int dy = -r - 1; dy <= r + 1; dy++) {
+// Filled annulus of width `th` ending at radius r (selection highlight).
+static void drawRing(lv_color_t* buf, int bufW, int bufH, int cx, int cy, int r, int th, lv_color_t c) {
+    int rin = r - th; if (rin < 0) rin = 0;
+    const int r0 = rin * rin, r1 = r * r;
+    for (int dy = -r; dy <= r; dy++) {
         const int y = cy + dy; if (y < 0 || y >= bufH) continue;
-        for (int dx = -r - 1; dx <= r + 1; dx++) {
+        for (int dx = -r; dx <= r; dx++) {
             const int x = cx + dx; if (x < 0 || x >= bufW) continue;
             const int d2 = dx * dx + dy * dy;
             if (d2 >= r0 && d2 <= r1) buf[y * bufW + x] = c;
@@ -488,11 +490,17 @@ void MapScreen::drawHeardMarkers() {
         if (!markerScreenPos(m.lat, m.lon, px, py)) continue;
         bool sel = _hasSel && memcmp(m.key, _selKey, 32) == 0;
         if (sel) {
-            // White ring + black halo so the selection reads on any tile.
-            drawRing(_cbuf, CANVAS_W, CANVAS_H, px, py, 9, lv_color_black());
-            drawRing(_cbuf, CANVAS_W, CANVAS_H, px, py, 8, lv_color_white());
+            // Bold white ring + black halo so the selection reads on any tile.
+            drawRing(_cbuf, CANVAS_W, CANVAS_H, px, py, 11, 1, lv_color_black());  // outer halo
+            drawRing(_cbuf, CANVAS_W, CANVAS_H, px, py, 10, 3, lv_color_white());  // bold ring
+            drawRing(_cbuf, CANVAS_W, CANVAS_H, px, py,  7, 1, lv_color_black());  // inner halo
         }
-        dsc.color = mapTypeColor(m.type);
+        // Clients (chat): blue = a saved contact, grey = a heard stranger.
+        // Other types keep their list colors.
+        if (m.type == ADV_TYPE_CHAT)
+            dsc.color = m.isContact ? theme::ACCENT : theme::TEXT_SECONDARY;
+        else
+            dsc.color = mapTypeColor(m.type);
         // Roughly center the single glyph on the coordinate.
         lv_canvas_draw_text(_canvas, px - 5, py - 9, 16, &dsc, mapTypeLetter(m.type));
     }

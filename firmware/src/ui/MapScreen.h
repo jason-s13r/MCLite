@@ -80,7 +80,7 @@ private:
     // Known node locations for the general map (rebuilt each render). Sources:
     // mesh contacts (fresh telemetry location, else advert GPS) + heard adverts
     // with GPS, deduped by pubkey.
-    struct MapMarker { double lat; double lon; uint8_t type; char name[32]; uint8_t key[32]; };
+    struct MapMarker { double lat; double lon; uint8_t type; bool isContact; char name[32]; uint8_t key[32]; };
     std::vector<MapMarker> _markers;
 
     // Tapped marker (highlighted with a ring while its name shows in _selLabel).
