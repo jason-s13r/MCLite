@@ -649,8 +649,11 @@ void ChatScreen::senderNameClickCb(lv_event_t* e) {
     String cur = lv_textarea_get_text(self->_textarea);
     String mention = "@" + *name + " ";
     // Only prepend if this mention isn't already in the draft — repeated taps just
-    // (re)focus the input instead of stacking "@name @name ...".
-    if (cur.indexOf(mention) < 0) {
+    // (re)focus the input instead of stacking "@name @name ...". Also skip if it
+    // wouldn't fit the 160-char textarea limit, so we never silently truncate the
+    // tail of what the user already typed.
+    if (cur.indexOf(mention) < 0 &&
+        (int)(mention.length() + cur.length()) <= 160) {
         lv_textarea_set_text(self->_textarea, (mention + cur).c_str());
     }
 #ifdef PLATFORM_TWATCH

@@ -1549,6 +1549,7 @@ void UIManager::telemBtnCb(lv_event_t* e) {
                     self->_pendingMapLat  = td->lat;
                     self->_pendingMapLon  = td->lon;
                     self->_pendingMapName = c->name;
+                    memcpy(self->_pendingMapKey, c->publicKey, 32);
                     self->dismissTelemetryModal();
                     lv_async_call(&UIManager::openMapAsync, self);
                 }
@@ -1561,11 +1562,13 @@ void UIManager::telemBtnCb(lv_event_t* e) {
 void UIManager::openMapAsync(void* user) {
     UIManager* self = static_cast<UIManager*>(user);
     if (!self) return;
-    self->showMapScreen(self->_pendingMapLat, self->_pendingMapLon, self->_pendingMapName);
+    self->showMapScreen(self->_pendingMapKey, self->_pendingMapLat, self->_pendingMapLon,
+                        self->_pendingMapName);
 }
 
-void UIManager::showMapScreen(double lat, double lon, const String& contactName) {
-    _mapScreen.open(lat, lon, contactName);
+void UIManager::showMapScreen(const uint8_t* pubKey, double lat, double lon,
+                              const String& contactName) {
+    _mapScreen.open(pubKey, lat, lon, contactName);
 }
 
 void UIManager::openGeneralMapAsync(void* user) {

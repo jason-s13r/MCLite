@@ -328,7 +328,11 @@ void CompanionService::cmdGetContacts(size_t len) {
     auto* mesh = MeshManager::instance().mesh();
     if (!mesh) { writeErr(ERR_CODE_BAD_STATE); return; }
 
-    _contactsSince = (len >= 5) ? *(const uint32_t*)&_cmd[1] : 0;
+    // Read the 4-byte 'since' via memcpy — &_cmd[1] is unaligned, and a raw
+    // uint32_t* cast there is UB (and inconsistent with the rest of this file).
+    uint32_t since = 0;
+    if (len >= 5) memcpy(&since, &_cmd[1], 4);
+    _contactsSince = since;
 
     uint32_t count = (uint32_t)mesh->getNumContacts();
     _out[0] = RESP_CODE_CONTACTS_START;

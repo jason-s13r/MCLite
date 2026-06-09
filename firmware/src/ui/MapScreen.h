@@ -14,8 +14,10 @@ namespace mclite {
 // original lat/lon.
 class MapScreen {
 public:
-    // Open centered on a single contact (telemetry "Map" button).
-    void open(double contactLat, double contactLon, const String& contactName);
+    // Open the general map focused on one contact (telemetry "Map" button):
+    // centers on the contact and pre-selects it (highlight + name). Same screen
+    // and controls as openGeneral(); pubKey may be null.
+    void open(const uint8_t* pubKey, double contactLat, double contactLon, const String& contactName);
 
     // Open the general map: own location + markers for every heard node with GPS.
     // Centers on own location, else the most-recent heard-with-GPS node. No-ops
@@ -39,9 +41,9 @@ private:
 
     // --- rendering ---
     void render();
+    void recenter();               // own location if available, else the open-center
     void renderTiles();
-    void drawContactMarker();
-    void drawHeardMarkers();       // general mode: type letters for heard nodes w/ GPS
+    void drawHeardMarkers();       // type-letter dots for contacts + heard nodes w/ GPS
     void drawOwnMarker();
     // lat/lon -> canvas pixel; returns false if well off-canvas. Shared by draw + tap.
     bool markerScreenPos(double lat, double lon, int& px, int& py) const;
@@ -85,12 +87,20 @@ private:
     struct MapMarker { double lat; double lon; uint8_t type; bool isContact; char name[32]; uint8_t key[32]; };
     std::vector<MapMarker> _markers;
 
-    // Tapped marker (highlighted with a ring while its name shows in _selLabel).
+    // Tapped/focused marker (highlighted with a ring + bigger dot while its name
+    // shows in _selLabel). Keyed by pubkey (matches _markers[].key).
     bool    _hasSel = false;
     uint8_t _selKey[32] = {0};
 
-    // Original contact location — set once in open(), used by drawContactMarker
-    // and the Center button. Constant for the lifetime of the screen.
+    // Focus-on-a-contact (telemetry "Map" button): ensures the contact appears as
+    // a marker even if it isn't in the contact/heard caches at open time.
+    bool     _hasFocus  = false;
+    double   _focusLat  = 0.0;
+    double   _focusLon  = 0.0;
+    uint8_t  _focusType = 0;       // ADV_TYPE_*
+
+    // Original contact/center location — set in open()/openGeneral(), used as the
+    // Center-button fallback before an own fix. Constant for the screen's life.
     double   _contactLat = 0.0;
     double   _contactLon = 0.0;
     String   _contactName;

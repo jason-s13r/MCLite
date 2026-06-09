@@ -296,7 +296,11 @@ void StatusBar::update() {
 
     // GPS indicator — green=live, amber=last known, gray=no fix
     if (!cfg.gpsEnabled) {
-        lv_label_set_text(_gpsIcon, "");
+        // GPS disabled in config: keep the icon present but dimmed so the
+        // general map stays reachable (tap still opens it — the map can center
+        // on heard nodes' locations even without our own fix).
+        lv_label_set_text(_gpsIcon, LV_SYMBOL_GPS);
+        lv_obj_set_style_text_color(_gpsIcon, theme::TEXT_TIMESTAMP, 0);
     } else {
         lv_label_set_text(_gpsIcon, LV_SYMBOL_GPS);
         switch (gps.fixStatus()) {

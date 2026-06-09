@@ -73,16 +73,41 @@ static const char* mapTypeWord(uint8_t type) {
     }
 }
 
-void MapScreen::open(double contactLat, double contactLon, const String& contactName) {
+void MapScreen::open(const uint8_t* pubKey, double contactLat, double contactLon,
+                     const String& contactName) {
     if (_screen) return;  // already open
 
-    _general    = false;
-    _contactLat = contactLat;
-    _contactLon = contactLon;
-    _centerLat  = contactLat;
-    _centerLon  = contactLon;
+    // Same general map, just opened focused on one contact: center on it,
+    // pre-select it (highlight ring + bigger dot + name in the bottom label),
+    // and guarantee it shows even if it isn't in the contact/heard caches yet.
+    _general     = true;
     _contactName = contactName;
+    _contactLat  = contactLat;   // Center-button fallback before an own fix
+    _contactLon  = contactLon;
+    _centerLat   = contactLat;
+    _centerLon   = contactLon;
+    _hasSel      = true;
+    if (pubKey) memcpy(_selKey, pubKey, 32); else memset(_selKey, 0, 32);
+    _hasFocus    = true;
+    _focusLat    = contactLat;
+    _focusLon    = contactLon;
+    _focusType   = ADV_TYPE_CHAT;  // telemetry "Map" is a chat-contact action
     doOpen();
+    if (!_screen) return;          // no tiles → doOpen bailed
+
+    // Show the focused contact's name immediately (use its real marker type/name
+    // if it ended up in _markers, else the passed-in name).
+    if (_selLabel) {
+        const char* word = mapTypeWord(_focusType);
+        String nm = _contactName;
+        for (const auto& m : _markers) {
+            if (memcmp(m.key, _selKey, 32) == 0) { word = mapTypeWord(m.type); nm = m.name; break; }
+        }
+        String s = String(word) + " " + nm;
+        lv_label_set_text(_selLabel, s.c_str());
+        lv_obj_clear_flag(_selLabel, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_align(_selLabel, LV_ALIGN_BOTTOM_MID, 0, -(MAP_CORNER_INSET + theme::PAD_SMALL));
+    }
 }
 
 // Collect every node location we know: mesh contacts (fresh telemetry location,
@@ -124,6 +149,12 @@ void MapScreen::buildMarkers() {
         if (!es[i].hasGps || seen(es[i].pubKey)) continue;
         add(es[i].gpsLat / 1e6, es[i].gpsLon / 1e6, es[i].type, false, es[i].name, es[i].pubKey);
     }
+
+    // 3) When opened focused on a contact (telemetry "Map" button), make sure it
+    // shows even if it isn't a known contact/heard node right now.
+    if (_hasFocus && !seen(_selKey)) {
+        add(_focusLat, _focusLon, _focusType, true, _contactName.c_str(), _selKey);
+    }
 }
 
 bool MapScreen::chooseGeneralCenter(double& lat, double& lon) {
@@ -148,6 +179,7 @@ void MapScreen::openGeneral() {
     }
     _general     = true;
     _hasSel      = false;
+    _hasFocus    = false;
     _contactName = "";
     _contactLat  = clat;   // doubles as the Center-button fallback before an own fix
     _contactLon  = clon;
@@ -400,8 +432,8 @@ void MapScreen::render() {
     if (!_canvas || !_cbuf) return;
     renderTiles();
     drawOwnMarker();
-    if (_general) { buildMarkers(); drawHeardMarkers(); }
-    else          drawContactMarker();
+    buildMarkers();
+    drawHeardMarkers();
     drawCrosshair();
     drawScaleBar();
     lv_obj_invalidate(_canvas);
@@ -466,19 +498,6 @@ static void drawRect(lv_color_t* buf, int bufW, int bufH, int x0, int y0, int w,
     }
 }
 
-void MapScreen::drawContactMarker() {
-    // Position relative to viewport centre. When _centerLat/Lon == contact,
-    // this lands on canvas centre; after panning, the marker visually drifts.
-    TileFrac fk = latLonToTileXY(_contactLat, _contactLon, _zoom);
-    TileFrac fc = latLonToTileXY(_centerLat,  _centerLon,  _zoom);
-    const int dx = (int)lround((fk.x - fc.x) * (double)TILE);
-    const int dy = (int)lround((fk.y - fc.y) * (double)TILE);
-    const int px = CANVAS_W / 2 + dx;
-    const int py = CANVAS_H / 2 + dy;
-    if (px < -6 || px >= CANVAS_W + 6 || py < -6 || py >= CANVAS_H + 6) return;
-    drawDot(_cbuf, CANVAS_W, CANVAS_H, px, py, 5,
-            theme::ACCENT, lv_color_white());
-}
 
 bool MapScreen::markerScreenPos(double lat, double lon, int& px, int& py) const {
     TileFrac fm = latLonToTileXY(lat, lon, _zoom);
@@ -516,17 +535,19 @@ void MapScreen::drawHeardMarkers() {
 
         // Each marker is a filled dot in its type color (blue = a saved contact,
         // grey = a heard stranger for chat; list colors otherwise) with a black
-        // rim, so the symbol reads against any map tile.
+        // rim, so the symbol reads against any map tile. The selected/focused
+        // marker is drawn a bit larger and wrapped in a bold ring.
+        bool sel = _hasSel && memcmp(m.key, _selKey, 32) == 0;
         lv_color_t dotColor = (m.type == ADV_TYPE_CHAT)
             ? (m.isContact ? theme::ACCENT : theme::TEXT_SECONDARY)
             : mapTypeColor(m.type);
-        drawDot(_cbuf, CANVAS_W, CANVAS_H, px, py, 8, dotColor, lv_color_black());
+        drawDot(_cbuf, CANVAS_W, CANVAS_H, px, py, sel ? 10 : 8, dotColor, lv_color_black());
 
-        if (_hasSel && memcmp(m.key, _selKey, 32) == 0) {
-            // Bold white ring + black halos, sitting just outside the dot.
-            drawRing(_cbuf, CANVAS_W, CANVAS_H, px, py, 14, 1, lv_color_black());  // outer halo
-            drawRing(_cbuf, CANVAS_W, CANVAS_H, px, py, 13, 3, lv_color_white());  // bold ring
-            drawRing(_cbuf, CANVAS_W, CANVAS_H, px, py, 10, 1, lv_color_black());  // inner halo
+        if (sel) {
+            // Bold white ring + black halos, sitting just outside the larger dot.
+            drawRing(_cbuf, CANVAS_W, CANVAS_H, px, py, 15, 1, lv_color_black());  // outer halo
+            drawRing(_cbuf, CANVAS_W, CANVAS_H, px, py, 14, 3, lv_color_white());  // bold ring
+            drawRing(_cbuf, CANVAS_W, CANVAS_H, px, py, 12, 1, lv_color_black());  // inner halo
         }
 
         // Symbol on top, in black or white — whichever contrasts with the dot.
@@ -612,7 +633,12 @@ void MapScreen::closeBtnCb(lv_event_t* e) {
 
 void MapScreen::reloadBtnCb(lv_event_t* e) {
     MapScreen* self = static_cast<MapScreen*>(lv_event_get_user_data(e));
-    if (self) self->render();   // render() rebuilds markers in general mode
+    if (!self) return;
+    // Re-scan heard/contact nodes AND re-check our own position: render() rebuilds
+    // the markers and redraws the own dot from the live GPS fix, so a position that
+    // became available since opening now shows (and the Center button will use it).
+    // The viewport is left where it is — Center is what moves it.
+    self->render();
 }
 
 void MapScreen::zoomInCb(lv_event_t* e) {
@@ -638,18 +664,20 @@ void MapScreen::zoomOutCb(lv_event_t* e) {
 void MapScreen::centerBtnCb(lv_event_t* e) {
     MapScreen* self = static_cast<MapScreen*>(lv_event_get_user_data(e));
     if (!self) return;
-    if (self->_general) {
-        // General map: prefer own location once available, else the fallback node.
-        auto& gps = GPS::instance();
-        FixStatus fs = gps.fixStatus();
-        if (fs == FixStatus::LIVE)            { self->_centerLat = gps.lat();       self->_centerLon = gps.lon(); }
-        else if (fs == FixStatus::LAST_KNOWN) { self->_centerLat = gps.cachedLat(); self->_centerLon = gps.cachedLon(); }
-        else                                  { self->_centerLat = self->_contactLat; self->_centerLon = self->_contactLon; }
-    } else {
-        self->_centerLat = self->_contactLat;
-        self->_centerLon = self->_contactLon;
-    }
-    self->render();
+    self->recenter();
+}
+
+// Center on our own location if a fix is available (checked live, so it works as
+// soon as GPS locks). Otherwise fall back to the location the map opened on
+// (_contactLat/Lon — the contact for a focused open, or the chosen node for the
+// general map). Used by the Center button and by Reload.
+void MapScreen::recenter() {
+    auto& gps = GPS::instance();
+    FixStatus fs = gps.fixStatus();
+    if (fs == FixStatus::LIVE)            { _centerLat = gps.lat();       _centerLon = gps.lon(); }
+    else if (fs == FixStatus::LAST_KNOWN) { _centerLat = gps.cachedLat(); _centerLon = gps.cachedLon(); }
+    else                                  { _centerLat = _contactLat;     _centerLon = _contactLon; }
+    render();
 }
 
 void MapScreen::hitTestMarker(const lv_point_t& p) {

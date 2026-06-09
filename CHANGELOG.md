@@ -5,6 +5,27 @@ All notable changes to MCLite are documented here. The format is loosely based o
 
 Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-watch-vX.Y.Z.bin`).
 
+## [0.3.2] — 2026-06-09
+
+Map unification + fixes from a careful review of 0.3.0/0.3.1.
+
+### Changed
+- The contact "Map" button and the status-bar GPS icon now open the **same** map (one screen, one set of
+  controls). Opening from a contact just centers on that contact and pre-selects it — drawn slightly larger
+  with a highlight ring and its name in the bottom bar — while still showing every other contact / telemetry /
+  heard-node location and your own position (a distinct green/amber dot).
+- **Reload** rebuilds *all* markers and re-checks your own position; **Center** always jumps to your own
+  location once a fix is available (even when the map was opened from a contact), falling back to the
+  location the map opened on when there's no fix.
+
+### Fixed
+- Center button now uses your own location on a contact-opened map (previously it only ever recentered on the
+  contact).
+- The status-bar GPS icon stays visible (dimmed) and tappable when GPS is disabled in config, so the general
+  map remains reachable.
+- `@mention` no longer truncates a near-full message draft (skips the insert when it wouldn't fit).
+- Companion: the contacts `since` field is read via `memcpy` (removed an unaligned read).
+
 ## [0.3.1] — 2026-06-09
 
 Fork-adoption batch (features adopted from the jason-s13r/MCLite fork) plus map polish.

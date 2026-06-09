@@ -108,7 +108,7 @@ public:
     void updateTelemetryModal(const uint8_t* pubKey);
 
     // Map screen (opened from telemetry modal)
-    void showMapScreen(double lat, double lon, const String& contactName);
+    void showMapScreen(const uint8_t* pubKey, double lat, double lon, const String& contactName);
 
     // Open the general map (own location + heard-node markers). From the GPS icon.
     void showGeneralMap();
@@ -232,6 +232,7 @@ private:
     double    _pendingMapLat = 0.0;
     double    _pendingMapLon = 0.0;
     String    _pendingMapName;
+    uint8_t   _pendingMapKey[32] = {0};
     static void openMapAsync(void* user);
     static void openGeneralMapAsync(void* user);
 
