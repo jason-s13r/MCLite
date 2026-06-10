@@ -68,7 +68,6 @@ private:
 
     // --- rendering ---
     void render();
-    void recenter();               // own location if available, else the open-center
     void renderTiles();
     void drawHeardMarkers();       // type-letter dots for contacts + heard nodes w/ GPS
     void drawOwnMarker();
