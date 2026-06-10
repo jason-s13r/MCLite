@@ -1,4 +1,5 @@
 #include "FirmwareUpdater.h"
+#include "util/log.h"
 
 #include <SD.h>
 #include <Update.h>
@@ -80,11 +81,11 @@ String FirmwareUpdater::findSdFirmware(bool autoMode, String& outVersion) {
 
 bool FirmwareUpdater::flashFromSd(const char* path, ProgressCb cb, void* user) {
     File f = SDCard::instance().openRaw(path);
-    if (!f) { Serial.printf("[OTA] open failed: %s\n", path); return false; }
+    if (!f) { LOGF("[OTA] open failed: %s\n", path); return false; }
 
     size_t total = f.size();
     if (total <= APP_OFFSET) {
-        Serial.printf("[OTA] file too small (%u bytes)\n", (unsigned)total);
+        LOGF("[OTA] file too small (%u bytes)\n", (unsigned)total);
         f.close();
         return false;
     }
@@ -94,14 +95,14 @@ bool FirmwareUpdater::flashFromSd(const char* path, ProgressCb cb, void* user) {
     if (!f.seek(APP_OFFSET)) { f.close(); return false; }
     uint8_t magic = 0;
     if (f.read(&magic, 1) != 1 || magic != 0xE9) {
-        Serial.printf("[OTA] bad image magic 0x%02X at 0x%X\n", magic, (unsigned)APP_OFFSET);
+        LOGF("[OTA] bad image magic 0x%02X at 0x%X\n", magic, (unsigned)APP_OFFSET);
         f.close();
         return false;
     }
 
     size_t appSize = total - APP_OFFSET;
     if (!Update.begin(appSize)) {
-        Serial.printf("[OTA] Update.begin failed: %s\n", Update.errorString());
+        LOGF("[OTA] Update.begin failed: %s\n", Update.errorString());
         f.close();
         return false;
     }
@@ -118,13 +119,13 @@ bool FirmwareUpdater::flashFromSd(const char* path, ProgressCb cb, void* user) {
         if (want > CHUNK) want = CHUNK;
         int n = f.read(buf, want);
         if (n <= 0) {
-            Serial.println("[OTA] SD read error");
+            LOGLN("[OTA] SD read error");
             Update.abort();
             f.close();
             return false;
         }
         if (Update.write(buf, n) != (size_t)n) {
-            Serial.printf("[OTA] write error: %s\n", Update.errorString());
+            LOGF("[OTA] write error: %s\n", Update.errorString());
             Update.abort();
             f.close();
             return false;
@@ -142,7 +143,7 @@ bool FirmwareUpdater::flashFromSd(const char* path, ProgressCb cb, void* user) {
     f.close();
 
     if (!Update.end(true) || !Update.isFinished()) {
-        Serial.printf("[OTA] finalize failed: %s\n", Update.errorString());
+        LOGF("[OTA] finalize failed: %s\n", Update.errorString());
         return false;
     }
 
@@ -150,10 +151,10 @@ bool FirmwareUpdater::flashFromSd(const char* path, ProgressCb cb, void* user) {
     String installed = String(path) + ".installed";
     if (SD.exists(installed.c_str())) SD.remove(installed.c_str());  // clear stale marker (quietly)
     if (!SD.rename(path, installed.c_str())) {
-        Serial.printf("[OTA] rename failed (%s) — version gate will guard the loop\n", path);
+        LOGF("[OTA] rename failed (%s) — version gate will guard the loop\n", path);
     }
 
-    Serial.println("[OTA] flash OK — rebooting into new firmware");
+    LOGLN("[OTA] flash OK — rebooting into new firmware");
     return true;
 }
 
@@ -168,18 +169,18 @@ bool FirmwareUpdater::downloadToSd(const char* url, const char* destPath,
     HTTPClient http;
     http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);  // GitHub → CDN redirect
     http.setUserAgent("MCLite");
-    if (!http.begin(client, url)) { Serial.println("[OTA] http.begin failed"); return false; }
+    if (!http.begin(client, url)) { LOGLN("[OTA] http.begin failed"); return false; }
 
     int code = http.GET();
     if (code != HTTP_CODE_OK) {
-        Serial.printf("[OTA] download HTTP %d\n", code);
+        LOGF("[OTA] download HTTP %d\n", code);
         http.end();
         return false;
     }
 
     int total = http.getSize();  // -1 if the server didn't send Content-Length
     File f = SD.open(destPath, FILE_WRITE);
-    if (!f) { Serial.printf("[OTA] cannot open %s for write\n", destPath); http.end(); return false; }
+    if (!f) { LOGF("[OTA] cannot open %s for write\n", destPath); http.end(); return false; }
 
     WiFiClient* stream = http.getStreamPtr();
     const size_t CHUNK = 4096;
@@ -194,7 +195,7 @@ bool FirmwareUpdater::downloadToSd(const char* url, const char* destPath,
             int n = stream->readBytes(buf, avail > CHUNK ? CHUNK : avail);
             if (n <= 0) break;
             if (f.write(buf, n) != (size_t)n) {
-                Serial.println("[OTA] SD write short");
+                LOGLN("[OTA] SD write short");
                 f.close(); http.end(); SD.remove(destPath);
                 return false;
             }
@@ -214,11 +215,11 @@ bool FirmwareUpdater::downloadToSd(const char* url, const char* destPath,
     http.end();
 
     if ((total > 0 && written < total) || written <= 0x10000) {
-        Serial.printf("[OTA] download incomplete (%d/%d)\n", written, total);
+        LOGF("[OTA] download incomplete (%d/%d)\n", written, total);
         SD.remove(destPath);
         return false;
     }
-    Serial.printf("[OTA] downloaded %d bytes -> %s\n", written, destPath);
+    LOGF("[OTA] downloaded %d bytes -> %s\n", written, destPath);
     return true;
 }
 

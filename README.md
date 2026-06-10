@@ -32,7 +32,19 @@ MCLite runs on two LilyGo ESP32-S3 boards. They share the same SX1262 LoRa radio
 - **[T-Deck Plus](https://lilygo.cc/products/t-deck-plus)** -- handheld with a physical QWERTY keyboard, trackball, GPS, and a 2.8" display. The original, fully-featured target.
 - **[T-Watch Ultra](https://lilygo.cc/products/t-watch-ultra)** -- wrist-worn device with a 2.01" AMOLED touchscreen. Fully touch-driven with an on-screen keyboard.
 
+## Quick Start
+
+New here? Three steps, no toolchain or install needed:
+
+1. **Flash** your T-Deck Plus or T-Watch Ultra from the browser with the [web flasher](https://laserir.github.io/MCLite/tools/web-flasher/) (Chrome or Edge).
+2. **Configure** your identity, contacts, and channels in the offline [config tool](https://laserir.github.io/MCLite/tools/config-tool/mclite_config_tool.html), then download `config.json`.
+3. **Copy** `config.json` to the SD card, insert it, and power on.
+
+That's it. Full walkthrough — including updates and companion mode — in [Getting Started](#getting-started) below.
+
 ## Features
+
+*Release history and per-version changes: see [CHANGELOG.md](CHANGELOG.md).*
 
 - **Direct messages** -- private encrypted conversations between contacts
 - **Channels** -- group communication via shared or public channels, with optional read-only (listen-only) mode
@@ -40,9 +52,9 @@ MCLite runs on two LilyGo ESP32-S3 boards. They share the same SX1262 LoRa radio
 - **Heard adverts** -- browse a rolling 64-entry list of every device your radio has decoded, reachable from the admin screen. Per-row type icon (chat / repeater / room / sensor), hops, last-heard age, GPS when present. Tap a chat advert for the full per-hop path + fingerprint and a one-tap **Save** that adds it to your contact list (queued, applies on next reboot). Manual-advert button announces yourself on demand without waiting for the next periodic cycle
 - **SOS alerts** -- long-press the trackball (hold 6 seconds) to broadcast an emergency alert
 - **Battery alerts** -- automatic low-battery warnings sent to your contacts
-- **GPS location sharing** -- manually send your position in lat/lon or UTMREF/MGRS (military grid) format, used by search and rescue worldwide. Last-known position support when GPS signal is temporarily lost
+- **GPS location sharing** -- manually send your position in lat/lon or UTMREF/MGRS (military grid) format, used by search and rescue worldwide. Last-known position support when GPS signal is temporarily lost. Optionally **broadcast your location in adverts** (`location_advert`, off by default) so contacts see you on their map -- note adverts are unencrypted and reach everyone in range, unlike targeted per-contact telemetry
 - **Telemetry** -- responds to MeshCore-standard telemetry requests (battery, GPS) with per-contact permissions. Compatible with MeshCore companion apps. Optionally request telemetry from contacts to see their battery, location, and distance
-- **Map view** -- visualise a contact's position on a slippy map (optional, requires tile pack on SD card). Drag to pan, zoomable, with a Center button and own-device marker overlaid
+- **Map view** -- visualise positions on a slippy map (optional, requires tile pack on SD card). Tap a contact's name in chat for their position, or tap the **status-bar GPS icon** for the general map: your own location plus markers for every heard node / contact that carries GPS (same chat / repeater / room / sensor symbols as the heard-adverts list). Tap a marker for its name, drag to pan, zoomable, with Center and Reload buttons
 - **Message history** -- conversations saved to SD card and restored on reboot
 - **Quick replies** -- optional canned message picker for fast responses (OK, Copy, Need help, etc.), translatable and customizable
 - **Multi-language** -- English, German, French, and Italian included. Add your own translations via SD card
@@ -57,6 +69,7 @@ MCLite runs on two LilyGo ESP32-S3 boards. They share the same SX1262 LoRa radio
 - **Offgrid mode** -- one-flag toggle that switches to the community offgrid frequency (433/869/918 MHz, auto-picked from your normal frequency) and relays packets for other offgrid nodes. Camping / hiking / SAR scenarios where no repeaters exist. Toggle on-device from the admin screen or via config tool, reboot to apply. While offgrid, only other offgrid peers receive your messages, SOS, and battery alerts.
 - **Update from SD card** -- drop a firmware `.bin` on the SD card and the device offers to install it on boot (or from the admin screen) -- no USB needed
 - **Update over WiFi** -- optionally connect to WiFi on-device (scan + enter password) and check GitHub for newer firmware; download and install with one tap. Off by default
+- **Companion mode (WiFi / USB / BLE)** -- bridge the radio to a phone/desktop/CLI using the standard MeshCore companion protocol, *in parallel* with normal on-device use (messages appear in both). BLE pairs with the **official MeshCore mobile apps** (6-digit PIN); WiFi/USB work with `meshcore-cli`/`meshcore.js`/`meshcore_py`. One transport at a time; messaging is read-only for config (no remote edits). See note below
 - **Zero-config for end users** -- all settings live in one JSON file on the SD card. Set it up once, copy to every device in your group
 
 ## Getting Started
@@ -72,8 +85,8 @@ Visit the [MCLite Web Flasher](https://laserir.github.io/MCLite/tools/web-flashe
 Download the latest binary for your board from the [Releases](../../releases) page -- `mclite-v*.bin` for the **T-Deck Plus**, `mclite-watch-v*.bin` for the **T-Watch Ultra** -- and flash with esptool at offset `0x0`:
 
 ```
-esptool.py write_flash 0x0 mclite-v0.2.2.bin          # T-Deck Plus
-esptool.py write_flash 0x0 mclite-watch-v0.2.2.bin    # T-Watch Ultra
+esptool.py write_flash 0x0 mclite-v0.3.2.bin          # T-Deck Plus
+esptool.py write_flash 0x0 mclite-watch-v0.3.2.bin    # T-Watch Ultra
 ```
 
 The T-Watch Ultra has no power switch -- if esptool can't connect, put it in download mode manually: hold **BOOT**, tap **RST**, release **BOOT**.
@@ -84,6 +97,45 @@ Once MCLite is installed you can update it without a computer:
 
 - **From SD card** -- copy a newer merged binary (`mclite-v*.bin` for the T-Deck Plus, `mclite-watch-v*.bin` for the T-Watch Ultra) to the SD card. On the next boot the device detects it and offers **Install / Cancel**, then flashes and reboots. The file is renamed afterwards so it won't re-prompt.
 - **Over WiFi** -- on the device go to **Admin → WiFi**, switch WiFi on, pick your network and enter the password (saved for next time), then tap **Check for updates**. If a newer release exists on GitHub it downloads and installs. Enable **auto-update** (config tool → WiFi, or it checks on boot when on) to be prompted automatically.
+
+### Companion mode
+
+Use a phone, desktop, or CLI as a companion to the radio while the device keeps working normally — messages appear in **both** places at once. MCLite speaks the standard MeshCore companion protocol over three transports (**one active at a time**): **Bluetooth**, **WiFi**, and **USB**. Messaging is **read-only for config** — a companion can read contacts/channels and send/receive messages, but can't change radio settings, contacts, channels, or keys.
+
+#### Bluetooth (official mobile apps)
+
+The way to use the official MeshCore **iOS / Android** apps.
+
+1. On the device: **Admin → Bluetooth**. The screen shows a 6-digit **pairing PIN** (generated once and saved).
+2. Turn the **Bluetooth Companion** switch on — the device advertises as `MeshCore-<name>`.
+3. In the app: scan, pick this device, and enter the PIN when prompted. It bonds once and reconnects automatically.
+
+The Bluetooth status-bar icon turns **green** while a client is connected.
+
+#### WiFi (desktop / CLI on your LAN)
+
+1. On the device: **Admin → WiFi**, switch WiFi **on** and connect to your network.
+2. Turn on the **WiFi Companion** switch (enabled once WiFi is connected). The row shows `Companion <ip>:5000`.
+3. From a computer on the same network:
+   ```
+   pip install meshcore-cli
+   meshcore-cli -t <device-ip> -p 5000 infos      # or: contacts, recv, chan_msg, etc.
+   ```
+   (`meshcore.js` and `meshcore_py` work too.) The status-bar WiFi icon turns **green** while a client is attached. Note: the WiFi transport has **no pairing/auth** (the protocol's only auth is the Bluetooth passkey) — only enable it on networks you trust.
+
+#### USB (wired, computer)
+
+Turn on the **USB Companion** switch (**Admin → USB**; works with WiFi off), then connect over the USB-CDC port:
+```
+meshcore-cli -s /dev/ttyACM0 infos
+```
+While USB companion is active the device's **serial debug logging is muted** — the binary protocol and log text can't share the one USB port (there's no spare log UART on these boards). Logs resume the moment you turn it off. The charge bolt turns **green** while a USB client is bridging.
+
+#### Notes
+
+- **One transport, one client at a time** — the modes are mutually exclusive by design (the protocol is single-session). Turning one on turns the others off.
+- **WiFi vs Bluetooth can't run together** — they share the 2.4 GHz radio and there isn't enough RAM for both. Enabling Bluetooth turns WiFi off; once Bluetooth has been used, **switching back to WiFi needs a reboot** (the BLE stack can't be freed at runtime). The WiFi screen shows a notice and a **Reboot** button when this applies.
+- **Known limitation** — messages **typed on the device itself** do not appear in the companion app. The MeshCore companion protocol has no event for a firmware-composed message (it assumes the app is the sole composer). Everything else mirrors both ways: received messages and app-sent messages show on the device *and* in the app.
 
 ### Set up your config
 
@@ -221,7 +273,8 @@ To set up a group: use **Fleet Mode** in the Setup Wizard. Add a device for each
     "enabled": true,
     "timezone": "",                    // POSIX TZ string for automatic DST (e.g. "CET-1CEST,M3.5.0/2,M10.5.0/3")
     "clock_offset": 0,                 // UTC offset in hours, no DST (-12 to +14). Ignored if timezone is set
-    "last_known_max_age": 1800         // Seconds before last-known GPS position expires (60-7200)
+    "last_known_max_age": 1800,        // Seconds before last-known GPS position expires (60-7200)
+    "location_advert": false           // Broadcast your location in adverts so others see you on their map (unencrypted, off by default)
   },
 
   "battery": {
@@ -289,8 +342,28 @@ The T-Deck Plus is keyboard + trackball driven; the T-Watch Ultra is touch drive
 
 | Icon | Meaning |
 |------|---------|
-| GPS | Green = live fix, amber = last known, gray = no fix |
+| GPS | Green = live fix, amber = last known, gray = no fix, dimmed = GPS disabled. **Tap to open the map** |
 | Battery | Charge level; charging symbol when plugged in |
+
+**Map view** (needs offline tiles on the SD card -- see [Map tiles](#map-tiles-optional))
+
+Open it by tapping the **GPS icon** in the status bar (works even when GPS is off -- the icon stays dimmed but tappable), or from a contact's telemetry pop-up via **Map** (which opens the same map centered on that contact, with it highlighted). It's one map either way -- it always shows every node whose location we know: contacts (from a telemetry request or their advert), heard nodes, and your own position.
+
+Markers use the same letters and colors as the Heard Adverts list, drawn as a filled dot with the symbol on top:
+
+| Symbol | Meaning |
+|--------|---------|
+| @ (blue) | Chat client that's a saved contact |
+| @ (grey) | Chat client heard on the mesh (not a contact) |
+| P | Repeater |
+| R | Room server |
+| S | Sensor |
+| Green / amber dot | **Your own** position (green = live fix, amber = last known) -- distinct from node markers |
+
+- **Tap a marker** to show its name in the bottom bar; the selected one gets a ring and a slightly larger dot.
+- **Center** (GPS button) centers on your own location as soon as a fix is available; with no fix it returns to where the map opened (the contact, or a nearby node).
+- **Reload** (↻) re-scans all node locations and re-checks your own, without moving the view.
+- **Drag** to pan, **+ / −** to zoom.
 
 **Message delivery indicators**
 

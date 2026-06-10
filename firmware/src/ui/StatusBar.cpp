@@ -1,5 +1,6 @@
 #include "StatusBar.h"
 #include "theme.h"
+#include "UIManager.h"
 #include "../hal/Battery.h"
 #include "../hal/Display.h"
 #include "../hal/GPS.h"
@@ -8,6 +9,7 @@
 #include "../util/TimeHelper.h"
 #include "../util/TextSanitizer.h"
 #include "../net/WiFiManager.h"
+#include "../companion/CompanionService.h"
 
 namespace mclite {
 
@@ -79,6 +81,9 @@ void StatusBar::create(lv_obj_t* parent) {
     _gpsIcon = lv_label_create(_iconRow);
     lv_obj_set_style_text_font(_gpsIcon, FONT_STATUSBAR_ICON, 0);
     lv_obj_set_style_text_color(_gpsIcon, theme::TEXT_SECONDARY, 0);
+    lv_obj_add_flag(_gpsIcon, LV_OBJ_FLAG_CLICKABLE);   // tap → general map
+    lv_obj_set_ext_click_area(_gpsIcon, 8);
+    lv_obj_add_event_cb(_gpsIcon, gpsClickCb, LV_EVENT_CLICKED, this);
 
     _wifiIcon = lv_label_create(_iconRow);  // between GPS and battery
     lv_obj_set_style_text_font(_wifiIcon, FONT_STATUSBAR_ICON, 0);
@@ -86,7 +91,14 @@ void StatusBar::create(lv_obj_t* parent) {
     lv_label_set_text(_wifiIcon, LV_SYMBOL_WIFI);
     lv_obj_add_flag(_wifiIcon, LV_OBJ_FLAG_HIDDEN);
 
+    _bleIcon = lv_label_create(_iconRow);
+    lv_obj_set_style_text_font(_bleIcon, FONT_STATUSBAR_ICON, 0);
+    lv_obj_set_style_text_color(_bleIcon, theme::ACCENT, 0);
+    lv_label_set_text(_bleIcon, LV_SYMBOL_BLUETOOTH);
+    lv_obj_add_flag(_bleIcon, LV_OBJ_FLAG_HIDDEN);
+
     _lblBatt = lv_label_create(_iconRow);
+    lv_label_set_recolor(_lblBatt, true);   // recolor the charge bolt independently
     lv_obj_set_style_text_font(_lblBatt, FONT_STATUSBAR_ICON, 0);
     lv_obj_set_style_text_color(_lblBatt, theme::TEXT_PRIMARY, 0);
 
@@ -147,6 +159,9 @@ void StatusBar::create(lv_obj_t* parent) {
     _gpsIcon = lv_label_create(_bar);
     lv_obj_set_style_text_font(_gpsIcon, FONT_SMALL, 0);
     lv_obj_set_style_text_color(_gpsIcon, theme::TEXT_SECONDARY, 0);
+    lv_obj_add_flag(_gpsIcon, LV_OBJ_FLAG_CLICKABLE);   // tap → general map
+    lv_obj_set_ext_click_area(_gpsIcon, 8);
+    lv_obj_add_event_cb(_gpsIcon, gpsClickCb, LV_EVENT_CLICKED, this);
 
     // WiFi indicator (between GPS and battery) — shown only while connected
     _wifiIcon = lv_label_create(_bar);
@@ -155,8 +170,15 @@ void StatusBar::create(lv_obj_t* parent) {
     lv_label_set_text(_wifiIcon, LV_SYMBOL_WIFI);
     lv_obj_add_flag(_wifiIcon, LV_OBJ_FLAG_HIDDEN);
 
+    _bleIcon = lv_label_create(_bar);
+    lv_obj_set_style_text_font(_bleIcon, FONT_SMALL, 0);
+    lv_obj_set_style_text_color(_bleIcon, theme::ACCENT, 0);
+    lv_label_set_text(_bleIcon, LV_SYMBOL_BLUETOOTH);
+    lv_obj_add_flag(_bleIcon, LV_OBJ_FLAG_HIDDEN);
+
     // Battery
     _lblBatt = lv_label_create(_bar);
+    lv_label_set_recolor(_lblBatt, true);   // recolor the charge bolt independently
     lv_obj_set_style_text_font(_lblBatt, FONT_SMALL, 0);
     lv_obj_set_style_text_color(_lblBatt, theme::TEXT_PRIMARY, 0);
 
@@ -174,6 +196,10 @@ void StatusBar::soundClickCb(lv_event_t* e) {
     StatusBar* self = (StatusBar*)lv_event_get_user_data(e);
     Speaker::instance().toggleMute();
     self->updateSoundIcon();
+}
+
+void StatusBar::gpsClickCb(lv_event_t* e) {
+    UIManager::instance().showGeneralMap();
 }
 
 void StatusBar::updateSoundIcon() {
@@ -207,9 +233,16 @@ void StatusBar::update() {
     else if (pct > 20) battIcon = LV_SYMBOL_BATTERY_1;
     else                battIcon = LV_SYMBOL_BATTERY_EMPTY;
 
+    // A USB companion client actively bridging → tint just the charge bolt green
+    // (recolor markup); the battery glyph keeps its normal/low color.
+    auto& comp = CompanionService::instance();
+    bool usbBridging = comp.usbCompanionEnabled() && comp.clientConnected();
     if (batt.isCharging()) {
-        static char battBuf[16];
-        snprintf(battBuf, sizeof(battBuf), "%s " LV_SYMBOL_CHARGE, battIcon);
+        static char battBuf[32];
+        if (usbBridging)
+            snprintf(battBuf, sizeof(battBuf), "%s #00cc66 " LV_SYMBOL_CHARGE "#", battIcon);
+        else
+            snprintf(battBuf, sizeof(battBuf), "%s " LV_SYMBOL_CHARGE, battIcon);
         lv_label_set_text(_lblBatt, battBuf);
     } else {
         lv_label_set_text(_lblBatt, battIcon);
@@ -217,10 +250,30 @@ void StatusBar::update() {
     lv_obj_set_style_text_color(_lblBatt,
         pct <= 20 ? theme::BATTERY_LOW : theme::TEXT_PRIMARY, 0);
 
-    // WiFi icon — visible only while actually connected
+    // WiFi icon — visible only while connected. Green when a companion client is
+    // attached (actively bridging), blue when connected for WiFi only.
     if (_wifiIcon) {
-        if (WiFiManager::instance().isConnected()) lv_obj_clear_flag(_wifiIcon, LV_OBJ_FLAG_HIDDEN);
-        else                                       lv_obj_add_flag(_wifiIcon, LV_OBJ_FLAG_HIDDEN);
+        if (WiFiManager::instance().isConnected()) {
+            lv_obj_clear_flag(_wifiIcon, LV_OBJ_FLAG_HIDDEN);
+            // Green only when the WiFi transport is the one bridging a client
+            // (not when USB companion is active).
+            bool wifiBridging = comp.wifiCompanionEnabled() && comp.clientConnected();
+            lv_obj_set_style_text_color(_wifiIcon, wifiBridging ? theme::ONLINE_DOT : theme::ACCENT, 0);
+        } else {
+            lv_obj_add_flag(_wifiIcon, LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+
+    // BLE icon — visible while BLE companion is active (advertising/connected).
+    // Green once a client is connected, blue while just advertising.
+    if (_bleIcon) {
+        if (comp.bleCompanionEnabled()) {
+            lv_obj_clear_flag(_bleIcon, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_style_text_color(_bleIcon,
+                comp.clientConnected() ? theme::ONLINE_DOT : theme::ACCENT, 0);
+        } else {
+            lv_obj_add_flag(_bleIcon, LV_OBJ_FLAG_HIDDEN);
+        }
     }
 
     // Clock — show HH:MM in local time (auto-DST via POSIX TZ). Prefer GPS
@@ -244,7 +297,11 @@ void StatusBar::update() {
 
     // GPS indicator — green=live, amber=last known, gray=no fix
     if (!cfg.gpsEnabled) {
-        lv_label_set_text(_gpsIcon, "");
+        // GPS disabled in config: keep the icon present but dimmed so the
+        // general map stays reachable (tap still opens it — the map can center
+        // on heard nodes' locations even without our own fix).
+        lv_label_set_text(_gpsIcon, LV_SYMBOL_GPS);
+        lv_obj_set_style_text_color(_gpsIcon, theme::TEXT_TIMESTAMP, 0);
     } else {
         lv_label_set_text(_gpsIcon, LV_SYMBOL_GPS);
         switch (gps.fixStatus()) {

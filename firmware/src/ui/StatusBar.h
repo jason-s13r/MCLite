@@ -26,8 +26,10 @@ private:
     lv_obj_t* _lblTime    = nullptr;
     lv_obj_t* _gpsIcon    = nullptr;
     lv_obj_t* _wifiIcon   = nullptr;  // shown only while WiFi is connected
+    lv_obj_t* _bleIcon    = nullptr;  // shown only while BLE companion is active
 
     static void soundClickCb(lv_event_t* e);
+    static void gpsClickCb(lv_event_t* e);
 };
 
 }  // namespace mclite

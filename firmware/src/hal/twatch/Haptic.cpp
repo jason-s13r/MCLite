@@ -1,4 +1,5 @@
 #include "hal/twatch/Haptic.h"
+#include "util/log.h"
 #include "hal/twatch/Expander.h"
 #include "hal/boards/board.h"
 #include <Arduino.h>
@@ -22,7 +23,7 @@ bool Haptic::init() {
     delay(2);
 
     if (!g_drv.begin(Wire, TWATCH_DRV2605_ADDR, TWATCH_I2C_SDA, TWATCH_I2C_SCL)) {
-        Serial.println("[Haptic] DRV2605 begin failed");
+        LOGLN("[Haptic] DRV2605 begin failed");
         return false;
     }
     g_drv.setActuatorType(HapticActuatorType::ERM);

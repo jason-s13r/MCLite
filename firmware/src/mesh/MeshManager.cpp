@@ -1,4 +1,5 @@
 #include "MeshManager.h"
+#include "util/log.h"
 #include "MCLiteMesh.h"
 #include "ContactStore.h"
 #include "ChannelStore.h"
@@ -6,6 +7,7 @@
 #include "../config/ConfigManager.h"
 #include "../hal/GPS.h"
 #include "../util/TimeHelper.h"
+#include "../companion/CompanionService.h"
 
 #include <SPI.h>
 #include <RadioLib.h>
@@ -34,12 +36,12 @@ MeshManager& MeshManager::instance() {
 bool MeshManager::initRadio() {
     const auto& cfg = ConfigManager::instance().config();
 
-    Serial.println("[Mesh] Initializing SX1262...");
+    LOGLN("[Mesh] Initializing SX1262...");
 
     // Use MeshCore's std_init for TCXO and -707 retry logic
     // Pass NULL to skip SPI.begin() — already initialized by SD card on shared bus
     if (!radio.std_init(NULL)) {
-        Serial.println("[Mesh] Radio init failed");
+        LOGLN("[Mesh] Radio init failed");
         return false;
     }
 
@@ -55,7 +57,7 @@ bool MeshManager::initRadio() {
     radio.setCodingRate(cfg.radio.codingRate);
     radio.setOutputPower(cfg.radio.txPower);
 
-    Serial.println("[Mesh] SX1262 ready");
+    LOGLN("[Mesh] SX1262 ready");
     _radioReady = true;
     return true;
 }
@@ -70,6 +72,8 @@ void MeshManager::wireCallbacks() {
             _onMessage(String(contact.name), contact.id.pub_key,
                        String(text), timestamp);
         }
+        // Tee to the companion link (raw text, native pubkey).
+        CompanionService::instance().onContactMessage(contact.id.pub_key, timestamp, text);
     });
 
     // Incoming group message
@@ -80,6 +84,10 @@ void MeshManager::wireCallbacks() {
         // Find which of our channels this message belongs to
         int meshIdx = _mesh->findChannelIdx(channel);
         if (meshIdx < 0) return;
+
+        // Tee to the companion link using the mesh channel index (matches the
+        // index the client got from GET_CHANNEL) and the raw "sender: msg" text.
+        CompanionService::instance().onChannelMessage((uint8_t)meshIdx, timestamp, text);
 
         // Map MeshCore channel index back to our ChannelStore index
         auto& channels = ChannelStore::instance();
@@ -166,6 +174,10 @@ void MeshManager::wireCallbacks() {
     });
 }
 
+const uint8_t* MeshManager::selfPubKey() const {
+    return _mesh ? _mesh->selfPubKey() : nullptr;
+}
+
 bool MeshManager::loginRoom(size_t roomIdx, uint32_t& estTimeout) {
     if (!_mesh) return false;
     const auto& cfg = ConfigManager::instance().config();
@@ -192,7 +204,7 @@ bool MeshManager::init() {
     ChannelStore::instance().loadCustomChannels();
 
     if (!initRadio()) {
-        Serial.println("[Mesh] Radio failed, running in offline mode");
+        LOGLN("[Mesh] Radio failed, running in offline mode");
         return false;
     }
 
@@ -207,13 +219,13 @@ bool MeshManager::init() {
     _mesh->setFrequency(activeFreq);
 
     if (!_mesh->begin(cfg.deviceName.c_str())) {
-        Serial.println("[Mesh] Mesh begin failed");
+        LOGLN("[Mesh] Mesh begin failed");
         delete _mesh;
         _mesh = nullptr;
         return false;
     }
 
-    Serial.println("[Mesh] Initialization complete");
+    LOGLN("[Mesh] Initialization complete");
     return true;
 }
 

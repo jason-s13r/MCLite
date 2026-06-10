@@ -1,4 +1,5 @@
 #include "hal/Display.h"
+#include "util/log.h"
 #include "hal/boards/board.h"
 #include "hal/twatch/Expander.h"
 #include "config/defaults.h"
@@ -126,11 +127,11 @@ bool Display::init() {
     _buf1 = (lv_color_t*)ps_malloc(bufSize * sizeof(lv_color_t));
     _buf2 = nullptr;
     if (!_buf1) {
-        Serial.println("[Display] PSRAM alloc failed, falling back to DRAM");
+        LOGLN("[Display] PSRAM alloc failed, falling back to DRAM");
         _buf1 = (lv_color_t*)malloc(bufSize * sizeof(lv_color_t));
     }
     if (!_buf1) {
-        Serial.println("[Display] Draw buffer allocation failed");
+        LOGLN("[Display] Draw buffer allocation failed");
         return false;
     }
 

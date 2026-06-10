@@ -1,4 +1,5 @@
 #include "MessageStore.h"
+#include "util/log.h"
 #include "SDCard.h"
 #include "../config/ConfigManager.h"
 #include "../config/defaults.h"
@@ -37,7 +38,7 @@ Conversation& MessageStore::getOrCreate(const ConvoId& id, const String& display
     // defensive fallback — returns last conversation which would corrupt it;
     // acceptable since this path is unreachable under current config limits.
     if (_convos.size() >= MAX_CONVERSATIONS) {
-        Serial.println("[MessageStore] ERROR: max conversations reached, reusing last");
+        LOGLN("[MessageStore] ERROR: max conversations reached, reusing last");
         return _convos.back();
     }
     _convos.push_back(c);
@@ -55,7 +56,7 @@ void MessageStore::loadHistory(const ConvoId& id) {
 
     JsonDocument doc;
     if (deserializeJson(doc, json)) {
-        Serial.printf("[MessageStore] Failed to parse history: %s\n", path.c_str());
+        LOGF("[MessageStore] Failed to parse history: %s\n", path.c_str());
         return;
     }
 
@@ -136,7 +137,7 @@ void MessageStore::saveHistory(const ConvoId& id) {
     serializeJson(doc, json);
     String path = historyPath(id);
     bool ok = sd.writeFile(path.c_str(), json);
-    Serial.printf("[History] Save %s: %u msgs, %u bytes, %s\n",
+    LOGF("[History] Save %s: %u msgs, %u bytes, %s\n",
                   path.c_str(), (unsigned)convo->messages.size(), (unsigned)json.length(),
                   ok ? "OK" : "FAILED");
 }

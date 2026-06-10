@@ -22,8 +22,12 @@ private:
     lv_obj_t* _switch      = nullptr;   // WiFi on/off
     lv_obj_t* _statusLabel = nullptr;   // Off / Connecting… / Connected: SSID  IP
     lv_obj_t* _checkBtn    = nullptr;   // "Check for updates" (visible only when connected)
+    lv_obj_t* _rebootBtn   = nullptr;   // shown only when WiFi is BLE-locked (reboot to switch)
     lv_obj_t* _list        = nullptr;   // scanned networks (shown when not connected)
     lv_obj_t* _closeBtn    = nullptr;
+    lv_obj_t* _companionRow    = nullptr;   // "WiFi Companion Mode" row (enabled when connected)
+    lv_obj_t* _companionSwitch = nullptr;
+    lv_obj_t* _companionLabel  = nullptr;   // "WiFi Companion" / "Companion: <ip>:5000 (connected)"
 
     // Password-entry overlay
     lv_obj_t*   _pwOverlay  = nullptr;
@@ -36,6 +40,7 @@ private:
     String _selPassword;
     bool   _selFromSaved = false;    // this connect attempt reused stored creds
     bool   _lastConnected = false;   // for tick() change detection
+    bool   _lastCompanionClient = false;  // tick() change detection for companion client
 
     static constexpr int MAX_NETS = 20;
     ScannedNetwork _nets[MAX_NETS];
@@ -52,7 +57,9 @@ private:
 
     static void closeBtnCb(lv_event_t* e);
     static void switchCb(lv_event_t* e);
+    static void companionSwitchCb(lv_event_t* e);
     static void checkBtnCb(lv_event_t* e);
+    static void rebootBtnCb(lv_event_t* e);
     static void rowClickCb(lv_event_t* e);
     static void pwReadyCb(lv_event_t* e);    // Enter / keyboard OK
     static void connectAsyncCb(void* user);  // deferred connect (outside the event)

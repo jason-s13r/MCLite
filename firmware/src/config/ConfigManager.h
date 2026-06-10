@@ -92,6 +92,11 @@ struct WiFiConfig {
     bool   autoUpdate = false;   // Check GitHub for a newer firmware on boot (over WiFi) and prompt
 };
 
+struct BleConfig {
+    uint32_t pin = 0;            // BLE companion pairing passkey. 0 = auto-generate
+                                 // a random 6-digit PIN on first use and persist it.
+};
+
 struct AppConfig {
     String          deviceName;
     String          language;    // "" = English, "de" = German, etc.
@@ -110,12 +115,13 @@ struct AppConfig {
     int8_t          gpsClockOffset = 0;  // UTC offset in hours (legacy fallback)
     String          gpsTimezone;         // POSIX TZ string for auto-DST (e.g. "CET-1CEST,M3.5.0/2,M10.5.0/3")
     uint16_t        gpsLastKnownMaxAge = 1800;  // Seconds before last-known expires
-    bool            locationAdvertEnabled = false; // Include location in periodic adverts
+    bool            locationAdvertEnabled = false; // Include own location in adverts (opt-in)
     uint8_t         locationPrecision = 32;        // 0=off, 10-19=obfuscated, 32=full precision
     BatteryConfig   battery;
     SecurityConfig  security;
     OffgridConfig   offgrid;
     WiFiConfig      wifi;
+    BleConfig       ble;
 };
 
 class ConfigManager {

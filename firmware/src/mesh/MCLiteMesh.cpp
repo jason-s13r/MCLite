@@ -1,4 +1,5 @@
 #include "MCLiteMesh.h"
+#include "util/log.h"
 #include "ContactStore.h"
 #include "ChannelStore.h"
 #include "../config/ConfigManager.h"
@@ -63,7 +64,7 @@ bool MCLiteMesh::begin(const char* deviceName) {
     const auto& cfg = ConfigManager::instance().config();
     _offgridEnabled = cfg.offgrid.enabled;
     if (_offgridEnabled) {
-        Serial.printf("[MCLiteMesh] OFFGRID mode active — forwarding packets on %.3f MHz\n", _frequency);
+        LOGF("[MCLiteMesh] OFFGRID mode active — forwarding packets on %.3f MHz\n", _frequency);
     }
 
     // 1. Load or generate identity
@@ -97,16 +98,16 @@ bool MCLiteMesh::begin(const char* deviceName) {
         }
 
         if (loaded) {
-            Serial.println("[MCLiteMesh] Identity loaded from config");
+            LOGLN("[MCLiteMesh] Identity loaded from config");
         } else {
-            Serial.println("[MCLiteMesh] Invalid identity in config, generating new");
+            LOGLN("[MCLiteMesh] Invalid identity in config, generating new");
             self_id = mesh::LocalIdentity(getRNG());
             _saveIdentity();
         }
     } else {
         self_id = mesh::LocalIdentity(getRNG());
         _saveIdentity();
-        Serial.println("[MCLiteMesh] New identity generated");
+        LOGLN("[MCLiteMesh] New identity generated");
     }
 
     // 2. Register contacts from ContactStore (cap at 32 chat contacts; rooms get
@@ -114,7 +115,7 @@ bool MCLiteMesh::begin(const char* deviceName) {
     auto& contacts = ContactStore::instance();
     constexpr size_t CHAT_CAP = 32;
     if (contacts.count() > CHAT_CAP) {
-        Serial.printf("[MCLiteMesh] WARN: ignoring %u contact(s) beyond 32-cap\n",
+        LOGF("[MCLiteMesh] WARN: ignoring %u contact(s) beyond 32-cap\n",
                       (unsigned)(contacts.count() - CHAT_CAP));
     }
     size_t chatToRegister = contacts.count() < CHAT_CAP ? contacts.count() : CHAT_CAP;
@@ -132,7 +133,7 @@ bool MCLiteMesh::begin(const char* deviceName) {
 
         addContact(ci);
     }
-    Serial.printf("[MCLiteMesh] Registered %d chat contact(s)\n", getNumContacts());
+    LOGF("[MCLiteMesh] Registered %d chat contact(s)\n", getNumContacts());
 
     // 2b. Register room servers (up to 8). Pubkey decoded from 64-hex; sync_since
     // seeded from the per-room history file so server-side push only replays new
@@ -141,7 +142,7 @@ bool MCLiteMesh::begin(const char* deviceName) {
     constexpr size_t ROOM_CAP = MAX_ROOMS_RUNTIME;  // 8
     size_t roomCount = cfg.roomServers.size();
     if (roomCount > ROOM_CAP) {
-        Serial.printf("[MCLiteMesh] WARN: ignoring %u room(s) beyond 8-cap\n",
+        LOGF("[MCLiteMesh] WARN: ignoring %u room(s) beyond 8-cap\n",
                       (unsigned)(roomCount - ROOM_CAP));
         roomCount = ROOM_CAP;
     }
@@ -151,7 +152,7 @@ bool MCLiteMesh::begin(const char* deviceName) {
 
         // Decode 64-hex pubkey into 32 raw bytes
         if (rs.publicKey.length() != 64 || !isHexString(rs.publicKey)) {
-            Serial.printf("[MCLiteMesh] Skipping room '%s': invalid pubkey\n",
+            LOGF("[MCLiteMesh] Skipping room '%s': invalid pubkey\n",
                           rs.name.c_str());
             continue;
         }
@@ -166,7 +167,7 @@ bool MCLiteMesh::begin(const char* deviceName) {
         // so a duplicate would shadow the room contact and signed messages would
         // arrive on the chat dispatch path instead — silently breaking the room.
         if (lookupContactByPubKey(pub, PUB_KEY_SIZE) != nullptr) {
-            Serial.printf("[MCLiteMesh] Skipping room '%s': pubkey collides with "
+            LOGF("[MCLiteMesh] Skipping room '%s': pubkey collides with "
                           "an existing chat contact\n", rs.name.c_str());
             continue;
         }
@@ -191,7 +192,7 @@ bool MCLiteMesh::begin(const char* deviceName) {
         if (rs.scope.length() > 0) {
             _roomScope[i] = scopeToTransportKey(rs.scope);
             if (!_roomScope[i].isNull()) {
-                Serial.printf("[MCLiteMesh] Room '%s' scope: %s\n",
+                LOGF("[MCLiteMesh] Room '%s' scope: %s\n",
                               rs.name.c_str(), rs.scope.c_str());
             }
         }
@@ -206,18 +207,18 @@ bool MCLiteMesh::begin(const char* deviceName) {
         ci.sync_since = syncSince;
 
         if (!addContact(ci)) {
-            Serial.printf("[MCLiteMesh] Failed to register room '%s' (contacts full)\n",
+            LOGF("[MCLiteMesh] Failed to register room '%s' (contacts full)\n",
                           rs.name.c_str());
             continue;
         }
         // Cache the index that addContact just used (it's the latest slot)
         _roomContactIdx[i] = (int8_t)(getNumContacts() - 1);
         registeredRooms++;
-        Serial.printf("[MCLiteMesh] Registered room '%s' (idx=%d, sync_since=%u)\n",
+        LOGF("[MCLiteMesh] Registered room '%s' (idx=%d, sync_since=%u)\n",
                       rs.name.c_str(), (int)_roomContactIdx[i], (unsigned)syncSince);
     }
     if (registeredRooms > 0) {
-        Serial.printf("[MCLiteMesh] Registered %d room(s)\n", registeredRooms);
+        LOGF("[MCLiteMesh] Registered %d room(s)\n", registeredRooms);
     }
 
     // 3. Register channels from ChannelStore
@@ -225,23 +226,23 @@ bool MCLiteMesh::begin(const char* deviceName) {
     for (const auto& ch : channels.all()) {
         addChannel(ch.name.c_str(),  ch.pskB64.c_str());
     }
-    Serial.printf("[MCLiteMesh] Registered %d channels\n", (int)channels.count());
+    LOGF("[MCLiteMesh] Registered %d channels\n", (int)channels.count());
 
     // 4. Derive global scope transport key
     _globalScope = scopeToTransportKey(cfg.radio.scope);
     if (!_globalScope.isNull()) {
-        Serial.printf("[MCLiteMesh] Global scope: %s\n", cfg.radio.scope.c_str());
+        LOGF("[MCLiteMesh] Global scope: %s\n", cfg.radio.scope.c_str());
     }
     _pathHashSize = cfg.radio.pathHashMode + 1;
     if (_pathHashSize > 1) {
-        Serial.printf("[MCLiteMesh] Path hash size: %u bytes/hop\n", _pathHashSize);
+        LOGF("[MCLiteMesh] Path hash size: %u bytes/hop\n", _pathHashSize);
     }
 
     // 5. Start the mesh
     Mesh::begin();
 
     _ready = true;
-    Serial.println("[MCLiteMesh] Mesh started");
+    LOGLN("[MCLiteMesh] Mesh started");
     return true;
 }
 
@@ -288,8 +289,8 @@ bool MCLiteMesh::advertise(const char* name) {
         auto& gps = GPS::instance();
         FixStatus fs = gps.fixStatus();
         if (fs == FixStatus::LIVE || fs == FixStatus::LAST_KNOWN) {
-            double lat = gps.cachedLat();
-            double lon = gps.cachedLon();
+            double lat = (fs == FixStatus::LIVE) ? gps.lat() : gps.cachedLat();
+            double lon = (fs == FixStatus::LIVE) ? gps.lon() : gps.cachedLon();
 
             if (cfg.locationPrecision < 32) {
                 // Obfuscate by truncating low-order bits (Meshtastic-style precision).
@@ -306,15 +307,13 @@ bool MCLiteMesh::advertise(const char* name) {
             }
 
             pkt = createSelfAdvert(name, lat, lon);
-            Serial.printf("[MCLiteMesh] Advertised as %s (%.5f, %.5f)\n", name, lat, lon);
+            LOGF("[MCLiteMesh] Advertised as %s (%.5f, %.5f)\n", name, lat, lon);
         }
     }
-
-    if (!pkt) {
+    if (!pkt) {                       // disabled or no acceptable fix → name-only
         pkt = createSelfAdvert(name);
-        Serial.printf("[MCLiteMesh] Advertised as %s\n", name);
+        LOGF("[MCLiteMesh] Advertised as %s\n", name);
     }
-
     if (!pkt) return false;
     sendWithScope(_globalScope, pkt, 0);
     return true;
@@ -370,7 +369,7 @@ uint32_t MCLiteMesh::sendDM(size_t contactIdx, const char* text, uint32_t timest
 
     ContactInfo* ci = getContactByIdx((int)contactIdx);
     if (!ci) {
-        Serial.println("[MCLiteMesh] Invalid contact index for DM");
+        LOGLN("[MCLiteMesh] Invalid contact index for DM");
         return 0;
     }
 
@@ -381,11 +380,11 @@ uint32_t MCLiteMesh::sendDM(size_t contactIdx, const char* text, uint32_t timest
     int result = sendMessage(*ci, timestamp, 1, text, expectedAck, estTimeout);
 
     if (result == MSG_SEND_FAILED) {
-        Serial.printf("[MCLiteMesh] DM send failed to %s\n", ci->name);
+        LOGF("[MCLiteMesh] DM send failed to %s\n", ci->name);
         return 0;
     }
 
-    Serial.printf("[MCLiteMesh] DM sent to %s (packetId=%u, %s, timeout=%ums)\n",
+    LOGF("[MCLiteMesh] DM sent to %s (packetId=%u, %s, timeout=%ums)\n",
                   ci->name, packetId,
                   result == MSG_SEND_SENT_DIRECT ? "direct" : "flood",
                   estTimeout);
@@ -411,16 +410,16 @@ uint32_t MCLiteMesh::sendDM(size_t contactIdx, const char* text, uint32_t timest
 int MCLiteMesh::loginRoom(size_t roomIdx, const char* password, uint32_t& estTimeout) {
     if (!_ready) return MSG_SEND_FAILED;
     if (roomIdx >= MAX_ROOMS_RUNTIME || _roomContactIdx[roomIdx] < 0) {
-        Serial.printf("[MCLiteMesh] loginRoom: invalid room idx %u\n", (unsigned)roomIdx);
+        LOGF("[MCLiteMesh] loginRoom: invalid room idx %u\n", (unsigned)roomIdx);
         return MSG_SEND_FAILED;
     }
     ContactInfo* ci = getContactByIdx(_roomContactIdx[roomIdx]);
     if (!ci) {
-        Serial.println("[MCLiteMesh] loginRoom: contact lookup failed");
+        LOGLN("[MCLiteMesh] loginRoom: contact lookup failed");
         return MSG_SEND_FAILED;
     }
     int result = sendLogin(*ci, password, estTimeout);
-    Serial.printf("[MCLiteMesh] Login to room '%s': result=%d, est_timeout=%ums\n",
+    LOGF("[MCLiteMesh] Login to room '%s': result=%d, est_timeout=%ums\n",
                   ci->name, result, (unsigned)estTimeout);
     return result;
 }
@@ -429,13 +428,13 @@ uint32_t MCLiteMesh::sendRoomPost(size_t roomIdx, const char* text, uint32_t tim
                                    uint8_t maxRetries) {
     if (!_ready) return 0;
     if (roomIdx >= MAX_ROOMS_RUNTIME || _roomContactIdx[roomIdx] < 0) {
-        Serial.printf("[MCLiteMesh] sendRoomPost: invalid room idx %u\n", (unsigned)roomIdx);
+        LOGF("[MCLiteMesh] sendRoomPost: invalid room idx %u\n", (unsigned)roomIdx);
         return 0;
     }
     int globalIdx = _roomContactIdx[roomIdx];
     ContactInfo* ci = getContactByIdx(globalIdx);
     if (!ci) {
-        Serial.println("[MCLiteMesh] sendRoomPost: contact lookup failed");
+        LOGLN("[MCLiteMesh] sendRoomPost: contact lookup failed");
         return 0;
     }
 
@@ -446,11 +445,11 @@ uint32_t MCLiteMesh::sendRoomPost(size_t roomIdx, const char* text, uint32_t tim
     int result = sendMessage(*ci, timestamp, 1, text, expectedAck, estTimeout);
 
     if (result == MSG_SEND_FAILED) {
-        Serial.printf("[MCLiteMesh] Room post failed to '%s'\n", ci->name);
+        LOGF("[MCLiteMesh] Room post failed to '%s'\n", ci->name);
         return 0;
     }
 
-    Serial.printf("[MCLiteMesh] Room post sent to '%s' (packetId=%u, %s, timeout=%ums)\n",
+    LOGF("[MCLiteMesh] Room post sent to '%s' (packetId=%u, %s, timeout=%ums)\n",
                   ci->name, packetId,
                   result == MSG_SEND_SENT_DIRECT ? "direct" : "flood",
                   estTimeout);
@@ -480,13 +479,13 @@ bool MCLiteMesh::sendGroup(int channelIdx, const char* senderName, const char* t
 
     ChannelDetails cd;
     if (!getChannel(channelIdx, cd)) {
-        Serial.printf("[MCLiteMesh] Invalid channel index %d\n", channelIdx);
+        LOGF("[MCLiteMesh] Invalid channel index %d\n", channelIdx);
         return false;
     }
 
     bool ok = sendGroupMessage(timestamp, cd.channel, senderName, text, strlen(text));
     if (ok) {
-        Serial.printf("[MCLiteMesh] Group msg sent to %s\n", cd.name);
+        LOGF("[MCLiteMesh] Group msg sent to %s\n", cd.name);
     }
     return ok;
 }
@@ -547,7 +546,7 @@ void MCLiteMesh::checkAckTimeouts() {
 void MCLiteMesh::retryOrFail(AckEntry& entry) {
     if (entry.attempt < entry.maxAttempts) {
         entry.attempt++;
-        Serial.printf("[MCLiteMesh] Retrying packet %u (attempt %d/%d)\n",
+        LOGF("[MCLiteMesh] Retrying packet %u (attempt %d/%d)\n",
                       entry.packetId, entry.attempt, entry.maxAttempts);
 
         ContactInfo* ci = getContactByIdx((int)entry.contactIdx);
@@ -569,7 +568,7 @@ void MCLiteMesh::retryOrFail(AckEntry& entry) {
     }
 
     // All retries exhausted or retry send failed
-    Serial.printf("[MCLiteMesh] Packet %u FAILED after %d attempts\n",
+    LOGF("[MCLiteMesh] Packet %u FAILED after %d attempts\n",
                   entry.packetId, entry.attempt);
     uint32_t pid = entry.packetId;
     entry.active = false;
@@ -580,7 +579,7 @@ void MCLiteMesh::retryOrFail(AckEntry& entry) {
 
 void MCLiteMesh::onDiscoveredContact(ContactInfo& contact, bool is_new,
                                       uint8_t path_len, const uint8_t* path) {
-    Serial.printf("[MCLiteMesh] Discovered contact: %s (%s, hops=%d)\n",
+    LOGF("[MCLiteMesh] Discovered contact: %s (%s, hops=%d)\n",
                   contact.name, is_new ? "new" : "update", path_len & 0x3F);
 
     HeardAdvertCache::instance().store(contact.id.pub_key,
@@ -604,7 +603,7 @@ ContactInfo* MCLiteMesh::processAck(const uint8_t* data) {
         size_t cidx = entry->contactIdx;
         entry->active = false;
 
-        Serial.printf("[MCLiteMesh] ACK received for packet %u\n", pid);
+        LOGF("[MCLiteMesh] ACK received for packet %u\n", pid);
 
         if (_onAck) _onAck(pid);
 
@@ -616,20 +615,20 @@ ContactInfo* MCLiteMesh::processAck(const uint8_t* data) {
 }
 
 void MCLiteMesh::onContactPathUpdated(const ContactInfo& contact) {
-    Serial.printf("[MCLiteMesh] Path updated for %s (hops=%d)\n",
+    LOGF("[MCLiteMesh] Path updated for %s (hops=%d)\n",
                   contact.name, contact.out_path_len);
 }
 
 void MCLiteMesh::onMessageRecv(const ContactInfo& contact, mesh::Packet* pkt,
                                 uint32_t sender_timestamp, const char* text) {
-    Serial.printf("[MCLiteMesh] DM from %s: %s\n", contact.name, text);
+    LOGF("[MCLiteMesh] DM from %s: %s\n", contact.name, text);
     if (_onMessage) _onMessage(contact, sender_timestamp, text);
 }
 
 void MCLiteMesh::onCommandDataRecv(const ContactInfo& contact, mesh::Packet* pkt,
                                     uint32_t sender_timestamp, const char* text) {
     // CLI commands not used in MCLite — ignore
-    Serial.printf("[MCLiteMesh] CLI data from %s (ignored)\n", contact.name);
+    LOGF("[MCLiteMesh] CLI data from %s (ignored)\n", contact.name);
 }
 
 void MCLiteMesh::onSignedMessageRecv(const ContactInfo& contact, mesh::Packet* pkt,
@@ -639,20 +638,20 @@ void MCLiteMesh::onSignedMessageRecv(const ContactInfo& contact, mesh::Packet* p
     // the sender's alias against ContactStore. BaseChatMesh has already advanced
     // contact.sync_since by the time we get here (BaseChatMesh.cpp:242-243).
     if (contact.type == ADV_TYPE_ROOM) {
-        Serial.printf("[MCLiteMesh] Room msg from '%s': %s\n", contact.name, text);
+        LOGF("[MCLiteMesh] Room msg from '%s': %s\n", contact.name, text);
         if (_onRoomMsg) _onRoomMsg(contact, sender_prefix, sender_timestamp, text);
         return;
     }
     // Signed DM fallback (no current MCLite path produces these, but BaseChatMesh
     // requires the override)
-    Serial.printf("[MCLiteMesh] Signed DM from %s: %s\n", contact.name, text);
+    LOGF("[MCLiteMesh] Signed DM from %s: %s\n", contact.name, text);
     if (_onMessage) _onMessage(contact, sender_timestamp, text);
 }
 
 void MCLiteMesh::onChannelMessageRecv(const mesh::GroupChannel& channel,
                                        mesh::Packet* pkt,
                                        uint32_t timestamp, const char* text) {
-    Serial.printf("[MCLiteMesh] Group msg on channel: %s\n", text);
+    LOGF("[MCLiteMesh] Group msg on channel: %s\n", text);
     if (_onGroupMsg) _onGroupMsg(channel, timestamp, text);
 }
 
@@ -675,7 +674,7 @@ uint32_t MCLiteMesh::calcDirectTimeoutMillisFor(uint32_t pkt_airtime_millis,
 
 void MCLiteMesh::onSendTimeout() {
     // BaseChatMesh handles the internal timeout — our checkAckTimeouts() handles ours
-    Serial.println("[MCLiteMesh] Internal send timeout");
+    LOGLN("[MCLiteMesh] Internal send timeout");
 }
 
 uint8_t MCLiteMesh::onContactRequest(const ContactInfo& contact, uint32_t sender_timestamp,
@@ -689,7 +688,7 @@ uint8_t MCLiteMesh::onContactRequest(const ContactInfo& contact, uint32_t sender
     // Find contact to check permissions
     Contact* ourContact = ContactStore::instance().findByPublicKey(contact.id.pub_key);
     if (!ourContact) {
-        Serial.printf("[MCLiteMesh] Telemetry request from unknown contact %s — ignored\n", contact.name);
+        LOGF("[MCLiteMesh] Telemetry request from unknown contact %s — ignored\n", contact.name);
         return 0;
     }
 
@@ -709,7 +708,7 @@ uint8_t MCLiteMesh::onContactRequest(const ContactInfo& contact, uint32_t sender
 
     // MeshCore convention: no response unless BASE is permitted
     if (!(permissions & TELEM_PERM_BASE)) {
-        Serial.printf("[MCLiteMesh] Telemetry request from %s denied (no base permission)\n", contact.name);
+        LOGF("[MCLiteMesh] Telemetry request from %s denied (no base permission)\n", contact.name);
         return 0;
     }
 
@@ -743,7 +742,7 @@ uint8_t MCLiteMesh::onContactRequest(const ContactInfo& contact, uint32_t sender
     uint8_t tlen = _telemetry.getSize();
     memcpy(reply + 4, _telemetry.getBuffer(), tlen);
 
-    Serial.printf("[MCLiteMesh] Telemetry response to %s: %d bytes LPP\n", contact.name, tlen);
+    LOGF("[MCLiteMesh] Telemetry response to %s: %d bytes LPP\n", contact.name, tlen);
     return 4 + tlen;
 }
 
@@ -752,14 +751,14 @@ bool MCLiteMesh::requestTelemetry(size_t contactIdx, uint32_t& estTimeout) {
 
     ContactInfo* ci = getContactByIdx((int)contactIdx);
     if (!ci) {
-        Serial.println("[MCLiteMesh] Invalid contact index for telemetry request");
+        LOGLN("[MCLiteMesh] Invalid contact index for telemetry request");
         return false;
     }
 
     uint32_t tag = 0;
     int result = sendRequest(*ci, REQ_TYPE_GET_TELEMETRY_DATA, tag, estTimeout);
     if (result == MSG_SEND_FAILED) {
-        Serial.printf("[MCLiteMesh] Telemetry request failed to %s\n", ci->name);
+        LOGF("[MCLiteMesh] Telemetry request failed to %s\n", ci->name);
         return false;
     }
 
@@ -773,7 +772,7 @@ bool MCLiteMesh::requestTelemetry(size_t contactIdx, uint32_t& estTimeout) {
     _telemRetry.tag = tag;
     _telemRetry.retried = false;
 
-    Serial.printf("[MCLiteMesh] Telemetry requested from %s (timeout=%ums)\n",
+    LOGF("[MCLiteMesh] Telemetry requested from %s (timeout=%ums)\n",
                   ci->name, estTimeout);
     return true;
 }
@@ -845,14 +844,14 @@ static int lppTypeSize(uint8_t type) {
         case 142: return 1;  // Switch
         case 188: return 2;  // Timestamp (partial)
         default:
-            Serial.printf("[MCLiteMesh] Unknown LPP type %d — skipping rest of payload\n", type);
+            LOGF("[MCLiteMesh] Unknown LPP type %d — skipping rest of payload\n", type);
             return -1;
     }
 }
 
 void MCLiteMesh::onContactResponse(const ContactInfo& contact,
                                     const uint8_t* data, uint8_t len) {
-    Serial.printf("[MCLiteMesh] Response from %s (%d bytes)\n", contact.name, len);
+    LOGF("[MCLiteMesh] Response from %s (%d bytes)\n", contact.name, len);
 
     // NOTE: room-server login response includes data[5] = legacy keep_alive_secs/16,
     // currently always 0 in simple_room_server. The canonical companion_radio client
@@ -863,7 +862,7 @@ void MCLiteMesh::onContactResponse(const ContactInfo& contact,
     //   simple_room_server/MyMesh.cpp:368   (server writes 0)
     //   companion_radio/MyMesh.cpp:674-676  (gates startConnection on >0)
     if (contact.type == ADV_TYPE_ROOM && len > 5 && data[5] != 0) {
-        Serial.printf("[MCLiteMesh] WARN: room '%s' advertised keep_alive_secs=%u — "
+        LOGF("[MCLiteMesh] WARN: room '%s' advertised keep_alive_secs=%u — "
                       "server has re-enabled keep-alive; consider startConnection().\n",
                       contact.name, (unsigned)data[5] * 16);
     }
@@ -888,11 +887,11 @@ void MCLiteMesh::onContactResponse(const ContactInfo& contact,
 
     // Validate: must have a pending request, from the expected contact
     if (_pendingTelemTag == 0) {
-        Serial.println("[MCLiteMesh] Unexpected response (no pending request)");
+        LOGLN("[MCLiteMesh] Unexpected response (no pending request)");
         return;
     }
     if (memcmp(contact.id.pub_key, _pendingTelemKey, PUB_KEY_SIZE) != 0) {
-        Serial.printf("[MCLiteMesh] Response from wrong contact %s — ignored\n", contact.name);
+        LOGF("[MCLiteMesh] Response from wrong contact %s — ignored\n", contact.name);
         return;
     }
 
@@ -900,7 +899,7 @@ void MCLiteMesh::onContactResponse(const ContactInfo& contact,
     uint32_t reflectedTag;
     memcpy(&reflectedTag, data, 4);
     if (reflectedTag != _pendingTelemTag) {
-        Serial.println("[MCLiteMesh] Response tag mismatch — ignored");
+        LOGLN("[MCLiteMesh] Response tag mismatch — ignored");
         return;
     }
 

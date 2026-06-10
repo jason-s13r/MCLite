@@ -116,6 +116,9 @@ public:
     // Access contacts managed by BaseChatMesh
     ContactInfo* getContactByIdx(int idx);
 
+    // This node's 32-byte public key (mesh::Mesh::self_id). Stable after begin().
+    const uint8_t* selfPubKey() const { return self_id.pub_key; }
+
     bool isReady() const { return _ready; }
 
     // Set configured frequency (must be called before begin())

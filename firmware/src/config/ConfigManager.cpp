@@ -1,4 +1,5 @@
 #include "ConfigManager.h"
+#include "util/log.h"
 #include "../storage/SDCard.h"
 #include "defaults.h"
 #include <Arduino.h>
@@ -56,7 +57,7 @@ bool ConfigManager::parseJson(const String& json) {
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, json);
     if (err) {
-        Serial.printf("[Config] Parse error: %s\n", err.c_str());
+        LOGF("[Config] Parse error: %s\n", err.c_str());
         return false;
     }
 
@@ -158,7 +159,7 @@ bool ConfigManager::parseJson(const String& json) {
             cc.type     = ch["type"] | "hashtag";
             cc.psk      = ch["psk"] | "";
             if (ch["index"].isNull())
-                Serial.printf("[Config] Channel '%s' missing 'index' field, defaulting to 0\n", cc.name.c_str());
+                LOGF("[Config] Channel '%s' missing 'index' field, defaulting to 0\n", cc.name.c_str());
             cc.index    = ch["index"] | 0;
             cc.allowSos = ch["allow_sos"] | true;
             // Default send_sos: true only for private channels (trusted, small group);
@@ -174,7 +175,7 @@ bool ConfigManager::parseJson(const String& json) {
                 bool dupe = false;
                 for (const auto& existing : _config.channels) {
                     if (existing.index == cc.index) {
-                        Serial.printf("[Config] Skipping channel '%s' — duplicate index %d\n",
+                        LOGF("[Config] Skipping channel '%s' — duplicate index %d\n",
                                       cc.name.c_str(), cc.index);
                         dupe = true;
                         break;
@@ -242,7 +243,7 @@ bool ConfigManager::parseJson(const String& json) {
     _config.gpsTimezone = doc["gps"]["timezone"] | defaults::GPS_TIMEZONE;
     uint16_t lastKnownAge = doc["gps"]["last_known_max_age"] | defaults::GPS_LAST_KNOWN_MAX_AGE;
     _config.gpsLastKnownMaxAge = constrain(lastKnownAge, (uint16_t)60, (uint16_t)7200);
-    _config.locationAdvertEnabled = doc["gps"]["location_advert_enabled"] | defaults::GPS_LOCATION_ADVERT_ENABLED;
+    _config.locationAdvertEnabled = doc["gps"]["location_advert"] | defaults::GPS_LOCATION_ADVERT_ENABLED;
     uint8_t locPrec = doc["gps"]["location_precision"] | defaults::GPS_LOCATION_PRECISION;
     if (locPrec != 0 && locPrec != 32 && (locPrec < 10 || locPrec > 19)) {
         locPrec = defaults::GPS_LOCATION_PRECISION;
@@ -295,7 +296,9 @@ bool ConfigManager::parseJson(const String& json) {
     _config.wifi.password   = doc["wifi"]["password"]    | "";
     _config.wifi.autoUpdate = doc["wifi"]["auto_update"] | false;
 
-    Serial.printf("[Config] Loaded: device=%s, contacts=%d, channels=%d\n",
+    _config.ble.pin = doc["ble"]["pin"] | 0u;   // 0 = auto-generate on first BLE use
+
+    LOGF("[Config] Loaded: device=%s, contacts=%d, channels=%d\n",
                   _config.deviceName.c_str(),
                   _config.contacts.size(),
                   _config.channels.size());
@@ -399,7 +402,7 @@ String ConfigManager::toJson() const {
         doc["gps"]["timezone"]       = _config.gpsTimezone;
     }
     doc["gps"]["last_known_max_age"] = _config.gpsLastKnownMaxAge;
-    doc["gps"]["location_advert_enabled"] = _config.locationAdvertEnabled;
+    doc["gps"]["location_advert"]    = _config.locationAdvertEnabled;
     doc["gps"]["location_precision"] = _config.locationPrecision;
 
     doc["battery"]["low_alert_enabled"]   = _config.battery.lowAlertEnabled;
@@ -419,6 +422,11 @@ String ConfigManager::toJson() const {
         doc["wifi"]["auto_update"] = _config.wifi.autoUpdate;
     }
 
+    // BLE — emit the persisted pairing PIN once one has been generated.
+    if (_config.ble.pin != 0) {
+        doc["ble"]["pin"] = _config.ble.pin;
+    }
+
     String output;
     serializeJsonPretty(doc, output);
     return output;
@@ -429,7 +437,7 @@ ConfigManager::LoadResult ConfigManager::load() {
 
     auto& sd = SDCard::instance();
     if (!sd.isMounted()) {
-        Serial.println("[Config] SD not mounted, using defaults");
+        LOGLN("[Config] SD not mounted, using defaults");
         return LOAD_NO_FILE;
     }
 
@@ -438,7 +446,7 @@ ConfigManager::LoadResult ConfigManager::load() {
     bool bakExists  = sd.fileExists(bakPath.c_str());
 
     if (!mainExists && !bakExists) {
-        Serial.println("[Config] config.json not found");
+        LOGLN("[Config] config.json not found");
         return LOAD_NO_FILE;
     }
 
@@ -448,15 +456,15 @@ ConfigManager::LoadResult ConfigManager::load() {
         if (!json.isEmpty() && parseJson(json)) {
             return LOAD_OK;
         }
-        Serial.println("[Config] config.json corrupt or empty");
+        LOGLN("[Config] config.json corrupt or empty");
     }
 
     // Fall back to the .bak left behind by writeAtomic.
     if (bakExists) {
-        Serial.println("[Config] Trying config.json.bak");
+        LOGLN("[Config] Trying config.json.bak");
         String json = sd.readFile(bakPath.c_str());
         if (!json.isEmpty() && parseJson(json)) {
-            Serial.println("[Config] Loaded from config.json.bak");
+            LOGLN("[Config] Loaded from config.json.bak");
             // Promote the recovery content into main, then drop .bak.
             // Without this step, the next save's writeAtomic would rotate
             // the existing (corrupt or missing) main into .bak, destroying
@@ -465,13 +473,13 @@ ConfigManager::LoadResult ConfigManager::load() {
             // boot will simply re-recover (idempotent — same content).
             if (sd.writeFile(defaults::CONFIG_PATH, json)) {
                 sd.remove(bakPath.c_str());
-                Serial.println("[Config] Recovery promoted; .bak removed");
+                LOGLN("[Config] Recovery promoted; .bak removed");
             } else {
-                Serial.println("[Config] WARN: could not promote recovery to main; .bak retained");
+                LOGLN("[Config] WARN: could not promote recovery to main; .bak retained");
             }
             return LOAD_OK;
         }
-        Serial.println("[Config] config.json.bak also unusable");
+        LOGLN("[Config] config.json.bak also unusable");
     }
 
     return LOAD_ERROR;
@@ -479,13 +487,13 @@ ConfigManager::LoadResult ConfigManager::load() {
 
 bool ConfigManager::appendDiscoveredContact(const ContactConfig& cc) {
     if ((int)_config.contacts.size() >= defaults::MAX_CHAT_CONTACTS) {
-        Serial.printf("[Config] appendDiscoveredContact: at cap %d/%d\n",
+        LOGF("[Config] appendDiscoveredContact: at cap %d/%d\n",
                       (int)_config.contacts.size(), defaults::MAX_CHAT_CONTACTS);
         return false;
     }
     for (const auto& existing : _config.contacts) {
         if (existing.publicKey == cc.publicKey) {
-            Serial.printf("[Config] appendDiscoveredContact: duplicate alias=%s\n",
+            LOGF("[Config] appendDiscoveredContact: duplicate alias=%s\n",
                           cc.alias.c_str());
             return false;
         }
@@ -494,10 +502,10 @@ bool ConfigManager::appendDiscoveredContact(const ContactConfig& cc) {
     if (!save()) {
         // Roll back the in-memory append so a retry isn't blocked as duplicate.
         _config.contacts.pop_back();
-        Serial.println("[Config] appendDiscoveredContact: save failed");
+        LOGLN("[Config] appendDiscoveredContact: save failed");
         return false;
     }
-    Serial.printf("[Config] Saved discovered contact: %s\n", cc.alias.c_str());
+    LOGF("[Config] Saved discovered contact: %s\n", cc.alias.c_str());
     return true;
 }
 

@@ -1,4 +1,5 @@
 #include "ContactStore.h"
+#include "util/log.h"
 #include "../config/ConfigManager.h"
 #include "../util/hex.h"
 #include <mbedtls/base64.h>
@@ -54,7 +55,7 @@ void ContactStore::loadFromConfig() {
         }
 
         if (!keyOk) {
-            Serial.printf("[ContactStore] Skipping contact '%s': invalid public key\n",
+            LOGF("[ContactStore] Skipping contact '%s': invalid public key\n",
                           cc.alias.c_str());
             continue;
         }
@@ -63,7 +64,7 @@ void ContactStore::loadFromConfig() {
         _contacts.push_back(c);
     }
 
-    Serial.printf("[ContactStore] Loaded %u contacts\n", (unsigned)_contacts.size());
+    LOGF("[ContactStore] Loaded %u contacts\n", (unsigned)_contacts.size());
 }
 
 Contact* ContactStore::findByName(const String& name) {

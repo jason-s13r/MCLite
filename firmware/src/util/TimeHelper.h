@@ -24,6 +24,14 @@ public:
     // Idempotent: skips if epoch hasn't changed.
     void syncSystemClock(uint32_t utcEpoch);
 
+    // Call every loop. No-op unless WiFi is connected AND the clock isn't already
+    // synced (GPS wins). Starts SNTP once per connection and polls non-blocking;
+    // sets the clock once a time arrives, honoring the configured timezone.
+    void maybeNtpSync();
+
+    // The effective POSIX TZ string applyTimezone() last applied.
+    const String& posixTz() const { return _tz; }
+
     // Format UTC epoch as "HH:MM" in local time. Writes "" if invalid.
     void formatHHMM(uint32_t utcEpoch, char* buf, size_t bufLen) const;
 
@@ -45,6 +53,8 @@ private:
     TimeHelper() = default;
     bool     _synced = false;
     uint32_t _lastSyncEpoch = 0;
+    String   _tz;                 // effective POSIX TZ from applyTimezone()
+    bool     _ntpStarted = false; // SNTP kicked off for the current WiFi connection
 };
 
 }  // namespace mclite

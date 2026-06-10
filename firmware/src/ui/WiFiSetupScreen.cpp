@@ -9,6 +9,7 @@
 #include "../i18n/I18n.h"
 #include "../ota/UpdateChecker.h"
 #include "../util/version.h"
+#include "../companion/CompanionService.h"
 
 namespace mclite {
 
@@ -76,6 +77,28 @@ void WiFiSetupScreen::create(lv_obj_t* parent) {
     _switch = lv_switch_create(ctl);
     lv_obj_add_event_cb(_switch, switchCb, LV_EVENT_VALUE_CHANGED, this);
 
+    // Companion-mode row (enabled only while WiFi is connected). Turning it on
+    // exposes the radio to a phone/PC client over the MeshCore companion protocol.
+    _companionRow = lv_obj_create(_screen);
+    lv_obj_set_size(_companionRow, theme::CONTENT_WIDTH, LV_SIZE_CONTENT);
+    lv_obj_set_style_bg_color(_companionRow, theme::BG_SECONDARY, 0);
+    lv_obj_set_style_radius(_companionRow, 4, 0);
+    lv_obj_set_style_border_width(_companionRow, 0, 0);
+    lv_obj_set_style_pad_all(_companionRow, theme::PAD_SMALL, 0);
+    lv_obj_clear_flag(_companionRow, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_flex_flow(_companionRow, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(_companionRow, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+
+    _companionLabel = lv_label_create(_companionRow);
+    lv_label_set_long_mode(_companionLabel, LV_LABEL_LONG_DOT);
+    lv_obj_set_flex_grow(_companionLabel, 1);
+    lv_obj_set_style_text_font(_companionLabel, FONT_BODY, 0);
+    lv_obj_set_style_text_color(_companionLabel, theme::TEXT_PRIMARY, 0);
+    lv_label_set_text(_companionLabel, t("wifi_companion"));
+
+    _companionSwitch = lv_switch_create(_companionRow);
+    lv_obj_add_event_cb(_companionSwitch, companionSwitchCb, LV_EVENT_VALUE_CHANGED, this);
+
     // "Check for updates" button (shown only while connected)
     _checkBtn = lv_btn_create(_screen);
     lv_obj_set_width(_checkBtn, theme::CONTENT_WIDTH);
@@ -85,6 +108,17 @@ void WiFiSetupScreen::create(lv_obj_t* parent) {
     lv_label_set_text(cbl, t("wifi_check_updates"));
     lv_obj_center(cbl);
     lv_obj_add_flag(_checkBtn, LV_OBJ_FLAG_HIDDEN);
+
+    // Reboot button — shown only when WiFi is locked out by an active BLE stack,
+    // giving a one-tap way to reboot into a clean state where WiFi works.
+    _rebootBtn = lv_btn_create(_screen);
+    lv_obj_set_width(_rebootBtn, theme::CONTENT_WIDTH);
+    lv_obj_set_style_bg_color(_rebootBtn, theme::ACCENT, 0);
+    lv_obj_add_event_cb(_rebootBtn, rebootBtnCb, LV_EVENT_CLICKED, this);
+    lv_obj_t* rbl = lv_label_create(_rebootBtn);
+    lv_label_set_text(rbl, t("reboot_now"));
+    lv_obj_center(rbl);
+    lv_obj_add_flag(_rebootBtn, LV_OBJ_FLAG_HIDDEN);
 
     // Scrollable network list (shown when not connected)
     _list = lv_obj_create(_screen);
@@ -119,6 +153,12 @@ void WiFiSetupScreen::tick() {
         updateStatusUi();
         if (c) clearList();                       // connected → hide the picker
     }
+    // Refresh the companion label when a client attaches/detaches.
+    bool cc = CompanionService::instance().clientConnected();
+    if (cc != _lastCompanionClient) {
+        _lastCompanionClient = cc;
+        updateStatusUi();
+    }
 }
 
 void WiFiSetupScreen::hide() {
@@ -132,7 +172,9 @@ void WiFiSetupScreen::hide() {
         }
         lv_group_remove_obj(_closeBtn);
         lv_group_remove_obj(_switch);
+        lv_group_remove_obj(_companionSwitch);
         lv_group_remove_obj(_checkBtn);
+        lv_group_remove_obj(_rebootBtn);
     }
     // Leave WiFi connected if the user turned it on — the status-bar icon reflects it.
     lv_obj_add_flag(_screen, LV_OBJ_FLAG_HIDDEN);
@@ -140,6 +182,23 @@ void WiFiSetupScreen::hide() {
 
 void WiFiSetupScreen::updateStatusUi() {
     auto& wm = WiFiManager::instance();
+
+    // BLE was used this session → WiFi is unavailable until reboot (can't share
+    // the radio/RAM with the BLE stack). Show that and disable the controls.
+    if (CompanionService::instance().bleInited()) {
+        lv_obj_clear_state(_switch, LV_STATE_CHECKED);
+        lv_obj_add_state(_switch, LV_STATE_DISABLED);
+        lv_obj_clear_state(_companionSwitch, LV_STATE_CHECKED);
+        lv_obj_add_state(_companionSwitch, LV_STATE_DISABLED);
+        lv_obj_add_flag(_checkBtn, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(_rebootBtn, LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text(_statusLabel, t("wifi_ble_reboot"));
+        lv_group_t* g = UIManager::instance().inputGroup();
+        if (g) { lv_group_add_obj(g, _rebootBtn); lv_group_add_obj(g, _closeBtn); }
+        return;
+    }
+    lv_obj_add_flag(_rebootBtn, LV_OBJ_FLAG_HIDDEN);
+
     bool connected = wm.isConnected();
     if (connected) {
         lv_obj_add_state(_switch, LV_STATE_CHECKED);
@@ -157,10 +216,38 @@ void WiFiSetupScreen::updateStatusUi() {
         lv_label_set_text(_statusLabel, t("wifi_off"));
         lv_obj_add_flag(_checkBtn, LV_OBJ_FLAG_HIDDEN);
     }
+
+    // WiFi companion row — only operable while WiFi is connected.
+    auto& comp = CompanionService::instance();
+    if (connected) {
+        lv_obj_clear_state(_companionSwitch, LV_STATE_DISABLED);
+        bool on = comp.wifiCompanionEnabled();
+        if (on) lv_obj_add_state(_companionSwitch, LV_STATE_CHECKED);
+        else    lv_obj_clear_state(_companionSwitch, LV_STATE_CHECKED);
+        if (on) {
+            static char cbuf[96];
+            snprintf(cbuf, sizeof(cbuf), t("wifi_companion_addr"), wm.localIp().c_str());
+            String cs = cbuf;
+            if (comp.clientConnected()) cs += String(" (") + t("wifi_companion_client") + ")";
+            lv_label_set_text(_companionLabel, cs.c_str());
+        } else {
+            lv_label_set_text(_companionLabel, t("wifi_companion"));
+        }
+    } else {
+        // WiFi off → companion can't run: force off + disable the switch.
+        if (comp.wifiCompanionEnabled()) comp.setWifiCompanionEnabled(false);
+        lv_obj_clear_state(_companionSwitch, LV_STATE_CHECKED);
+        lv_obj_add_state(_companionSwitch, LV_STATE_DISABLED);
+        lv_label_set_text(_companionLabel, t("wifi_companion"));
+    }
+
     lv_group_t* grp = UIManager::instance().inputGroup();
     if (grp) {
         lv_group_add_obj(grp, _switch);
-        if (connected) lv_group_add_obj(grp, _checkBtn);
+        if (connected) {
+            lv_group_add_obj(grp, _companionSwitch);
+            lv_group_add_obj(grp, _checkBtn);
+        }
         lv_group_add_obj(grp, _closeBtn);
     }
 }
@@ -177,6 +264,13 @@ void WiFiSetupScreen::clearList() {
 
 void WiFiSetupScreen::rebuildList() {
     clearList();
+
+    // Never scan while the BLE stack is up — WiFi.scanNetworks() brings the WiFi
+    // driver online and crashes alongside BLE (shared radio/RAM).
+    if (CompanionService::instance().bleInited()) {
+        updateStatusUi();   // shows the "Reboot to use WiFi" state
+        return;
+    }
 
     lv_label_set_text(_statusLabel, t("wifi_scanning"));
     lv_refr_now(NULL);
@@ -317,6 +411,12 @@ void WiFiSetupScreen::closePasswordEntry() {
 }
 
 void WiFiSetupScreen::doConnect(const String& ssid, const String& password) {
+    // Safety net: never bring WiFi up while the BLE stack is initialized (RAM).
+    if (CompanionService::instance().bleInited()) {
+        UIManager::instance().showToast(t("wifi_ble_reboot"));
+        updateStatusUi();
+        return;
+    }
     lv_label_set_text(_statusLabel, t("wifi_connecting"));
     lv_refr_now(NULL);
 
@@ -388,6 +488,12 @@ void WiFiSetupScreen::switchCb(lv_event_t* e) {
     auto* self = static_cast<WiFiSetupScreen*>(lv_event_get_user_data(e));
     if (!self) return;
     bool on = lv_obj_has_state(self->_switch, LV_STATE_CHECKED);
+    // BLE and WiFi can't coexist; once BLE inited, WiFi needs a reboot.
+    if (on && CompanionService::instance().bleInited()) {
+        lv_obj_clear_state(self->_switch, LV_STATE_CHECKED);
+        UIManager::instance().showToast(t("wifi_ble_reboot"));
+        return;
+    }
     if (on) {
         const auto& cfg = ConfigManager::instance().config();
         if (cfg.wifi.ssid.length() > 0) {
@@ -405,9 +511,26 @@ void WiFiSetupScreen::switchCb(lv_event_t* e) {
     }
 }
 
+void WiFiSetupScreen::companionSwitchCb(lv_event_t* e) {
+    auto* self = static_cast<WiFiSetupScreen*>(lv_event_get_user_data(e));
+    if (!self) return;
+    // Only meaningful while WiFi is up (the switch is disabled otherwise).
+    if (!WiFiManager::instance().isConnected()) {
+        lv_obj_clear_state(self->_companionSwitch, LV_STATE_CHECKED);
+        return;
+    }
+    bool on = lv_obj_has_state(self->_companionSwitch, LV_STATE_CHECKED);
+    CompanionService::instance().setWifiCompanionEnabled(on);  // main loop starts/stops it
+    self->updateStatusUi();
+}
+
 void WiFiSetupScreen::checkBtnCb(lv_event_t* e) {
     auto* self = static_cast<WiFiSetupScreen*>(lv_event_get_user_data(e));
     if (self) lv_async_call(checkAsyncCb, self);
+}
+
+void WiFiSetupScreen::rebootBtnCb(lv_event_t* e) {
+    ESP.restart();   // clean boot frees the BLE stack so WiFi can run again
 }
 
 void WiFiSetupScreen::rowClickCb(lv_event_t* e) {

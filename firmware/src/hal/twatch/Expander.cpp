@@ -1,4 +1,5 @@
 #include "hal/twatch/Expander.h"
+#include "util/log.h"
 #include "hal/boards/board.h"
 #include <Arduino.h>
 #include <Wire.h>
@@ -16,7 +17,7 @@ Expander& Expander::instance() {
 
 bool Expander::init() {
     if (!g_xl9555.begin(Wire, TWATCH_XL9555_ADDR, TWATCH_I2C_SDA, TWATCH_I2C_SCL)) {
-        Serial.println("[Expander] XL9555 begin failed");
+        LOGLN("[Expander] XL9555 begin failed");
         _ready = false;
         return false;
     }

@@ -1,4 +1,5 @@
 #include "ChannelStore.h"
+#include "util/log.h"
 #include "../config/ConfigManager.h"
 #include "../storage/SDCard.h"
 #include "../util/hex.h"
@@ -61,7 +62,7 @@ void ChannelStore::loadFromConfig() {
             }
 
             if (!pskOk) {
-                Serial.printf("[ChannelStore] Skipping channel '%s': invalid PSK\n",
+                LOGF("[ChannelStore] Skipping channel '%s': invalid PSK\n",
                               cc.name.c_str());
                 continue;
             }
@@ -80,7 +81,7 @@ void ChannelStore::loadFromConfig() {
                     normalized += c;
             }
             if (normalized.length() <= 1) {  // just '#' or empty
-                Serial.printf("[ChannelStore] Skipping hashtag channel '%s': invalid name\n", cc.name.c_str());
+                LOGF("[ChannelStore] Skipping hashtag channel '%s': invalid name\n", cc.name.c_str());
                 continue;
             }
             ch.name = normalized;
@@ -90,9 +91,9 @@ void ChannelStore::loadFromConfig() {
             memset(ch.psk + 16, 0, 16);
             ch.pskLen = 16;
             ch.pskB64 = pskToBase64(ch.psk, 16);
-            Serial.printf("[ChannelStore] Derived PSK for hashtag channel '%s'\n", cc.name.c_str());
+            LOGF("[ChannelStore] Derived PSK for hashtag channel '%s'\n", cc.name.c_str());
         } else {
-            Serial.printf("[ChannelStore] Skipping channel '%s': no PSK provided\n", cc.name.c_str());
+            LOGF("[ChannelStore] Skipping channel '%s': no PSK provided\n", cc.name.c_str());
             continue;
         }
 
@@ -100,7 +101,7 @@ void ChannelStore::loadFromConfig() {
     }
 
     _builtinCount = _channels.size();
-    Serial.printf("[ChannelStore] Loaded %u built-in channels\n", (unsigned)_builtinCount);
+    LOGF("[ChannelStore] Loaded %u built-in channels\n", (unsigned)_builtinCount);
 }
 
 // Helper: normalize a hashtag name (lowercase, strip invalid chars)

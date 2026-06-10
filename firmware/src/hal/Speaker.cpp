@@ -1,4 +1,5 @@
 #include "Speaker.h"
+#include "util/log.h"
 #include "hal/boards/board.h"
 #include "../storage/SDCard.h"
 #include <Arduino.h>
@@ -31,7 +32,7 @@ bool Speaker::init() {
     i2s_config.tx_desc_auto_clear = true;
 
     if (i2s_driver_install(I2S_PORT, &i2s_config, 0, nullptr) != ESP_OK) {
-        Serial.println("[Speaker] I2S driver install failed");
+        LOGLN("[Speaker] I2S driver install failed");
         return false;
     }
 
@@ -49,7 +50,7 @@ bool Speaker::init() {
     pin_config.data_in_num = I2S_PIN_NO_CHANGE;
 
     if (i2s_set_pin(I2S_PORT, &pin_config) != ESP_OK) {
-        Serial.println("[Speaker] I2S pin config failed");
+        LOGLN("[Speaker] I2S pin config failed");
         i2s_driver_uninstall(I2S_PORT);
         return false;
     }
@@ -57,11 +58,11 @@ bool Speaker::init() {
     // Check if custom sound file exists on SD
     _hasCustomSound = SDCard::instance().fileExists(CUSTOM_SOUND_PATH);
     if (_hasCustomSound) {
-        Serial.println("[Speaker] Custom notification.wav found");
+        LOGLN("[Speaker] Custom notification.wav found");
     }
 
     _initialized = true;
-    Serial.println("[Speaker] I2S ready");
+    LOGLN("[Speaker] I2S ready");
     return true;
 }
 
@@ -92,7 +93,7 @@ void Speaker::startSOS(uint8_t repeatCount) {
     if (!_sosCheckedWav) {
         _hasSOSWav = SDCard::instance().fileExists(SOS_SOUND_PATH);
         _sosCheckedWav = true;
-        if (_hasSOSWav) Serial.println("[Speaker] Custom sos.wav found");
+        if (_hasSOSWav) LOGLN("[Speaker] Custom sos.wav found");
     }
 
     _sosRepeatsRemaining = repeatCount;
@@ -216,7 +217,7 @@ bool Speaker::playWavFile(const char* path) {
 
     // Only support PCM (format 1), 16-bit, reasonable sample rate
     if (audioFormat != 1 || bitsPerSample != 16 || wavSampleRate > 48000 || wavSampleRate == 0 || numChannels == 0 || numChannels > 2) {
-        Serial.println("[Speaker] WAV format not supported (need 16-bit PCM, 1-2ch, <= 48kHz)");
+        LOGLN("[Speaker] WAV format not supported (need 16-bit PCM, 1-2ch, <= 48kHz)");
         file.close();
         return false;
     }
@@ -233,7 +234,7 @@ bool Speaker::playWavFile(const char* path) {
         file.seek(file.position() + chunkSize + (chunkSize & 1));  // Skip chunk + RIFF pad byte
     }
     if (!foundData) {
-        Serial.println("[Speaker] WAV file missing data chunk");
+        LOGLN("[Speaker] WAV file missing data chunk");
         file.close();
         return false;
     }

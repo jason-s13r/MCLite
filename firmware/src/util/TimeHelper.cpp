@@ -1,5 +1,7 @@
 #include "TimeHelper.h"
+#include "util/log.h"
 #include "../config/ConfigManager.h"
+#include "../net/WiFiManager.h"
 #include <sys/time.h>
 #include <Arduino.h>
 
@@ -23,7 +25,7 @@ void TimeHelper::applyTimezone() {
         if (isValidPosixTz(cfg.gpsTimezone)) {
             tz = cfg.gpsTimezone;
         } else {
-            Serial.printf("[Time] Invalid timezone string: \"%s\" — ignoring, using offset fallback\n",
+            LOGF("[Time] Invalid timezone string: \"%s\" — ignoring, using offset fallback\n",
                           cfg.gpsTimezone.c_str());
         }
     }
@@ -39,9 +41,35 @@ void TimeHelper::applyTimezone() {
         }
     }
 
+    _tz = tz;
     setenv("TZ", tz.c_str(), 1);
     tzset();
-    Serial.printf("[Time] Timezone: %s\n", tz.c_str());
+    LOGF("[Time] Timezone: %s\n", tz.c_str());
+}
+
+void TimeHelper::maybeNtpSync() {
+    if (_synced) return;                                   // GPS or a prior NTP already set the clock
+    if (!WiFiManager::instance().isConnected()) {
+        _ntpStarted = false;                              // re-arm for the next connection
+        return;
+    }
+    if (!_ntpStarted) {
+        // Start SNTP once per connection (also (re)applies the TZ). Non-blocking.
+        const char* tz = _tz.length() ? _tz.c_str() : "UTC0";
+        configTzTime(tz, "pool.ntp.org", "time.google.com", "time.cloudflare.com");
+        _ntpStarted = true;
+        LOGF("[Time] NTP started (TZ=%s)\n", tz);
+        return;
+    }
+    // Poll non-blocking; getLocalTime() returns true only once the clock is set.
+    struct tm tmv;
+    if (getLocalTime(&tmv, 0)) {
+        time_t now = time(nullptr);
+        if (now > 1700000000) {
+            syncSystemClock((uint32_t)now);
+            LOGF("[Time] NTP synced: %lu\n", (unsigned long)now);
+        }
+    }
 }
 
 uint32_t TimeHelper::nowEpoch() const {

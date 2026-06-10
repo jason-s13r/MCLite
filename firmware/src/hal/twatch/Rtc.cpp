@@ -1,4 +1,5 @@
 #include "hal/twatch/Rtc.h"
+#include "util/log.h"
 #include "hal/boards/board.h"
 #include "util/epoch.h"
 #include <Arduino.h>
@@ -26,11 +27,11 @@ bool Rtc::init() {
     Wire.beginTransmission(TWATCH_PCF85063_ADDR);
     Wire.write(0x00);
     if (Wire.endTransmission() != 0) {
-        Serial.println("[Rtc] PCF85063A not responding");
+        LOGLN("[Rtc] PCF85063A not responding");
         return false;
     }
     if (Wire.requestFrom(TWATCH_PCF85063_ADDR, (uint8_t)1) != 1) {
-        Serial.println("[Rtc] PCF85063A short read");
+        LOGLN("[Rtc] PCF85063A short read");
         return false;
     }
     (void)Wire.read();

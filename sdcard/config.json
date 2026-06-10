@@ -61,7 +61,8 @@
     "enabled": true,
     "timezone": "",
     "clock_offset": 0,
-    "last_known_max_age": 1800
+    "last_known_max_age": 1800,
+    "location_advert": false
   },
   "battery": {
     "low_alert_enabled": false,

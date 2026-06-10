@@ -76,6 +76,13 @@ public:
 
     bool isRadioReady() const { return _radioReady; }
 
+    // This node's 32-byte public key, or nullptr before the mesh is initialized.
+    const uint8_t* selfPubKey() const;
+
+    // Direct access to the underlying mesh for read-only companion queries
+    // (contacts/channels/RTC). nullptr before init(). Use sparingly.
+    MCLiteMesh* mesh() const { return _mesh; }
+
     // TX duty cycle over the last hour (0.0–100.0%)
     float getTxDutyCyclePercent() const;
 

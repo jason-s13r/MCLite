@@ -2,15 +2,16 @@
 
 // MCLite default configuration values
 
+// All three are #ifndef-guarded so a fork can override them with -D build flags
+// (e.g. -DMCLITE_REPO_OWNER=\"someone\") to self-update from its own GitHub repo.
 #ifndef MCLITE_VERSION
-#define MCLITE_VERSION "0.2.2"
+#define MCLITE_VERSION "0.3.2"
 #endif
-// GitHub repository used for OTA update checks (can be overridden at build time)
 #ifndef MCLITE_REPO_OWNER
-#define MCLITE_REPO_OWNER "laserir"
+#define MCLITE_REPO_OWNER "laserir"   // GitHub owner for OTA update checks
 #endif
 #ifndef MCLITE_REPO_NAME
-#define MCLITE_REPO_NAME "MCLite"
+#define MCLITE_REPO_NAME "MCLite"     // GitHub repo for OTA update checks
 #endif
 
 namespace mclite {

@@ -1,4 +1,5 @@
 #include "Trackball.h"
+#include "util/log.h"
 #include "hal/boards/board.h"
 #include "../ui/UIManager.h"
 #include <Arduino.h>
@@ -34,7 +35,7 @@ bool Trackball::init() {
     _drv.user_data = this;
     _indev = lv_indev_drv_register(&_drv);
 
-    Serial.println("[Trackball] Initialized");
+    LOGLN("[Trackball] Initialized");
     return true;
 }
 

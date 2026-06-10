@@ -9,6 +9,8 @@
 #include "AdminScreen.h"
 #include "HeardAdvertsScreen.h"
 #include "WiFiSetupScreen.h"
+#include "UsbSetupScreen.h"
+#include "BleSetupScreen.h"
 #include "MapScreen.h"
 #include "RadioGpsScreen.h"
 #include "DisplaySoundBatteryScreen.h"
@@ -27,7 +29,9 @@ enum class Screen {
     RADIO_GPS,
     DISPLAY_SOUND_BATTERY,
     MESSAGING_CONTACTS_CHANNELS_ROOMS,
-    WIFI_SETUP
+    WIFI_SETUP,
+    USB_SETUP,
+    BLE_SETUP
 };
 
 class UIManager {
@@ -68,8 +72,10 @@ public:
     // Called when all retries exhausted (DM failed)
     void onMessageFailed(uint32_t packetId);
 
-    // Send a message from the chat UI
-    void handleSend(const ConvoId& id, const String& text);
+    // Send a message (from the chat UI or the WiFi companion). Sends over the
+    // mesh AND records it in the store/UI, so companion-originated messages show
+    // on-device too. Returns the packet ID (0 on failure).
+    uint32_t handleSend(const ConvoId& id, const String& text);
 
     // Retry a failed DM
     void handleRetry(const ConvoId& id, const String& text, uint32_t oldPacketId);
@@ -123,7 +129,11 @@ public:
     // Map screen (opened from telemetry modal or home screen)
     void showMapScreen(double lat, double lon, const String& contactName,
                        uint32_t contactLocationAgeMs = UINT32_MAX);
+    void showMapScreen(const uint8_t* pubKey, double lat, double lon, const String& contactName);
     void showOwnLocationMap();
+
+    // Open the general map (own location + heard-node markers). From the GPS icon.
+    void showGeneralMap();
 
     // Brief auto-dismissing toast on top layer. Non-modal — doesn't steal
     // focus and disappears after `durationMs` (default 1500ms).
@@ -152,6 +162,8 @@ private:
     DisplaySoundBatteryScreen           _displaySoundBatteryScreen;
     MessagingContactsChannelsRoomsScreen _messagingContactsChannelsRoomsScreen;
     WiFiSetupScreen                     _wifiSetupScreen;
+    UsbSetupScreen                      _usbSetupScreen;
+    BleSetupScreen                      _bleSetupScreen;
 
     lv_obj_t*  _mainScreen = nullptr;
     lv_group_t* _inputGroup = nullptr;
@@ -243,7 +255,12 @@ private:
     // Map screen state
     MapScreen _mapScreen;
     std::vector<Screen> _navStack;
-
+    double    _pendingMapLat = 0.0;
+    double    _pendingMapLon = 0.0;
+    String    _pendingMapName;
+    uint8_t   _pendingMapKey[32] = {0};
+    static void openMapAsync(void* user);
+    static void openGeneralMapAsync(void* user);
 
     // ─── Room state (decisions #14, #15 from room-server-plan.md) ───
     static constexpr size_t MAX_ROOMS = 8;

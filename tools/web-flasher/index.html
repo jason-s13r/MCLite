@@ -1104,6 +1104,19 @@ esp-web-install-button button[slot="activate"]:disabled {
   <div class="card" id="checklist-card" data-status="idle">
     <ul class="checklist">
 
+      <!-- Step 0: Firmware source (official repo or a fork) -->
+      <li class="check-item" data-step="source">
+        <div class="check-row">
+          <span class="check-led led led-idle"></span>
+          <div class="check-body">
+            <div class="check-title">Firmware source</div>
+            <div class="check-detail">
+              <select id="repo-select" onchange="onRepoChange()" class="version-select"></select>
+            </div>
+          </div>
+        </div>
+      </li>
+
       <!-- Step 1: Firmware version (collapsible) -->
       <li class="check-item" data-step="version">
         <div class="check-row">
@@ -1301,70 +1314,21 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-function handleCustomUpload(input) {
-  const file = input.files[0];
-  if (!file) return;
-
-  // Revoke previous blob URL if any
-  if (customBinUrl) {
-    URL.revokeObjectURL(customBinUrl);
-    customBinUrl = null;
-  }
-
-  customBinFile = file;
-  customBinName = file.name;
-  customBinSize = file.size;
-  customBinUrl = URL.createObjectURL(file);
-
-  // Update UI
-  const display = document.getElementById('version-display');
-  const sizeMB = (customBinSize / (1024 * 1024)).toFixed(1);
-  display.classList.remove('placeholder');
-  display.innerHTML = escapeHtml(customBinName) + `<span class="meta">· ${sizeMB} MB · custom upload</span>`;
-
-  const nameEl = document.getElementById('custom-bin-name');
-  if (nameEl) nameEl.textContent = customBinName;
-
-  // Collapse the release picker if open
-  const sel = document.getElementById('version');
-  sel.classList.add('hidden');
-  const uploadRow = document.getElementById('custom-upload-row');
-  if (uploadRow) uploadRow.classList.add('hidden');
-  document.getElementById('version-toggle').textContent = 'Change';
-
-  // Build manifest pointing at the local blob
-  const target = getTarget();
-  const manifest = {
-    name: `MCLite (${target.displayName})`,
-    version: 'custom',
-    new_install_prompt_erase: target.eraseOnFirstFlash,
-    new_install_improv_wait_time: 0,
-    builds: [{
-      chipFamily: target.chipFamily,
-      improv: false,
-      parts: [{
-        path: customBinUrl,
-        offset: target.flashOffset
-      }]
-    }]
-  };
-
-  if (currentManifestUrl) {
-    URL.revokeObjectURL(currentManifestUrl);
-    currentManifestUrl = null;
-  }
-  currentManifestUrl = URL.createObjectURL(
-    new Blob([JSON.stringify(manifest)], { type: 'application/json' })
-  );
-  const flashBtn = document.getElementById('flash-btn');
-  flashBtn.setAttribute('manifest', currentManifestUrl);
-
-  syncChecklist();
-}
+// ---------- Firmware source (official repo or community forks) ----------
+// Each repo must publish board bins to tools/web-flasher/firmware/ (the same
+// layout the official release bot uses). Selecting one re-fetches from it.
+const REPOS = [
+  { label: 'MCLite — official (laserir)', repo: 'laserir/MCLite' },
+  // Add forks here once they publish their own board bins to
+  // tools/web-flasher/firmware/ (via the release bot). Example:
+  // { label: 'Fork — jason-s13r', repo: 'jason-s13r/MCLite' },
+];
+let currentRepo = REPOS[0].repo;
 
 // ---------- Targets (hardware variants) ----------
 // Each target is a self-contained hardware definition. Adding a new variant
-// means adding an entry here — no other code needs to change.
+// means adding an entry here — no other code needs to change. NOTE: the active
+// repo comes from `currentRepo` (the source picker), not from `.repo` here.
 const TARGETS = {
   'tdeck-plus': {
     id: 'tdeck-plus',
@@ -1604,7 +1568,7 @@ function updateBranding() {
   if (subtitle) subtitle.textContent = `Install MCLite on a ${target.displayName} from your browser`;
   // Source / repo display in diagnostics
   const srcDisplay = document.getElementById('source-display');
-  if (srcDisplay) srcDisplay.textContent = `github.com/${target.repo}`;
+  if (srcDisplay) srcDisplay.textContent = `github.com/${currentRepo}`;
   // Active item in picker dropdown
   document.querySelectorAll('.target-option').forEach(el => {
     el.classList.toggle('active', el.dataset.targetId === target.id);
@@ -1624,13 +1588,15 @@ async function fetchReleases(forceRescan) {
   // targets while we're awaiting the network, we must NOT clobber the new
   // target's UI with our stale results.
   const fetchForTarget = target.id;
+  const fetchRepo = currentRepo;            // capture so a repo switch mid-await can't clobber
+  const cacheKey = fetchRepo + '#' + fetchForTarget;
 
   // Use cached if available and not a forced rescan.
   // Cache lookup is synchronous, no race possible — populate immediately.
   // We slice() to make `releases` a separate reference; otherwise any mutation
   // of `releases` would silently mutate the cache.
-  if (!forceRescan && releasesCache[target.id]) {
-    releases = releasesCache[target.id].slice();
+  if (!forceRescan && releasesCache[cacheKey]) {
+    releases = releasesCache[cacheKey].slice();
     populateVersionSelect();
     return;
   }
@@ -1642,11 +1608,11 @@ async function fetchReleases(forceRescan) {
   toggleBtn.onclick = toggleVersionPicker;
 
   try {
-    const resp = await fetch(`https://api.github.com/repos/${target.repo}/contents/${target.firmwarePath}`);
+    const resp = await fetch(`https://api.github.com/repos/${fetchRepo}/contents/${target.firmwarePath}`);
     if (!resp.ok) {
       // Differentiate common cases for clearer user messaging
       if (resp.status === 404) {
-        throw new Error(`Firmware folder not found in ${target.repo}/${target.firmwarePath}`);
+        throw new Error(`No firmware published in ${fetchRepo}/${target.firmwarePath}`);
       } else if (resp.status === 403) {
         throw new Error('GitHub rate limit reached — try again in an hour, or sign in to github.com to lift the limit');
       } else if (resp.status >= 500) {
@@ -1669,7 +1635,7 @@ async function fetchReleases(forceRescan) {
         // (works for repos using main, master, or anything else as default branch).
         // Fall back to a constructed URL only if download_url is missing for some reason.
         const url = f.download_url ||
-                    `https://raw.githubusercontent.com/${target.repo}/HEAD/${target.firmwarePath}/${encodeURIComponent(f.name)}`;
+                    `https://raw.githubusercontent.com/${fetchRepo}/HEAD/${target.firmwarePath}/${encodeURIComponent(f.name)}`;
         parsed.push({
           version: m[1],
           binName: f.name,
@@ -1679,16 +1645,16 @@ async function fetchReleases(forceRescan) {
       }
     }
     parsed.sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
-    releasesCache[fetchForTarget] = parsed;
+    releasesCache[cacheKey] = parsed;
 
-    if (fetchForTarget !== currentTargetId) return; // stale result, don't paint
+    if (fetchForTarget !== currentTargetId || fetchRepo !== currentRepo) return; // stale, don't paint
 
     // slice() to detach `releases` from cache so future mutations don't bleed.
     releases = parsed.slice();
     populateVersionSelect();
   } catch (e) {
     // Same stale-check: if the user already moved on, don't paint an old error.
-    if (fetchForTarget !== currentTargetId) return;
+    if (fetchForTarget !== currentTargetId || fetchRepo !== currentRepo) return;
     // TypeError from fetch typically means network-level failure (offline, DNS, CORS).
     // Distinguish from HTTP errors which we threw with descriptive messages above.
     let userMessage;
@@ -2359,7 +2325,7 @@ function renderTargetPicker() {
     const disabledClass = t.disabled ? ' disabled' : '';
     const metaText = t.disabled
       ? `${t.chipFamily} · <span class="target-option-tag">SOON</span>`
-      : `${t.chipFamily} · ${t.repo}`;
+      : `${t.chipFamily} · ${currentRepo}`;
     parts.push(
       `<div class="target-option${disabledClass}" data-target-id="${id}" role="option" aria-disabled="${!!t.disabled}">` +
         `<span class="target-option-name">${t.displayName}</span>` +
@@ -2564,6 +2530,31 @@ renderPhase();
 })();
 syncChecklist();
 setupSerialDetect();
+
+// ---------- Firmware-source (repo/fork) picker ----------
+function populateRepoSelect() {
+  const sel = document.getElementById('repo-select');
+  if (!sel) return;
+  sel.innerHTML = '';
+  for (const r of REPOS) {
+    const opt = document.createElement('option');
+    opt.value = r.repo;
+    opt.textContent = r.label;
+    if (r.repo === currentRepo) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+function onRepoChange() {
+  const sel = document.getElementById('repo-select');
+  if (!sel) return;
+  currentRepo = sel.value;
+  // New source → drop any selected version/manifest and re-fetch for this target.
+  flashBtn.removeAttribute('manifest');
+  fetchReleases();
+}
+
+populateRepoSelect();
 
 // Auto-load releases
 fetchReleases();

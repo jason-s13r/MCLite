@@ -1,4 +1,5 @@
 #include "GPS.h"
+#include "util/log.h"
 #include "hal/boards/board.h"
 #include "../util/mgrs.h"
 #include "../util/epoch.h"
@@ -21,7 +22,7 @@ bool GPS::init() {
     Serial1.begin(TWATCH_GPS_BAUD, SERIAL_8N1, TWATCH_GPS_RX, TWATCH_GPS_TX);
 #endif
     _enabled = true;
-    Serial.println("[GPS] Initialized");
+    LOGLN("[GPS] Initialized");
     return true;
 }
 
@@ -34,11 +35,11 @@ void GPS::update() {
     // hasTime() checks isValid() AND year >= 2024
     bool nowSynced = hasTime();
     if (nowSynced && !_timeSynced) {
-        Serial.printf("[GPS] Time synced: %04d-%02d-%02d %02d:%02d:%02d UTC\n",
+        LOGF("[GPS] Time synced: %04d-%02d-%02d %02d:%02d:%02d UTC\n",
                       _gps.date.year(), _gps.date.month(), _gps.date.day(),
                       hour(), minute(), second());
     } else if (!nowSynced && _timeSynced) {
-        Serial.println("[GPS] Time lost");
+        LOGLN("[GPS] Time lost");
     }
     _timeSynced = nowSynced;
 

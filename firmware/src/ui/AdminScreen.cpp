@@ -6,6 +6,7 @@
 #include "../hal/Display.h"
 #include "../storage/HeardAdvertCache.h"
 #include "../net/WiFiManager.h"
+#include "../companion/CompanionService.h"
 #include "../storage/MessageStore.h"
 #include "../hal/Battery.h"
 #include "../hal/GPS.h"
@@ -232,6 +233,72 @@ void AdminScreen::show() {
     makeNavRow(t("display_sound_battery_title"), navDisplaySoundBatteryCb);
     makeNavRow(t("messaging_contacts_channels_rooms_title"), navMessagingContactsChannelsRoomsCb);
 
+    // USB companion shortcut — opens a dedicated screen with just the toggle.
+    {
+        lv_obj_t* row = lv_obj_create(_content);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
+        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_radius(row, 4, 0);
+        lv_obj_set_style_pad_all(row, theme::PAD_SMALL, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_bg_color(row, theme::ACCENT, LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_opa(row, LV_OPA_40, LV_STATE_FOCUSED);
+        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t* ul = lv_label_create(row);
+        lv_obj_set_style_text_font(ul, FONT_BODY, 0);
+        lv_obj_set_style_text_color(ul, theme::TEXT_PRIMARY, 0);
+        String utxt = String(LV_SYMBOL_USB " ") + t("usb_companion");
+        if (CompanionService::instance().usbCompanionEnabled()) utxt += String(" (") + t("on") + ")";
+        lv_label_set_text(ul, utxt.c_str());
+
+        lv_obj_t* chev = lv_label_create(row);
+        lv_obj_set_style_text_font(chev, FONT_BODY, 0);
+        lv_obj_set_style_text_color(chev, theme::TEXT_SECONDARY, 0);
+        lv_label_set_text(chev, LV_SYMBOL_RIGHT);
+
+        lv_obj_add_event_cb(row, [](lv_event_t* e) {
+            UIManager::instance().showScreen(Screen::USB_SETUP);
+        }, LV_EVENT_CLICKED, nullptr);
+    }
+
+    // BLE companion shortcut — opens a dedicated screen with the toggle + PIN.
+    {
+        lv_obj_t* row = lv_obj_create(_content);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
+        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_radius(row, 4, 0);
+        lv_obj_set_style_pad_all(row, theme::PAD_SMALL, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_bg_color(row, theme::ACCENT, LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_opa(row, LV_OPA_40, LV_STATE_FOCUSED);
+        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t* bl = lv_label_create(row);
+        lv_obj_set_style_text_font(bl, FONT_BODY, 0);
+        lv_obj_set_style_text_color(bl, theme::TEXT_PRIMARY, 0);
+        String btxt = String(LV_SYMBOL_BLUETOOTH " ") + t("ble_companion");
+        if (CompanionService::instance().bleCompanionEnabled()) btxt += String(" (") + t("on") + ")";
+        lv_label_set_text(bl, btxt.c_str());
+
+        lv_obj_t* chev = lv_label_create(row);
+        lv_obj_set_style_text_font(chev, FONT_BODY, 0);
+        lv_obj_set_style_text_color(chev, theme::TEXT_SECONDARY, 0);
+        lv_label_set_text(chev, LV_SYMBOL_RIGHT);
+
+        lv_obj_add_event_cb(row, [](lv_event_t* e) {
+            UIManager::instance().showScreen(Screen::BLE_SETUP);
+        }, LV_EVENT_CLICKED, nullptr);
+    }
+
     // --- Device ---
     addSection(t("sec_device"));
     addRow("Firmware", String("MCLite v") + defaults::FIRMWARE_VERSION);
@@ -239,6 +306,367 @@ void AdminScreen::show() {
     addRow("Device Name", cfg.deviceName);
     if (cfg.publicKey.length() > 0) {
         addRow("Public Key", cfg.publicKey.substring(0, 16) + "...");
+    }
+
+    // --- Radio ---
+    addSection(t("sec_radio"));
+    {
+        // Show the active frequency: in offgrid mode this is the derived band,
+        // with "(offgrid)" marker so users see 869.000 (offgrid) vs 869.618 at a glance.
+        float activeFreq = cfg.radio.frequency;
+        String freqSuffix = " MHz";
+        if (cfg.offgrid.enabled) {
+            activeFreq = mclite::offgridFreqFor(cfg.radio.frequency);
+            freqSuffix += " (offgrid)";
+        }
+        addRow("Frequency", String(activeFreq, 3) + freqSuffix);
+    }
+    addRow("SF / BW", String(cfg.radio.spreadingFactor) + " / " + String(cfg.radio.bandwidth, 1));
+    addRow("Coding Rate", String(cfg.radio.codingRate));
+    addRow("TX Power", String(cfg.radio.txPower) + " dBm");
+    addRow("Scope", cfg.radio.scope);
+    {
+        char phBuf[16];
+        snprintf(phBuf, sizeof(phBuf), "%u B/hop", (unsigned)(cfg.radio.pathHashMode + 1));
+        addRow("Path Hash", phBuf);
+    }
+    addRow("Status", MeshManager::instance().isRadioReady() ? t("ready") : t("error"));
+
+    // Channel utilization (TX duty cycle over last hour)
+    if (MeshManager::instance().isRadioReady()) {
+        float duty = MeshManager::instance().getTxDutyCyclePercent();
+        char utilBuf[32];
+        if (MeshManager::instance().isEURegion()) {
+            snprintf(utilBuf, sizeof(utilBuf), "%.2f%% (10%% limit)", duty);
+        } else {
+            snprintf(utilBuf, sizeof(utilBuf), "%.2f%%", duty);
+        }
+        addRow(t("ch_util"), utilBuf);
+    }
+
+    // --- Contacts ---
+    auto& contacts = ContactStore::instance();
+    char secContactsBuf[32];
+    snprintf(secContactsBuf, sizeof(secContactsBuf), t("sec_contacts"), (int)contacts.count());
+    addSection(secContactsBuf);
+    for (size_t i = 0; i < contacts.count(); i++) {
+        const Contact* c = contacts.findByIndex(i);
+        if (!c) continue;
+        String info = c->name;
+        if (c->sendSos) info += " [SOS]";
+        if (c->allowTelemetry && c->allowLocation) info += " [GPS]";
+        addRow(("  " + String((int)(i + 1))).c_str(), info);
+    }
+
+    // --- Channels ---
+    auto& channels = ChannelStore::instance();
+    char secChannelsBuf[32];
+    snprintf(secChannelsBuf, sizeof(secChannelsBuf), t("sec_channels"), (int)channels.count());
+    addSection(secChannelsBuf);
+    for (const auto& ch : channels.all()) {
+        const char* prefix = ch.isPrivate() ? "  *" : "  #";
+        String info = ch.name;
+        if (ch.readOnly) info += " [read-only]";
+        if (ch.sendSos) info += " [SOS]";
+        if (ch.scope.length() > 0) info += " [scope:" + ch.scope + "]";
+        addRow(prefix, info);
+    }
+
+    // --- Rooms (read-only — config tool manages add/remove) ---
+    {
+        const auto& rooms = ConfigManager::instance().config().roomServers;
+        char secRoomsBuf[32];
+        snprintf(secRoomsBuf, sizeof(secRoomsBuf), t("sec_rooms"), (int)rooms.size());
+        addSection(secRoomsBuf);
+        auto& store = MessageStore::instance();
+        for (size_t i = 0; i < rooms.size(); i++) {
+            String info = rooms[i].name;
+            info += UIManager::instance().isRoomLoggedIn(i) ? " [online]" : " [offline]";
+            // Last sync timestamp (Unix seconds) from the room's history
+            if (rooms[i].publicKey.length() == 64) {
+                String shortId = rooms[i].publicKey.substring(0, 16);
+                ConvoId rid { ConvoId::ROOM, shortId };
+                if (Conversation* convo = store.getConversation(rid)) {
+                    if (convo->syncSince > 0) {
+                        char ts[24];
+                        time_t t = (time_t)convo->syncSince;
+                        struct tm* tm_info = gmtime(&t);
+                        if (tm_info) {
+                            strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M", tm_info);
+                            info += " ";
+                            info += ts;
+                        }
+                    }
+                }
+            }
+            addRow("  R", info);
+        }
+    }
+
+    // --- Display ---
+    addSection(t("sec_display"));
+    addRow("Brightness", String(cfg.display.brightness));
+    addRow("Auto-Dim", cfg.display.autoDimSeconds > 0
+        ? String(cfg.display.autoDimSeconds) + "s" : String(t("off")));
+    addRow("Dim Brightness", cfg.display.dimBrightness > 0
+        ? String(cfg.display.dimBrightness) : String(t("off")));
+    addRow("Kbd Backlight", cfg.display.kbdBacklight
+        ? String(t("on")) + " (" + String(cfg.display.kbdBrightness) + ")" : String(t("off")));
+    if (cfg.display.bootText.length() > 0) {
+        addRow("Boot Text", cfg.display.bootText);
+    }
+
+    // --- Messaging ---
+    addSection(t("sec_messaging"));
+    addRow("History", cfg.messaging.saveHistory ? t("enabled") : t("disabled"));
+    addRow("Max Per Chat", String(cfg.messaging.maxHistoryPerChat));
+    addRow("Max Retries", String(cfg.messaging.maxRetries));
+    addRow("Req. Telemetry", cfg.messaging.requestTelemetry ? t("enabled") : t("disabled"));
+    addRow("Telemetry Badges", cfg.messaging.showTelemetry);
+
+    // --- GPS ---
+    addSection(t("sec_gps"));
+    addRow("GPS", cfg.gpsEnabled ? t("enabled") : t("disabled"));
+    if (cfg.gpsEnabled) {
+        auto& gps = GPS::instance();
+        FixStatus fs = gps.fixStatus();
+        switch (fs) {
+            case FixStatus::LIVE: {
+                addRow(t("gps_fix_status"), t("gps_live"));
+                addRow(t("gps_coords"), gps.formatLocation());
+                addRow(t("gps_satellites"), String(gps.satellites()));
+                char hdopBuf[8];
+                snprintf(hdopBuf, sizeof(hdopBuf), "%.1f", gps.hdop());
+                addRow("HDOP", String(hdopBuf));
+                break;
+            }
+            case FixStatus::LAST_KNOWN: {
+                uint32_t age = gps.fixAgeSeconds();
+                char ageBuf[32];
+                if (age < 60)
+                    snprintf(ageBuf, sizeof(ageBuf), t("gps_last_known_s"), (int)age);
+                else if (age < 3600)
+                    snprintf(ageBuf, sizeof(ageBuf), t("gps_last_known_m"), (int)(age / 60));
+                else
+                    snprintf(ageBuf, sizeof(ageBuf), t("gps_last_known_h"), (int)(age / 3600));
+                addRow(t("gps_fix_status"), String(ageBuf));
+                addRow(t("gps_coords"), gps.formatLocation());
+                break;
+            }
+            case FixStatus::NO_FIX:
+                addRow(t("gps_fix_status"), t("searching"));
+                break;
+        }
+        addRow(t("gps_coord_format"), cfg.messaging.locationFormat);
+        addRow("Last Known Max", String(cfg.gpsLastKnownMaxAge) + "s");
+        addRow("Location Advert", cfg.locationAdvertEnabled ? t("on") : t("off"));
+        if (cfg.gpsTimezone.length() > 0 && TimeHelper::isValidPosixTz(cfg.gpsTimezone)) {
+            // Show abbreviation (chars before first digit/sign) + "(auto-DST)"
+            String abbr;
+            for (size_t i = 0; i < cfg.gpsTimezone.length(); i++) {
+                char c = cfg.gpsTimezone[i];
+                if (c == '-' || c == '+' || (c >= '0' && c <= '9')) break;
+                abbr += c;
+            }
+            addRow("Timezone", abbr + " (auto-DST)");
+        } else if (cfg.gpsClockOffset != 0) {
+            addRow("Clock Offset", String(cfg.gpsClockOffset) + "h");
+        }
+    }
+
+    // --- Sound ---
+    addSection(t("sec_sound"));
+    addRow("Sound", Speaker::instance().isMuted() ? t("muted") : t("on"));
+    addRow("SOS Keyword", cfg.sosKeyword);
+    addRow("SOS Repeat", String(cfg.sosRepeat));
+
+    // --- Battery ---
+    addSection(t("sec_battery"));
+    addRow("Level", String(Battery::instance().percent()) + "%");
+    if (cfg.battery.lowAlertEnabled) {
+        addRow("Low Alert", String(cfg.battery.lowAlertThreshold) + "%");
+    } else {
+        addRow("Low Alert", t("off"));
+    }
+    // --- Radio ---
+    addSection(t("sec_radio"));
+    {
+        // Show the active frequency: in offgrid mode this is the derived band,
+        // with "(offgrid)" marker so users see 869.000 (offgrid) vs 869.618 at a glance.
+        float activeFreq = cfg.radio.frequency;
+        String freqSuffix = " MHz";
+        if (cfg.offgrid.enabled) {
+            activeFreq = mclite::offgridFreqFor(cfg.radio.frequency);
+            freqSuffix += " (offgrid)";
+        }
+        addRow("Frequency", String(activeFreq, 3) + freqSuffix);
+    }
+    addRow("SF / BW", String(cfg.radio.spreadingFactor) + " / " + String(cfg.radio.bandwidth, 1));
+    addRow("Coding Rate", String(cfg.radio.codingRate));
+    addRow("TX Power", String(cfg.radio.txPower) + " dBm");
+    addRow("Scope", cfg.radio.scope);
+    {
+        char phBuf[16];
+        snprintf(phBuf, sizeof(phBuf), "%u B/hop", (unsigned)(cfg.radio.pathHashMode + 1));
+        addRow("Path Hash", phBuf);
+    }
+    addRow("Status", MeshManager::instance().isRadioReady() ? t("ready") : t("error"));
+
+    // Channel utilization (TX duty cycle over last hour)
+    if (MeshManager::instance().isRadioReady()) {
+        float duty = MeshManager::instance().getTxDutyCyclePercent();
+        char utilBuf[32];
+        if (MeshManager::instance().isEURegion()) {
+            snprintf(utilBuf, sizeof(utilBuf), "%.2f%% (10%% limit)", duty);
+        } else {
+            snprintf(utilBuf, sizeof(utilBuf), "%.2f%%", duty);
+        }
+        addRow(t("ch_util"), utilBuf);
+    }
+
+    // --- Contacts ---
+    auto& contacts = ContactStore::instance();
+    char secContactsBuf[32];
+    snprintf(secContactsBuf, sizeof(secContactsBuf), t("sec_contacts"), (int)contacts.count());
+    addSection(secContactsBuf);
+    for (size_t i = 0; i < contacts.count(); i++) {
+        const Contact* c = contacts.findByIndex(i);
+        if (!c) continue;
+        String info = c->name;
+        if (c->sendSos) info += " [SOS]";
+        if (c->allowTelemetry && c->allowLocation) info += " [GPS]";
+        addRow(("  " + String((int)(i + 1))).c_str(), info);
+    }
+
+    // --- Channels ---
+    auto& channels = ChannelStore::instance();
+    char secChannelsBuf[32];
+    snprintf(secChannelsBuf, sizeof(secChannelsBuf), t("sec_channels"), (int)channels.count());
+    addSection(secChannelsBuf);
+    for (const auto& ch : channels.all()) {
+        const char* prefix = ch.isPrivate() ? "  *" : "  #";
+        String info = ch.name;
+        if (ch.readOnly) info += " [read-only]";
+        if (ch.sendSos) info += " [SOS]";
+        if (ch.scope.length() > 0) info += " [scope:" + ch.scope + "]";
+        addRow(prefix, info);
+    }
+
+    // --- Rooms (read-only — config tool manages add/remove) ---
+    {
+        const auto& rooms = ConfigManager::instance().config().roomServers;
+        char secRoomsBuf[32];
+        snprintf(secRoomsBuf, sizeof(secRoomsBuf), t("sec_rooms"), (int)rooms.size());
+        addSection(secRoomsBuf);
+        auto& store = MessageStore::instance();
+        for (size_t i = 0; i < rooms.size(); i++) {
+            String info = rooms[i].name;
+            info += UIManager::instance().isRoomLoggedIn(i) ? " [online]" : " [offline]";
+            // Last sync timestamp (Unix seconds) from the room's history
+            if (rooms[i].publicKey.length() == 64) {
+                String shortId = rooms[i].publicKey.substring(0, 16);
+                ConvoId rid { ConvoId::ROOM, shortId };
+                if (Conversation* convo = store.getConversation(rid)) {
+                    if (convo->syncSince > 0) {
+                        char ts[24];
+                        time_t t = (time_t)convo->syncSince;
+                        struct tm* tm_info = gmtime(&t);
+                        if (tm_info) {
+                            strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M", tm_info);
+                            info += " ";
+                            info += ts;
+                        }
+                    }
+                }
+            }
+            addRow("  R", info);
+        }
+    }
+
+    // --- Display ---
+    addSection(t("sec_display"));
+    addRow("Brightness", String(cfg.display.brightness));
+    addRow("Auto-Dim", cfg.display.autoDimSeconds > 0
+        ? String(cfg.display.autoDimSeconds) + "s" : String(t("off")));
+    addRow("Dim Brightness", cfg.display.dimBrightness > 0
+        ? String(cfg.display.dimBrightness) : String(t("off")));
+    addRow("Kbd Backlight", cfg.display.kbdBacklight
+        ? String(t("on")) + " (" + String(cfg.display.kbdBrightness) + ")" : String(t("off")));
+    if (cfg.display.bootText.length() > 0) {
+        addRow("Boot Text", cfg.display.bootText);
+    }
+
+    // --- Messaging ---
+    addSection(t("sec_messaging"));
+    addRow("History", cfg.messaging.saveHistory ? t("enabled") : t("disabled"));
+    addRow("Max Per Chat", String(cfg.messaging.maxHistoryPerChat));
+    addRow("Max Retries", String(cfg.messaging.maxRetries));
+    addRow("Req. Telemetry", cfg.messaging.requestTelemetry ? t("enabled") : t("disabled"));
+    addRow("Telemetry Badges", cfg.messaging.showTelemetry);
+
+    // --- GPS ---
+    addSection(t("sec_gps"));
+    addRow("GPS", cfg.gpsEnabled ? t("enabled") : t("disabled"));
+    if (cfg.gpsEnabled) {
+        auto& gps = GPS::instance();
+        FixStatus fs = gps.fixStatus();
+        switch (fs) {
+            case FixStatus::LIVE: {
+                addRow(t("gps_fix_status"), t("gps_live"));
+                addRow(t("gps_coords"), gps.formatLocation());
+                addRow(t("gps_satellites"), String(gps.satellites()));
+                char hdopBuf[8];
+                snprintf(hdopBuf, sizeof(hdopBuf), "%.1f", gps.hdop());
+                addRow("HDOP", String(hdopBuf));
+                break;
+            }
+            case FixStatus::LAST_KNOWN: {
+                uint32_t age = gps.fixAgeSeconds();
+                char ageBuf[32];
+                if (age < 60)
+                    snprintf(ageBuf, sizeof(ageBuf), t("gps_last_known_s"), (int)age);
+                else if (age < 3600)
+                    snprintf(ageBuf, sizeof(ageBuf), t("gps_last_known_m"), (int)(age / 60));
+                else
+                    snprintf(ageBuf, sizeof(ageBuf), t("gps_last_known_h"), (int)(age / 3600));
+                addRow(t("gps_fix_status"), String(ageBuf));
+                addRow(t("gps_coords"), gps.formatLocation());
+                break;
+            }
+            case FixStatus::NO_FIX:
+                addRow(t("gps_fix_status"), t("searching"));
+                break;
+        }
+        addRow(t("gps_coord_format"), cfg.messaging.locationFormat);
+        addRow("Last Known Max", String(cfg.gpsLastKnownMaxAge) + "s");
+        addRow("Location Advert", cfg.locationAdvertEnabled ? t("on") : t("off"));
+        if (cfg.gpsTimezone.length() > 0 && TimeHelper::isValidPosixTz(cfg.gpsTimezone)) {
+            // Show abbreviation (chars before first digit/sign) + "(auto-DST)"
+            String abbr;
+            for (size_t i = 0; i < cfg.gpsTimezone.length(); i++) {
+                char c = cfg.gpsTimezone[i];
+                if (c == '-' || c == '+' || (c >= '0' && c <= '9')) break;
+                abbr += c;
+            }
+            addRow("Timezone", abbr + " (auto-DST)");
+        } else if (cfg.gpsClockOffset != 0) {
+            addRow("Clock Offset", String(cfg.gpsClockOffset) + "h");
+        }
+    }
+
+    // --- Sound ---
+    addSection(t("sec_sound"));
+    addRow("Sound", Speaker::instance().isMuted() ? t("muted") : t("on"));
+    addRow("SOS Keyword", cfg.sosKeyword);
+    addRow("SOS Repeat", String(cfg.sosRepeat));
+
+    // --- Battery ---
+    addSection(t("sec_battery"));
+    addRow("Level", String(Battery::instance().percent()) + "%");
+    if (cfg.battery.lowAlertEnabled) {
+        addRow("Low Alert", String(cfg.battery.lowAlertThreshold) + "%");
+    } else {
+        addRow("Low Alert", t("off"));
     }
 
     // --- Security ---

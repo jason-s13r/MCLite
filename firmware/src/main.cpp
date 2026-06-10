@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "util/log.h"
 
 #include "hal/boards/board.h"
 #include "config/defaults.h"
@@ -17,6 +18,11 @@
 #include "i18n/I18n.h"
 #include "storage/TelemetryCache.h"
 #include "util/TimeHelper.h"
+#include "net/WiFiManager.h"
+#include "companion/CompanionService.h"
+#include <helpers/esp32/SerialWifiInterface.h>
+#include <helpers/ArduinoSerialInterface.h>
+#include <helpers/esp32/SerialBLEInterface.h>
 #ifdef PLATFORM_TWATCH
 #include <Wire.h>
 #include "hal/twatch/Expander.h"
@@ -27,14 +33,26 @@
 
 using namespace mclite;
 
+// Companion transports (mutually exclusive — one client at a time). WiFi-TCP
+// (port 5000) is bound lazily once WiFi is up; USB runs over the USB-CDC Serial
+// and mutes debug logging while active (the binary protocol can't share the port).
+static SerialWifiInterface g_companionWifi;
+static bool g_companionWifiServerStarted = false;
+static ArduinoSerialInterface g_companionUsb;
+static bool g_companionUsbStarted = false;
+static SerialBLEInterface g_companionBle;
+static bool g_companionBleStarted = false;
+static char g_bleName[24];   // mutable name buffer for SerialBLEInterface::begin
+
 // Forward declarations
 static void setupMeshCallbacks();
 static void handleKeyShortcuts();
+static void updateCompanion();
 
 void setup() {
     Serial.begin(115200);
     delay(500);
-    Serial.printf("\n=== MCLite v%s ===\n", MCLITE_VERSION);
+    LOGF("\n=== MCLite v%s ===\n", MCLITE_VERSION);
 
     // Enable board power
 #ifdef PLATFORM_TDECK
@@ -59,7 +77,7 @@ void setup() {
 #endif
 
     // 1. Display + LVGL (configures SPI bus via LovyanGFX)
-    Serial.println("[Boot] Display...");
+    LOGLN("[Boot] Display...");
     Display::instance().init();
     Display::instance().setBrightness(180);
 
@@ -72,19 +90,19 @@ void setup() {
     // 4. SD Card + Config
     //    Show status before SD ops, then no more LVGL until SD is done
     Display::instance().setBootStatus("Reading SD card...");
-    Serial.println("[Boot] SD Card...");
+    LOGLN("[Boot] SD Card...");
     bool sdOk = SDCard::instance().init();
 
-    Serial.println("[Boot] Config...");
+    LOGLN("[Boot] Config...");
     auto configResult = ConfigManager::LoadResult::LOAD_NO_FILE;
     if (sdOk) {
         configResult = ConfigManager::instance().load();
         if (configResult == ConfigManager::LOAD_NO_FILE) {
-            Serial.println("[Boot] First boot — generating config");
+            LOGLN("[Boot] First boot — generating config");
             ConfigManager::instance().generate();
             configResult = ConfigManager::instance().load();  // Re-load → LOAD_OK
         } else if (configResult == ConfigManager::LOAD_ERROR) {
-            Serial.println("[Boot] Config corrupt — using defaults");
+            LOGLN("[Boot] Config corrupt — using defaults");
         }
     }
 
@@ -145,17 +163,17 @@ void setup() {
 
     // 9. Switch from boot screen to main UI, then clean up boot screen
     if (!sdOk) {
-        Serial.println("[Boot] No SD card!");
+        LOGLN("[Boot] No SD card!");
         UIManager::instance().loadMainScreen();
         Display::instance().hideBootScreen();
         UIManager::instance().showSetupScreen(UIManager::NO_SD);
     } else if (configResult == ConfigManager::LOAD_NO_FILE) {
-        Serial.println("[Boot] No config file!");
+        LOGLN("[Boot] No config file!");
         UIManager::instance().loadMainScreen();
         Display::instance().hideBootScreen();
         UIManager::instance().showSetupScreen(UIManager::NO_CONFIG);
     } else if (configResult == ConfigManager::LOAD_ERROR) {
-        Serial.println("[Boot] Config error!");
+        LOGLN("[Boot] Config error!");
         UIManager::instance().loadMainScreen();
         Display::instance().hideBootScreen();
         UIManager::instance().showSetupScreen(UIManager::CONFIG_ERROR);
@@ -176,7 +194,7 @@ void setup() {
         if (cfgMut.deviceName == defaults::DEVICE_NAME && cfgMut.publicKey.length() >= 8) {
             cfgMut.deviceName = String("MCLite-") + cfgMut.publicKey.substring(0, 8);
             ConfigManager::instance().save();
-            Serial.printf("[Boot] Device name set to: %s\n", cfgMut.deviceName.c_str());
+            LOGF("[Boot] Device name set to: %s\n", cfgMut.deviceName.c_str());
         }
 
         // Ensure history directory exists
@@ -217,7 +235,7 @@ void setup() {
         UIManager::instance().checkForWiFiUpdateOnBoot();
     }
 
-    Serial.println("[Boot] Ready!");
+    LOGLN("[Boot] Ready!");
 }
 
 void loop() {
@@ -235,7 +253,11 @@ void loop() {
         }
 #endif
     }
+    // Fallback: when on WiFi without a GPS fix, sync the clock over NTP (no-op once
+    // GPS has synced — GPS is checked first above and wins).
+    mclite::TimeHelper::instance().maybeNtpSync();
     MeshManager::instance().update();
+    updateCompanion();
     UIManager::instance().update();
     Speaker::instance().update();
 
@@ -246,6 +268,60 @@ void loop() {
     UIManager::instance().checkBatteryAlert();
 
     delay(5);
+}
+
+// Drive the WiFi companion link. Runs only when the user enables "WiFi Companion
+// Mode" (WiFi setup screen) AND WiFi is connected. Auto-suspends if WiFi drops
+// and resumes when it returns, without losing the user's choice.
+static void updateCompanion() {
+    auto& comp = CompanionService::instance();
+    const bool wifiUp = WiFiManager::instance().isConnected();
+
+    // Pick at most one transport (the switches are mutually exclusive): USB if
+    // enabled, else WiFi when enabled AND connected.
+    BaseSerialInterface* desired = nullptr;
+    bool usbActive = false;
+    if (comp.usbCompanionEnabled()) {
+        if (!g_companionUsbStarted) { g_companionUsb.begin(Serial); g_companionUsbStarted = true; }
+        desired = &g_companionUsb;
+        usbActive = true;
+    } else if (comp.bleCompanionEnabled()) {
+        if (!g_companionBleStarted) {
+            // BLE + WiFi can't share the radio/RAM. Fully tear WiFi down and give
+            // the driver time to actually release its memory before BLEDevice::init
+            // — otherwise the two stacks race and crash. One-time blocking pause,
+            // only on the first BLE enable.
+            WiFiManager::instance().disconnect();
+            delay(600);
+            uint32_t pin = comp.ensureBlePin();
+            const String& dn = ConfigManager::instance().config().deviceName;
+            strncpy(g_bleName, dn.c_str(), sizeof(g_bleName) - 1);
+            g_bleName[sizeof(g_bleName) - 1] = 0;
+            // BLEDevice::init is heavy + one-shot — call begin() once per boot,
+            // then just toggle advertising via enable()/disable().
+            g_companionBle.begin("MeshCore-", g_bleName, pin);
+            g_companionBleStarted = true;
+            comp.setBleInited(true);   // WiFi now blocked until reboot
+            LOGF("[Companion] BLE advertising as MeshCore-%s (PIN %06lu)\n",
+                 g_bleName, (unsigned long)pin);
+        }
+        desired = &g_companionBle;
+    } else if (comp.wifiCompanionEnabled() && wifiUp) {
+        if (!g_companionWifiServerStarted) {
+            g_companionWifi.begin(5000);
+            g_companionWifiServerStarted = true;
+            LOGLN("[Companion] WiFi TCP server listening on :5000");
+        }
+        desired = &g_companionWifi;
+    }
+
+    // Mute debug logs iff USB owns the port. Set before begin() so nothing leaks
+    // onto the binary stream.
+    mclite::g_logMuted = usbActive;
+
+    if (desired) comp.begin(desired);   // begin() is idempotent if already active on it
+    else if (comp.active()) comp.end();
+    comp.loop();
 }
 
 static void setupMeshCallbacks() {
@@ -282,10 +358,12 @@ static void setupMeshCallbacks() {
 
     mesh.onAck([](uint32_t packetId) {
         UIManager::instance().onAckReceived(packetId);
+        CompanionService::instance().onAckConfirmed(packetId);   // -> SEND_CONFIRMED
     });
 
     mesh.onFail([](uint32_t packetId) {
         UIManager::instance().onMessageFailed(packetId);
+        CompanionService::instance().onSendFailed(packetId);
     });
 
     mesh.onAdvert([](const uint8_t* senderKey) {

@@ -486,8 +486,11 @@ void ChatScreen::addBubble(const Message& msg) {
         lv_label_set_text(sender, displaySender.c_str());
         lv_obj_add_flag(sender, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_set_ext_click_area(sender, 8);
-        lv_obj_set_user_data(sender, (void*)msg.senderName.c_str());
+        lv_obj_set_user_data(sender, new String(msg.senderName));
         lv_obj_add_event_cb(sender, senderNameCb, LV_EVENT_CLICKED, this);
+        lv_obj_add_event_cb(sender, [](lv_event_t* e) {
+            delete static_cast<String*>(lv_obj_get_user_data(lv_event_get_target(e)));
+        }, LV_EVENT_DELETE, nullptr);
     }
 
     // Message text
@@ -741,6 +744,28 @@ void ChatScreen::textareaCb(lv_event_t* e) {
     }
 }
 
+void ChatScreen::senderNameClickCb(lv_event_t* e) {
+    auto* self = static_cast<ChatScreen*>(lv_event_get_user_data(e));
+    auto* name = static_cast<String*>(lv_obj_get_user_data(lv_event_get_target(e)));
+    if (!self || !name || !self->_textarea) return;
+    // Prepend "@name " to whatever's already typed, then bring up the keyboard.
+    String cur = lv_textarea_get_text(self->_textarea);
+    String mention = "@" + *name + " ";
+    // Only prepend if this mention isn't already in the draft — repeated taps just
+    // (re)focus the input instead of stacking "@name @name ...". Also skip if it
+    // wouldn't fit the 160-char textarea limit, so we never silently truncate the
+    // tail of what the user already typed.
+    if (cur.indexOf(mention) < 0 &&
+        (int)(mention.length() + cur.length()) <= 160) {
+        lv_textarea_set_text(self->_textarea, (mention + cur).c_str());
+    }
+#ifdef PLATFORM_TWATCH
+    self->showKeyboard();                       // bring up the on-screen keyboard
+#else
+    lv_group_focus_obj(self->_textarea);        // T-Deck: physical keyboard types here
+#endif
+}
+
 void ChatScreen::retryBtnCb(lv_event_t* e) {
     auto* self = static_cast<ChatScreen*>(lv_event_get_user_data(e));
     if (!self || !self->_onRetry || !self->_currentConvo) return;
@@ -755,11 +780,11 @@ void ChatScreen::senderNameCb(lv_event_t* e) {
     auto* self = static_cast<ChatScreen*>(lv_event_get_user_data(e));
     if (!self || !self->_textarea) return;
 
-    const char* name = static_cast<const char*>(lv_obj_get_user_data(lv_event_get_target(e)));
-    if (!name || strlen(name) == 0) return;
+    auto* name = static_cast<String*>(lv_obj_get_user_data(lv_event_get_target(e)));
+    if (!name || name->length() == 0) return;
 
     const char* current = lv_textarea_get_text(self->_textarea);
-    String newText = String("@[") + name + String("] ");
+    String newText = String("@[") + *name + String("] ");
     if (current && strlen(current) > 0) {
         newText = String(current) + " " + newText;
     }

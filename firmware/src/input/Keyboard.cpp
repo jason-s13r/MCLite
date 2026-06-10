@@ -1,4 +1,5 @@
 #include "Keyboard.h"
+#include "util/log.h"
 #include "hal/boards/board.h"
 #include "../ui/UIManager.h"
 #include <Wire.h>
@@ -20,7 +21,7 @@ bool Keyboard::init() {
     _drv.user_data = this;
     _indev = lv_indev_drv_register(&_drv);
 
-    Serial.println("[KB] Initialized");
+    LOGLN("[KB] Initialized");
     return true;
 }
 

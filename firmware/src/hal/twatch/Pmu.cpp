@@ -1,4 +1,5 @@
 #include "hal/twatch/Pmu.h"
+#include "util/log.h"
 #include "hal/boards/board.h"
 #include <Arduino.h>
 #include <Wire.h>
@@ -16,7 +17,7 @@ Pmu& Pmu::instance() {
 
 bool Pmu::init() {
     if (!g_axp.init(Wire, TWATCH_I2C_SDA, TWATCH_I2C_SCL, TWATCH_AXP2101_ADDR)) {
-        Serial.println("[Pmu] AXP2101 init failed");
+        LOGLN("[Pmu] AXP2101 init failed");
         _ready = false;
         return false;
     }

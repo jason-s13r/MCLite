@@ -1,4 +1,5 @@
 #include "SDCard.h"
+#include "util/log.h"
 #include "hal/boards/board.h"
 #include <SPI.h>
 #include <Arduino.h>
@@ -30,9 +31,9 @@ bool SDCard::init() {
     _mounted = SD.begin(TWATCH_SD_CS, SPI, 25000000, "/sd", 1);
 #endif
     if (_mounted) {
-        Serial.printf("[SD] Mounted, size: %lluMB\n", SD.totalBytes() / (1024 * 1024));
+        LOGF("[SD] Mounted, size: %lluMB\n", SD.totalBytes() / (1024 * 1024));
     } else {
-        Serial.println("[SD] Mount failed");
+        LOGLN("[SD] Mount failed");
     }
     return _mounted;
 }
@@ -61,7 +62,7 @@ String SDCard::readFile(const char* path, size_t maxSize) {
     File f = SD.open(path, FILE_READ);
     if (!f) return "";
     if (f.size() > maxSize) {
-        Serial.printf("[SD] File too large: %s (%u bytes, max %u)\n", path, (unsigned)f.size(), (unsigned)maxSize);
+        LOGF("[SD] File too large: %s (%u bytes, max %u)\n", path, (unsigned)f.size(), (unsigned)maxSize);
         f.close();
         return "";
     }
@@ -88,13 +89,13 @@ bool SDCard::writeAtomic(const char* path, const String& content) {
     // Stage to tmp. Truncates if a stale tmp from a prior failed write exists.
     File f = SD.open(tmp.c_str(), FILE_WRITE);
     if (!f) {
-        Serial.printf("[SD] writeAtomic: cannot open %s\n", tmp.c_str());
+        LOGF("[SD] writeAtomic: cannot open %s\n", tmp.c_str());
         return false;
     }
     size_t written = f.print(content);
     f.close();
     if (written != content.length()) {
-        Serial.printf("[SD] writeAtomic: short write %u/%u\n",
+        LOGF("[SD] writeAtomic: short write %u/%u\n",
                       (unsigned)written, (unsigned)content.length());
         SD.remove(tmp.c_str());
         return false;
@@ -104,7 +105,7 @@ bool SDCard::writeAtomic(const char* path, const String& content) {
     if (SD.exists(path)) {
         if (SD.exists(bak.c_str())) SD.remove(bak.c_str());
         if (!SD.rename(path, bak.c_str())) {
-            Serial.printf("[SD] writeAtomic: rename %s -> %s failed\n",
+            LOGF("[SD] writeAtomic: rename %s -> %s failed\n",
                           path, bak.c_str());
             SD.remove(tmp.c_str());
             return false;
@@ -113,7 +114,7 @@ bool SDCard::writeAtomic(const char* path, const String& content) {
 
     // Promote tmp to the live name.
     if (!SD.rename(tmp.c_str(), path)) {
-        Serial.printf("[SD] writeAtomic: rename %s -> %s failed\n",
+        LOGF("[SD] writeAtomic: rename %s -> %s failed\n",
                       tmp.c_str(), path);
         // bak still exists from the previous step (or never existed) — leave
         // the world recoverable. boot fallback in ConfigManager will pick up

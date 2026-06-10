@@ -1,4 +1,5 @@
 #include "hal/twatch/TouchTWatch.h"
+#include "util/log.h"
 #include "hal/Display.h"
 #include "hal/boards/board.h"
 #include <Arduino.h>
@@ -18,7 +19,7 @@ TouchTWatch& TouchTWatch::instance() {
 bool TouchTWatch::init() {
     g_touch.setPins(-1, TWATCH_TOUCH_INT);  // reset is on XL9555, not a direct GPIO
     if (!g_touch.begin(Wire, TWATCH_TOUCH_I2C_ADDR, TWATCH_I2C_SDA, TWATCH_I2C_SCL)) {
-        Serial.println("[Touch] CST92xx begin failed");
+        LOGLN("[Touch] CST92xx begin failed");
         return false;
     }
 

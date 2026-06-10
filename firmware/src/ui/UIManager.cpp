@@ -1,4 +1,5 @@
 #include "UIManager.h"
+#include "util/log.h"
 #include "theme.h"
 #include "../mesh/MeshManager.h"
 #include "../mesh/ContactStore.h"
@@ -58,6 +59,8 @@ bool UIManager::init() {
     _displaySoundBatteryScreen.create(_mainScreen);
     _messagingContactsChannelsRoomsScreen.create(_mainScreen);
     _wifiSetupScreen.create(_mainScreen);
+    _usbSetupScreen.create(_mainScreen);
+    _bleSetupScreen.create(_mainScreen);
 
     // Wire up callbacks
     _homeScreen.onChat([this]() {
@@ -181,7 +184,7 @@ bool UIManager::init() {
     }
 
     // Do NOT show any screen yet — loadMainScreen() will do that after boot
-    Serial.println("[UI] Initialized");
+    LOGLN("[UI] Initialized");
     return true;
 }
 
@@ -235,11 +238,11 @@ void UIManager::update() {
                 // Fallback: PIN auto-lock requested but only key lock available
                 _keyLocked = true;
                 showKeyLockOverlay();
-                Serial.println("[UI] Key lock engaged (auto-dim, pin fallback)");
+                LOGLN("[UI] Key lock engaged (auto-dim, pin fallback)");
             } else if (sec.autoLock == "key" && (sec.lockMode == "key" || sec.lockMode == "pin") && !_isLocked && !_keyLocked) {
                 _keyLocked = true;
                 showKeyLockOverlay();
-                Serial.println("[UI] Key lock engaged (auto-dim)");
+                LOGLN("[UI] Key lock engaged (auto-dim)");
             }
         }
     }
@@ -265,6 +268,8 @@ void UIManager::update() {
     _heardAdvertsScreen.tick();
     _adminScreen.tick();
     _wifiSetupScreen.tick();
+    _usbSetupScreen.tick();
+    _bleSetupScreen.tick();
 
     // Room login tick (boot path with backoff). No-op for already-logged-in rooms.
     roomLoginTick();
@@ -343,6 +348,8 @@ void UIManager::showScreen(Screen screen) {
     _displaySoundBatteryScreen.hide();
     _messagingContactsChannelsRoomsScreen.hide();
     _wifiSetupScreen.hide();
+    _usbSetupScreen.hide();
+    _bleSetupScreen.hide();
 
     switch (screen) {
         case Screen::HOME:
@@ -375,6 +382,12 @@ void UIManager::showScreen(Screen screen) {
             break;
         case Screen::WIFI_SETUP:
             _wifiSetupScreen.show();
+            break;
+        case Screen::USB_SETUP:
+            _usbSetupScreen.show();
+            break;
+        case Screen::BLE_SETUP:
+            _bleSetupScreen.show();
             break;
     }
     _currentScreen = screen;
@@ -628,7 +641,7 @@ void UIManager::showSOSAlert(const ConvoId& id, const Message& msg) {
     _dimmed = false;
     _lastActivity = millis();
 
-    Serial.printf("[UI] SOS alert from %s\n", msg.senderName.c_str());
+    LOGF("[UI] SOS alert from %s\n", msg.senderName.c_str());
 }
 
 void UIManager::sosButtonCb(lv_event_t* e) {
@@ -676,7 +689,7 @@ void UIManager::dismissSOSAlert(bool sendReply) {
         bool isPrivate = convo ? convo->isPrivate : false;
         MessageStore::instance().addMessage(_sosConvoId, displayName, isPrivate, reply);
 
-        Serial.println("[UI] SOS reply sent");
+        LOGLN("[UI] SOS reply sent");
     }
 
     // Restore input group and close modal
@@ -695,7 +708,7 @@ void UIManager::dismissSOSAlert(bool sendReply) {
         IInput::instance().setBacklight(dispCfgSos.kbdBrightness);
     }
 
-    Serial.println("[UI] SOS alert dismissed");
+    LOGLN("[UI] SOS alert dismissed");
 }
 
 void UIManager::onAckReceived(uint32_t packetId) {
@@ -712,7 +725,7 @@ void UIManager::onMessageFailed(uint32_t packetId) {
     }
 }
 
-void UIManager::handleSend(const ConvoId& id, const String& text) {
+uint32_t UIManager::handleSend(const ConvoId& id, const String& text) {
     uint32_t packetId = 0;
     bool isDM   = (id.type == ConvoId::DM);
     bool isRoom = (id.type == ConvoId::ROOM);
@@ -771,10 +784,18 @@ void UIManager::handleSend(const ConvoId& id, const String& text) {
     bool isPrivate = convo ? convo->isPrivate : false;
     MessageStore::instance().addMessage(id, displayName, isPrivate, msg);
 
-    // Update chat view
-    _chatScreen.addMessageToView(msg);
+    // Update the view only if this conversation is on screen (companion sends may
+    // target a conversation that isn't currently open).
+    bool viewingThis = (_currentScreen == Screen::CHAT && _chatScreen.currentConvo() &&
+                        *_chatScreen.currentConvo() == id);
+    if (viewingThis) {
+        _chatScreen.addMessageToView(msg);
+    } else if (_currentScreen == Screen::CONVO_LIST) {
+        _convoList.refresh();
+    }
 
     _lastActivity = millis();
+    return packetId;
 }
 
 // ─── Room callbacks (wired from main.cpp setupMeshCallbacks) ───
@@ -834,10 +855,10 @@ void UIManager::onRoomLoginResponse(size_t roomIdx, const String& roomName,
     _roomLoggedIn[roomIdx] = ok;
     if (ok) {
         _loginAttempt[roomIdx] = 0;
-        Serial.printf("[UI] Room '%s' logged in (perms=%u)\n",
+        LOGF("[UI] Room '%s' logged in (perms=%u)\n",
                       roomName.c_str(), (unsigned)permissions);
     } else {
-        Serial.printf("[UI] Room '%s' login failed (status=%u)\n",
+        LOGF("[UI] Room '%s' login failed (status=%u)\n",
                       roomName.c_str(), (unsigned)status);
     }
 }
@@ -866,7 +887,7 @@ void UIManager::roomLoginTick() {
             if (delaySec > 1800) delaySec = 1800;
             _nextLoginAttemptMs[i] = now + (unsigned long)delaySec * 1000;
             if (_loginAttempt[i] < 255) _loginAttempt[i]++;
-            Serial.printf("[UI] Room '%s' login attempt %u; next in %us\n",
+            LOGF("[UI] Room '%s' login attempt %u; next in %us\n",
                           rooms[i].name.c_str(), (unsigned)_loginAttempt[i],
                           (unsigned)delaySec);
             return;  // one login per tick
@@ -885,7 +906,7 @@ void UIManager::roomChatOpenRelogin(size_t roomIdx) {
     uint32_t estTimeout = 0;
     if (MeshManager::instance().loginRoom(roomIdx, estTimeout)) {
         _lastLoginMs[roomIdx] = now;
-        Serial.printf("[UI] Room idx=%u: chat-open re-login\n", (unsigned)roomIdx);
+        LOGF("[UI] Room idx=%u: chat-open re-login\n", (unsigned)roomIdx);
     }
 }
 
@@ -904,7 +925,7 @@ void UIManager::roomSilenceTick(size_t roomIdx) {
     uint32_t estTimeout = 0;
     if (MeshManager::instance().loginRoom(roomIdx, estTimeout)) {
         _lastLoginMs[roomIdx] = now;
-        Serial.printf("[UI] Room idx=%u: silence-triggered re-login\n", (unsigned)roomIdx);
+        LOGF("[UI] Room idx=%u: silence-triggered re-login\n", (unsigned)roomIdx);
     }
 }
 
@@ -968,6 +989,8 @@ void UIManager::showSetupScreen(SetupReason reason) {
     _adminScreen.hide();
     _heardAdvertsScreen.hide();
     _wifiSetupScreen.hide();
+    _usbSetupScreen.hide();
+    _bleSetupScreen.hide();
 
     // Full-screen overlay on top of everything
     lv_obj_t* overlay = lv_obj_create(lv_layer_top());
@@ -1024,7 +1047,7 @@ void UIManager::showSetupScreen(SetupReason reason) {
     lv_obj_set_style_text_color(footer, lv_color_make(0x55, 0x55, 0x77), 0);
     lv_label_set_text(footer, "MCLite v" MCLITE_VERSION);
 
-    Serial.printf("[UI] Setup screen shown (reason=%d)\n", (int)reason);
+    LOGF("[UI] Setup screen shown (reason=%d)\n", (int)reason);
 }
 
 void UIManager::insertLocation() {
@@ -1119,7 +1142,7 @@ void UIManager::sendSOSToAll() {
     auto& mesh = MeshManager::instance();
 
     if (!mesh.isRadioReady() || contacts.count() == 0) {
-        Serial.println("[UI] SOS send failed — no radio or no contacts");
+        LOGLN("[UI] SOS send failed — no radio or no contacts");
         return;
     }
 
@@ -1130,7 +1153,7 @@ void UIManager::sendSOSToAll() {
         sosText += " @ " + gps.formatLocationWithStatus();
     }
 
-    Serial.printf("[SOS] Begin burst: %u contacts, %u channels\n",
+    LOGF("[SOS] Begin burst: %u contacts, %u channels\n",
                   (unsigned)contacts.count(), (unsigned)ChannelStore::instance().count());
 
     // Send to every contact
@@ -1140,7 +1163,7 @@ void UIManager::sendSOSToAll() {
         if (!c || !c->sendSos) continue;
 
         uint32_t packetId = mesh.sendMessage(i, sosText);
-        Serial.printf("[SOS] DM %s: packetId=%u %s\n",
+        LOGF("[SOS] DM %s: packetId=%u %s\n",
                       c->name.c_str(), packetId,
                       packetId ? "queued" : "FAILED (pool?)");
 
@@ -1172,7 +1195,7 @@ void UIManager::sendSOSToAll() {
         const auto& allCh = channels.all();
         if (!allCh[i].sendSos) continue;
         uint32_t packetId = mesh.sendGroupMessage(allCh[i].index, sosText);
-        Serial.printf("[SOS] CH %s: packetId=%u %s\n",
+        LOGF("[SOS] CH %s: packetId=%u %s\n",
                       allCh[i].name.c_str(), packetId,
                       packetId ? "queued" : "FAILED (pool?)");
 
@@ -1202,7 +1225,7 @@ void UIManager::sendSOSToAll() {
         if (rooms[i].publicKey.length() != 64) continue;
 
         uint32_t packetId = mesh.sendRoomPost(i, sosText);
-        Serial.printf("[SOS] ROOM %s: packetId=%u %s\n",
+        LOGF("[SOS] ROOM %s: packetId=%u %s\n",
                       rooms[i].name.c_str(), packetId,
                       packetId ? "queued" : "FAILED (pool?)");
 
@@ -1259,7 +1282,7 @@ void UIManager::sendSOSToAll() {
         _convoList.refresh();
     }
 
-    Serial.printf("[UI] SOS broadcast sent to %d recipient(s)\n", sent);
+    LOGF("[UI] SOS broadcast sent to %d recipient(s)\n", sent);
 }
 
 void UIManager::checkBatteryAlert() {
@@ -1343,11 +1366,11 @@ void UIManager::checkBatteryAlert() {
         }
 
         _batteryAlertSent = true;
-        Serial.printf("[UI] Battery low alert sent: %d%%\n", pct);
+        LOGF("[UI] Battery low alert sent: %d%%\n", pct);
     } else if (pct > threshold + 5 && _batteryAlertSent) {
         // Hysteresis reset
         _batteryAlertSent = false;
-        Serial.println("[UI] Battery alert reset (hysteresis)");
+        LOGLN("[UI] Battery alert reset (hysteresis)");
     }
 }
 
@@ -1402,7 +1425,7 @@ void UIManager::showPinLock() {
     IInput::instance().attachToGroup(_pinGroup);
     lv_obj_add_event_cb(_pinOverlay, pinKeyCb, LV_EVENT_KEY, this);
 
-    Serial.println("[UI] PIN lock shown");
+    LOGLN("[UI] PIN lock shown");
 }
 
 void UIManager::pinKeyCb(lv_event_t* e) {
@@ -1496,7 +1519,7 @@ void UIManager::dismissPinLock() {
     }
     _lastActivity = millis();
 
-    Serial.println("[UI] PIN lock dismissed");
+    LOGLN("[UI] PIN lock dismissed");
 }
 
 // ---- Telemetry modal ----
@@ -1639,7 +1662,7 @@ void UIManager::showTelemetryModal(const ConvoId& id) {
         }
     }
 
-    Serial.printf("[UI] Telemetry modal shown for %s\n", contact->name.c_str());
+    LOGF("[UI] Telemetry modal shown for %s\n", contact->name.c_str());
 }
 
 void UIManager::telemBtnCb(lv_event_t* e) {
@@ -1670,7 +1693,32 @@ void UIManager::telemBtnCb(lv_event_t* e) {
                 break;
             }
         }
+    } else if (idx == 2) {
+        // Map — find contact's cached location and launch MapScreen
+        auto& contacts = ContactStore::instance();
+        for (size_t i = 0; i < contacts.count(); i++) {
+            const Contact* c = contacts.findByIndex(i);
+            if (c && c->shortId() == self->_telemContactId) {
+                const TelemetryData* td = TelemetryCache::instance().get(c->publicKey);
+                if (td && td->hasLocation) {
+                    self->_pendingMapLat  = td->lat;
+                    self->_pendingMapLon  = td->lon;
+                    self->_pendingMapName = c->name;
+                    memcpy(self->_pendingMapKey, c->publicKey, 32);
+                    self->dismissTelemetryModal();
+                    lv_async_call(&UIManager::openMapAsync, self);
+                }
+                break;
+            }
+        }
     }
+}
+
+void UIManager::openMapAsync(void* user) {
+    UIManager* self = static_cast<UIManager*>(user);
+    if (!self) return;
+    self->showMapScreen(self->_pendingMapKey, self->_pendingMapLat, self->_pendingMapLon,
+                        self->_pendingMapName);
 }
 
 void UIManager::showMapScreen(double lat, double lon, const String& contactName,
@@ -1679,9 +1727,29 @@ void UIManager::showMapScreen(double lat, double lon, const String& contactName,
     _mapScreen.open(lat, lon, contactName, contactLocationAgeMs);
 }
 
+void UIManager::showMapScreen(const uint8_t* pubKey, double lat, double lon,
+                              const String& contactName) {
+    pushScreen(Screen::MAP);
+    _mapScreen.open(pubKey, lat, lon, contactName);
+}
+
 void UIManager::showOwnLocationMap() {
     pushScreen(Screen::MAP);
     _mapScreen.openOwnLocation();
+}
+
+void UIManager::openGeneralMapAsync(void* user) {
+    UIManager* self = static_cast<UIManager*>(user);
+    if (self) self->_mapScreen.openGeneral();
+}
+
+void UIManager::showGeneralMap() {
+    if (!TileLoader::instance().tilesAvailable()) {
+        showToast(t("map_no_tiles"));
+        return;
+    }
+    // Defer so we're not opening a screen from inside the status-bar tap event.
+    lv_async_call(&UIManager::openGeneralMapAsync, this);
 }
 
 void UIManager::buildTelemetryMsgbox() {
@@ -2005,14 +2073,14 @@ void UIManager::engageKeyLock() {
     if (_keyLocked || _isLocked) return;  // Already locked or PIN-locked
     _keyLocked = true;
     showKeyLockOverlay();
-    Serial.println("[UI] Key lock engaged");
+    LOGLN("[UI] Key lock engaged");
 }
 
 void UIManager::disengageKeyLock() {
     if (!_keyLocked) return;
     _keyLocked = false;
     hideKeyLockOverlay();
-    Serial.println("[UI] Key lock disengaged");
+    LOGLN("[UI] Key lock disengaged");
 }
 
 void UIManager::showKeyLockOverlay() {

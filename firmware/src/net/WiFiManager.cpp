@@ -1,4 +1,5 @@
 #include "WiFiManager.h"
+#include "util/log.h"
 
 #include <WiFi.h>
 #include <algorithm>
@@ -53,7 +54,7 @@ bool WiFiManager::connect(const String& ssid, const String& password, uint32_t t
     WiFi.disconnect(true);
     delay(200);
 
-    Serial.printf("[WiFi] connecting to '%s' (password %d chars)\n",
+    LOGF("[WiFi] connecting to '%s' (password %d chars)\n",
                   ssid.c_str(), (int)password.length());
     WiFi.begin(ssid.c_str(), password.length() ? password.c_str() : (const char*)nullptr);
 
@@ -62,12 +63,12 @@ bool WiFiManager::connect(const String& ssid, const String& password, uint32_t t
     while (millis() - start < timeoutMs) {
         wl_status_t st = WiFi.status();
         if (st != lastStatus) {                       // log only on change
-            Serial.printf("[WiFi]  status=%d (%lus)\n", (int)st, (millis() - start) / 1000);
+            LOGF("[WiFi]  status=%d (%lus)\n", (int)st, (millis() - start) / 1000);
             lastStatus = st;
         }
         if (st == WL_CONNECTED) {
             _lastStatus = (int)st;
-            Serial.printf("[WiFi] connected: ip=%s rssi=%d\n",
+            LOGF("[WiFi] connected: ip=%s rssi=%d\n",
                           WiFi.localIP().toString().c_str(), (int)WiFi.RSSI());
             return true;
         }
@@ -75,7 +76,7 @@ bool WiFiManager::connect(const String& ssid, const String& password, uint32_t t
         yield();
     }
     _lastStatus = (int)WiFi.status();
-    Serial.printf("[WiFi] connect timed out, final status=%d "
+    LOGF("[WiFi] connect timed out, final status=%d "
                   "(1=no-SSID, 4=connect-failed/bad-password, 6=disconnected)\n",
                   _lastStatus);
     return false;

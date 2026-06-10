@@ -1,4 +1,5 @@
 #include "Touch.h"
+#include "util/log.h"
 #include "hal/boards/board.h"
 #include "../ui/UIManager.h"
 #include "../hal/Display.h"
@@ -63,10 +64,10 @@ bool Touch::init() {
     }
 
     if (_i2cAddr == 0) {
-        Serial.println("[Touch] GT911 not found on I2C");
+        LOGLN("[Touch] GT911 not found on I2C");
         _available = false;
     } else {
-        Serial.printf("[Touch] GT911 found at 0x%02X\n", _i2cAddr);
+        LOGF("[Touch] GT911 found at 0x%02X\n", _i2cAddr);
         _available = true;
 
         // Clear any pending data

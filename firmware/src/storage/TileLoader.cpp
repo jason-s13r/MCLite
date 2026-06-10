@@ -1,4 +1,5 @@
 #include "TileLoader.h"
+#include "util/log.h"
 #include "SDCard.h"
 #include "../util/slippy.h"
 #include <PNGdec.h>
@@ -156,7 +157,7 @@ void TileLoader::scan() {
     _zooms.erase(std::unique(_zooms.begin(), _zooms.end()), _zooms.end());
     _present = !_zooms.empty();
 
-    Serial.printf("[TileLoader] /tiles: %d zoom levels (%u..%u)\n",
+    LOGF("[TileLoader] /tiles: %d zoom levels (%u..%u)\n",
                   (int)_zooms.size(),
                   _zooms.empty() ? 0u : (unsigned)_zooms.front(),
                   _zooms.empty() ? 0u : (unsigned)_zooms.back());
@@ -290,7 +291,7 @@ bool TileLoader::decodeInto(lv_color_t* buf, int bufW, int bufH,
     PNG* png = new (_pngStorage) PNG();
     int rc = png->open(path, pngOpenCb, pngCloseCb, pngReadCb, pngSeekCb, pngDrawCb);
     if (rc != PNG_SUCCESS) {
-        Serial.printf("[TileLoader] open failed: %s (rc=%d)\n", path, rc);
+        LOGF("[TileLoader] open failed: %s (rc=%d)\n", path, rc);
         png->~PNG();
         fillGrey(buf, bufW, bufH, dstX, dstY);
         return false;
@@ -304,7 +305,7 @@ bool TileLoader::decodeInto(lv_color_t* buf, int bufW, int bufH,
     png->~PNG();
 
     if (rc != PNG_SUCCESS) {
-        Serial.printf("[TileLoader] decode failed: %s (rc=%d)\n", path, rc);
+        LOGF("[TileLoader] decode failed: %s (rc=%d)\n", path, rc);
         fillGrey(buf, bufW, bufH, dstX, dstY);
         return false;
     }

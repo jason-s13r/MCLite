@@ -1,4 +1,5 @@
 #include "HeardAdvertsScreen.h"
+#include "util/log.h"
 #include "UIManager.h"
 #include "theme.h"
 #include "../config/ConfigManager.h"
@@ -732,7 +733,7 @@ void HeardAdvertsScreen::handleSave() {
         // by construction, Save is only offered when those don't apply. So
         // this is realistically an SD I/O error. Surface it instead of
         // closing silently.
-        Serial.println("[HeardAdverts] save failed");
+        LOGLN("[HeardAdverts] save failed");
         closeDetail();
         showSimpleInfoModal(t("heard_save_failed"));
         return;
