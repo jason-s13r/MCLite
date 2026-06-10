@@ -373,8 +373,10 @@ void UIManager::onIncomingMessage(const ConvoId& id, const Message& msg) {
         auto& speaker = Speaker::instance();
         if (!speaker.isMuted() && !chatMuted) {
             speaker.playNotification();
-        } else if (id.type == ConvoId::DM) {
-            // Check if this DM contact has always_sound enabled
+        } else if (!chatMuted && id.type == ConvoId::DM) {
+            // Global mute only: a per-contact always_sound still rings. (Muting
+            // this specific chat is the more deliberate gesture, so it wins —
+            // chatMuted suppresses even always_sound.)
             auto& contacts = ContactStore::instance();
             for (size_t i = 0; i < contacts.count(); i++) {
                 Contact* c = contacts.findByIndex(i);
@@ -1940,6 +1942,10 @@ void UIManager::dismissTelemetryModal() {
     _telemContactId = "";
     _telemPending = false;
     _telemTimeout = 0;
+    // Cancel any in-flight telemetry retry too — otherwise checkTelemTimeout
+    // would still fire after the modal is gone and transmit a flood request for
+    // a contact-info pop-up the user already closed.
+    MeshManager::instance().clearPendingTelemetry();
 }
 
 // --- Key Lock ---

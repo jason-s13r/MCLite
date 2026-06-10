@@ -5,6 +5,16 @@ All notable changes to MCLite are documented here. The format is loosely based o
 
 Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-watch-vX.Y.Z.bin`).
 
+## [Unreleased]
+
+### Fixed
+- Telemetry retry is no longer cancelled by the contact-info pop-up's own timeout when the mesh's outbound
+  queue is busy (the two timers now stay in lockstep) — the retry fires under congestion as intended.
+- Closing the contact-info pop-up now cancels its in-flight telemetry retry, so no stray flood request goes
+  out for a pop-up you already closed.
+- Muting a chat is now absolute: it silences notifications even for a contact flagged `always_sound`
+  (`always_sound` still overrides *global* mute, unchanged).
+
 ## [0.3.3] — 2026-06-10
 
 Reliability + contact-location improvements, plus a batch of community contributions

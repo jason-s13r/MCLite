@@ -774,9 +774,14 @@ void MCLiteMesh::checkTelemTimeout() {
     uint32_t now = millis();
     if ((int32_t)(now - _telemRetry.timeoutMs) < 0) return;
 
-    // If outbound queue still has packets, extend timeout instead of retrying
+    // If outbound queue still has packets, extend timeout instead of retrying.
+    // Push the UI's parallel timeout out in lockstep — otherwise it fires this
+    // same tick (UIManager::update runs right after MeshManager::update), shows
+    // "no response", and clears _telemRetry, cancelling this deferred retry
+    // exactly when the mesh is congested and a retry matters most.
     if (_mgr->getOutboundCount(_ms->getMillis()) > 0) {
         _telemRetry.timeoutMs = now + 2000;
+        if (_onTelemetryRetry) _onTelemetryRetry(2000);
         return;
     }
 
