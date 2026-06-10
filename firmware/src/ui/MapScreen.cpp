@@ -600,16 +600,10 @@ void MapScreen::buildWidgets() {
         lv_obj_add_event_cb(_reloadBtn, &MapScreen::reloadBtnCb, LV_EVENT_CLICKED, this);
     }
 
-    _zoomInBtn = lv_btn_create(_screen);
-    styleBtn(_zoomInBtn);
-    lv_obj_align(_zoomInBtn, LV_ALIGN_RIGHT_MID,
-                 -(theme::SAFE_AREA_RIGHT + theme::PAD_SMALL),
-                 -(MAP_BTN + theme::PAD_SMALL));
-    {
-        lv_obj_t* lbl = lv_label_create(_zoomInBtn);
-        lv_label_set_text(lbl, LV_SYMBOL_PLUS);
-        styleLbl(lbl);
-    }
+    _zoomInBtn = lv_win_add_btn(_win, LV_SYMBOL_PLUS, MAP_BTN);
+    lv_obj_set_style_bg_opa(_zoomInBtn, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_shadow_width(_zoomInBtn, 0, 0);
+    lv_obj_set_style_border_width(_zoomInBtn, 0, 0);
     lv_obj_add_event_cb(_zoomInBtn, &MapScreen::zoomInCb, LV_EVENT_CLICKED, this);
     {
         lv_obj_t* lbl = lv_obj_get_child(_zoomInBtn, 0);
@@ -1047,12 +1041,16 @@ void MapScreen::hitTestMarker(const lv_point_t& p) {
         lv_obj_add_flag(_selLabel, LV_OBJ_FLAG_HIDDEN);
         return;
     }
+    // Tap centers the map on the selected marker and shows its label.
+    _centerLat = _markers[best].lat;
+    _centerLon = _markers[best].lon;
     memcpy(_selKey, _markers[best].key, 32);   // highlight this marker with a ring
     _hasSel = true;
     String s = String(mapTypeWord(_markers[best].type)) + " " + _markers[best].name;
     lv_label_set_text(_selLabel, s.c_str());
     lv_obj_clear_flag(_selLabel, LV_OBJ_FLAG_HIDDEN);
     lv_obj_align(_selLabel, LV_ALIGN_BOTTOM_MID, 0, -(MAP_CORNER_INSET + theme::PAD_SMALL));
+    render();
 }
 
 void MapScreen::panByViewPx(int dxPx, int dyPx) {
