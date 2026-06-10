@@ -7,6 +7,7 @@
 #include "../storage/HeardAdvertCache.h"
 #include "../storage/TelemetryCache.h"
 #include "../mesh/ContactStore.h"
+#include "../util/ContactLocation.h"
 #include "../mesh/MeshManager.h"
 #include "../mesh/MCLiteMesh.h"
 #include "../util/slippy.h"
@@ -140,19 +141,16 @@ void MapScreen::buildMarkers() {
         _markers.push_back(m);
     };
 
-    // 1) Contacts — prefer a fresh telemetry location, else the contact's advert GPS.
+    // 1) Contacts — best-known position (fresh telemetry, else advert/heard GPS),
+    // via the shared accessor so map/badge/modal all agree.
     MCLiteMesh* mesh = MeshManager::instance().mesh();
     if (mesh) {
         int n = mesh->getNumContacts();
         for (int i = 0; i < n; i++) {
             ContactInfo* c = mesh->getContactByIdx(i);
             if (!c) continue;
-            const TelemetryData* td = TelemetryCache::instance().get(c->id.pub_key);
-            if (td && td->hasLocation && TelemetryCache::instance().isFresh(c->id.pub_key)) {
-                add(td->lat, td->lon, c->type, true, c->name, c->id.pub_key);
-            } else if (c->gps_lat || c->gps_lon) {
-                add(c->gps_lat / 1e6, c->gps_lon / 1e6, c->type, true, c->name, c->id.pub_key);
-            }
+            ContactLocation loc = bestKnownLocation(c->id.pub_key);
+            if (loc.valid) add(loc.lat, loc.lon, c->type, true, c->name, c->id.pub_key);
         }
     }
 

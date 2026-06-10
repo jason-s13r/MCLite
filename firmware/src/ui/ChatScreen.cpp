@@ -7,6 +7,7 @@
 #include "../storage/TelemetryCache.h"
 #include "../mesh/ContactStore.h"
 #include "../config/ConfigManager.h"
+#include "../config/defaults.h"
 #include "../i18n/I18n.h"
 #include "../util/TimeHelper.h"
 #include "../util/TextSanitizer.h"
@@ -316,11 +317,7 @@ void ChatScreen::createInputBar() {
             lv_btnmatrix_set_btn_ctrl_all(self->_kbd, LV_BTNMATRIX_CTRL_NO_REPEAT);
         }
         if (code == LV_EVENT_READY) {
-            const char* text = lv_textarea_get_text(self->_textarea);
-            if (text && strlen(text) > 0 && self->_currentConvo && self->_onSend) {
-                self->_onSend(*self->_currentConvo, String(text));
-                lv_textarea_set_text(self->_textarea, "");
-            }
+            self->trySendCurrent();
             self->hideKeyboard();
         } else if (code == LV_EVENT_CANCEL) {
             self->hideKeyboard();
@@ -569,6 +566,7 @@ void ChatScreen::addMessageToView(const Message& msg) {
 void ChatScreen::scrollToBottom() {
     uint32_t child_cnt = lv_obj_get_child_cnt(_chatArea);
     if (child_cnt == 0) return;
+    lv_obj_update_layout(_chatArea);
     lv_obj_t* last_child = lv_obj_get_child(_chatArea, child_cnt - 1);
     lv_obj_scroll_to_view(last_child, LV_ANIM_ON);
 }
@@ -696,13 +694,25 @@ void ChatScreen::gpsBtnCb(lv_event_t* e) {
     if (grp) lv_group_focus_obj(self->_textarea);
 }
 
+void ChatScreen::trySendCurrent() {
+    if (!_currentConvo || !_onSend) return;
+    const char* text = lv_textarea_get_text(_textarea);
+    if (!text || text[0] == '\0') return;
+    // strlen = UTF-8 byte length (matches MeshCore's strlen() > MAX_TEXT_LEN check).
+    // The textarea caps at 160 *characters*, but emoji/accents are multi-byte, so a
+    // short-looking message can exceed the byte budget and would otherwise fail to
+    // send silently (still drawing a FAILED bubble).
+    if (strlen(text) > defaults::MAX_MSG_BYTES) {
+        UIManager::instance().showToast(t("msg_too_long"));
+        return;  // keep the user's text so they can trim it
+    }
+    _onSend(*_currentConvo, String(text));
+    lv_textarea_set_text(_textarea, "");
+}
+
 void ChatScreen::sendBtnCb(lv_event_t* e) {
     ChatScreen* self = (ChatScreen*)lv_event_get_user_data(e);
-    const char* text = lv_textarea_get_text(self->_textarea);
-    if (text && strlen(text) > 0 && self->_currentConvo && self->_onSend) {
-        self->_onSend(*self->_currentConvo, String(text));
-        lv_textarea_set_text(self->_textarea, "");
-    }
+    self->trySendCurrent();
 #ifdef PLATFORM_TWATCH
     self->hideKeyboard();
 #endif
@@ -1076,7 +1086,8 @@ void ChatScreen::hideCannedPicker() {
 
 void ChatScreen::updateMuteIndicator() {
     if (!_muteIcon || !_currentConvo) return;
-    bool muted = MessageStore::instance().isMuted(*_currentConvo);
+    bool allowMute = ConfigManager::instance().config().messaging.allowMute;
+    bool muted = allowMute && MessageStore::instance().isMuted(*_currentConvo);
     if (muted) {
         lv_obj_clear_flag(_muteIcon, LV_OBJ_FLAG_HIDDEN);
     } else {

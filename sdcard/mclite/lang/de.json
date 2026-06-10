@@ -28,6 +28,7 @@
 
     "chat_placeholder": "Nachricht...",
     "btn_send": "SENDEN",
+    "msg_too_long": "Nachricht zu lang",
     "location_title": "Standort senden?",
     "btn_cancel": "Abbrechen",
     "btn_location_send": "Senden",
@@ -85,6 +86,7 @@
     "telem_updated": "Aktualisiert vor %s",
     "telem_no_data": "Noch keine Telemetriedaten",
     "telem_requesting": "Anfrage...",
+    "telem_retrying": "Erneuter Versuch...",
     "telem_no_response": "Keine Antwort",
     "telem_send_failed": "Anfrage fehlgeschlagen",
     "telem_stale": "(Daten evtl. veraltet)",
@@ -163,5 +165,7 @@
     "heard_save_failed": "Speichern fehlgeschlagen",
     "heard_buffer_full": "Kontaktliste voll (32/32)",
     "heard_status_queued": "Wartet -- aktiv nach Neustart",
-    "heard_advert_sent": "Advert gesendet"
+    "heard_advert_sent": "Advert gesendet",
+    "toast_muted": "Chat stummgeschaltet",
+    "toast_unmuted": "Stummschaltung aufgehoben"
 }

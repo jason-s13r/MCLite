@@ -85,6 +85,9 @@ private:
     void hideCannedPicker();
     void hideEmojiPicker();
     void updateMuteIndicator();
+    // Read the textarea and send it — but only if it fits the byte budget.
+    // Over-budget (e.g. emoji/accents push past MAX_MSG_BYTES) → toast + keep text.
+    void trySendCurrent();
 
     void addBubble(const Message& msg);
     void scrollToBottom();

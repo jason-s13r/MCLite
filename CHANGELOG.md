@@ -5,6 +5,44 @@ All notable changes to MCLite are documented here. The format is loosely based o
 
 Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-watch-vX.Y.Z.bin`).
 
+## [Unreleased]
+
+### Fixed
+- Telemetry retry is no longer cancelled by the contact-info pop-up's own timeout when the mesh's outbound
+  queue is busy (the two timers now stay in lockstep) — the retry fires under congestion as intended.
+- Closing the contact-info pop-up now cancels its in-flight telemetry retry, so no stray flood request goes
+  out for a pop-up you already closed.
+- Muting a chat is now absolute: it silences notifications even for a contact flagged `always_sound`
+  (`always_sound` still overrides *global* mute, unchanged).
+- Messages that exceed the 160-**byte** limit (e.g. emoji or accented/non-Latin text — which can be ≤160
+  *characters* but more bytes) are now refused with a "Message too long" toast that keeps your text, instead
+  of silently failing to send while still drawing a (failed) bubble.
+
+## [0.3.3] — 2026-06-10
+
+Reliability + contact-location improvements, plus a batch of community contributions
+([@jason-s13r](https://github.com/jason-s13r)'s fork PRs).
+
+### Added
+- **Unified contact location** — one source of truth for where a contact is: fresh telemetry (accurate) →
+  their advert GPS → a heard advert. The convo-list **GPS badge** now appears for *any* known position (not
+  just telemetry), and the **telemetry pop-up** shows that position even without a telemetry reply — marking
+  advert-sourced coordinates approximate (`~`) and offering the **Map** button — and on a request timeout it
+  shows the known position instead of a bare "No response". Telemetry stays primary; the 30-min window is
+  unchanged.
+- **Flood-routing retries** for better delivery when a direct path degrades — on **DM** retries (#5) and on
+  **telemetry-request** retries (#6, with a "Retrying…" state and queue-aware timeout extension).
+- **Per-chat mute** (opt-in, `messaging.allow_mute`, default off) — long-press a conversation to mute; muted
+  chats don't beep or wake the screen (SOS always does), with an indicator in the list and chat header (#4).
+- **Vendor row** on the device-info screen showing the firmware's source repo (`owner/repo`) — handy with
+  fork flashing (#7).
+
+### Fixed
+- Chat **scroll-to-bottom** is more robust on an empty chat area / on open (#3).
+
+### Thanks
+- @jason-s13r for PRs #3–#7.
+
 ## [0.3.2] — 2026-06-09
 
 Map unification + fixes from a careful review of 0.3.0/0.3.1.

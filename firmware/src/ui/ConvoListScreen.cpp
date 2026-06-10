@@ -6,6 +6,7 @@
 #include "../hal/GPS.h"
 #include "../i18n/I18n.h"
 #include "../storage/TelemetryCache.h"
+#include "../util/ContactLocation.h"
 #include "../config/ConfigManager.h"
 #include "../util/TextSanitizer.h"
 
@@ -192,7 +193,9 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
     ConvoId* idCopy = new ConvoId(convo->convoId);
     lv_obj_set_user_data(row, idCopy);
     lv_obj_add_event_cb(row, rowClickCb, LV_EVENT_CLICKED, this);
-    lv_obj_add_event_cb(row, rowLongPressCb, LV_EVENT_LONG_PRESSED, this);
+    if (ConfigManager::instance().config().messaging.allowMute) {
+        lv_obj_add_event_cb(row, rowLongPressCb, LV_EVENT_LONG_PRESSED, this);
+    }
     lv_obj_add_event_cb(row, [](lv_event_t* e) {
         ConvoId* id = (ConvoId*)lv_obj_get_user_data(lv_event_get_target(e));
         delete id;
@@ -269,29 +272,34 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
             const auto& showTelem = ConfigManager::instance().config().messaging.showTelemetry;
             if (showTelem != "none") {
                 const TelemetryData* td = TelemetryCache::instance().get(c->publicKey);
-                if (td && TelemetryCache::instance().isFresh(c->publicKey)) {
-                    // Battery icon
-                    if (td->hasVoltage && (showTelem == "battery" || showTelem == "both")) {
-                        int pct = constrain((int)((td->voltage - 3.0f) / 1.2f * 100.0f), 0, 100);
-                        const char* battSym;
-                        if (pct > 80)      battSym = LV_SYMBOL_BATTERY_FULL;
-                        else if (pct > 60) battSym = LV_SYMBOL_BATTERY_3;
-                        else if (pct > 40) battSym = LV_SYMBOL_BATTERY_2;
-                        else if (pct > 20) battSym = LV_SYMBOL_BATTERY_1;
-                        else               battSym = LV_SYMBOL_BATTERY_EMPTY;
-                        lv_obj_t* battIcon = lv_label_create(topLine);
-                        lv_obj_set_style_text_font(battIcon, FONT_BODY, 0);
-                        lv_label_set_text(battIcon, battSym);
-                        lv_obj_set_style_text_color(battIcon,
-                            pct <= 20 ? theme::BATTERY_LOW : theme::TEXT_PRIMARY, 0);
-                    }
-                    // GPS icon
-                    if (td->hasLocation && (showTelem == "location" || showTelem == "both")) {
-                        lv_obj_t* locIcon = lv_label_create(topLine);
-                        lv_obj_set_style_text_font(locIcon, FONT_BODY, 0);
-                        lv_label_set_text(locIcon, LV_SYMBOL_GPS);
-                        lv_obj_set_style_text_color(locIcon, theme::TEXT_PRIMARY, 0);
-                    }
+                bool telemFresh = td && TelemetryCache::instance().isFresh(c->publicKey);
+
+                // Battery icon — telemetry only (no other source carries voltage).
+                if (telemFresh && td->hasVoltage &&
+                    (showTelem == "battery" || showTelem == "both")) {
+                    int pct = constrain((int)((td->voltage - 3.0f) / 1.2f * 100.0f), 0, 100);
+                    const char* battSym;
+                    if (pct > 80)      battSym = LV_SYMBOL_BATTERY_FULL;
+                    else if (pct > 60) battSym = LV_SYMBOL_BATTERY_3;
+                    else if (pct > 40) battSym = LV_SYMBOL_BATTERY_2;
+                    else if (pct > 20) battSym = LV_SYMBOL_BATTERY_1;
+                    else               battSym = LV_SYMBOL_BATTERY_EMPTY;
+                    lv_obj_t* battIcon = lv_label_create(topLine);
+                    lv_obj_set_style_text_font(battIcon, FONT_BODY, 0);
+                    lv_label_set_text(battIcon, battSym);
+                    lv_obj_set_style_text_color(battIcon,
+                        pct <= 20 ? theme::BATTERY_LOW : theme::TEXT_PRIMARY, 0);
+                }
+
+                // GPS icon — shown whenever we know *any* position for the contact
+                // (fresh telemetry, advert GPS, or a heard advert). White = "we
+                // know where they are"; precision/source detail lives in the modal.
+                if ((showTelem == "location" || showTelem == "both") &&
+                    bestKnownLocation(c->publicKey).valid) {
+                    lv_obj_t* locIcon = lv_label_create(topLine);
+                    lv_obj_set_style_text_font(locIcon, FONT_BODY, 0);
+                    lv_label_set_text(locIcon, LV_SYMBOL_GPS);
+                    lv_obj_set_style_text_color(locIcon, theme::TEXT_PRIMARY, 0);
                 }
             }
 
@@ -337,6 +345,14 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
         lv_obj_set_style_text_font(ts, FONT_BODY, 0);
         lv_obj_set_style_text_color(ts, theme::TEXT_TIMESTAMP, 0);
         lv_label_set_text(ts, timeStr.c_str());
+    }
+
+    // Mute indicator — shown on the right edge for muted conversations
+    if (convo->muted && ConfigManager::instance().config().messaging.allowMute) {
+        lv_obj_t* muteIcon = lv_label_create(topLine);
+        lv_obj_set_style_text_font(muteIcon, FONT_BODY, 0);
+        lv_obj_set_style_text_color(muteIcon, theme::TEXT_SECONDARY, 0);
+        lv_label_set_text(muteIcon, LV_SYMBOL_MUTE);
     }
 
     // Bottom line: last message preview

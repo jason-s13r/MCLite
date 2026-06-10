@@ -764,14 +764,14 @@ bool MCLiteMesh::requestTelemetry(size_t contactIdx, uint32_t& estTimeout) {
 
     _pendingTelemTag = tag;
     memcpy(_pendingTelemKey, ci->id.pub_key, PUB_KEY_SIZE);
-
+    
     // Track for potential flood retry on timeout
     _telemRetry.active = true;
     _telemRetry.timeoutMs = millis() + estTimeout;
     _telemRetry.contactIdx = contactIdx;
     _telemRetry.tag = tag;
     _telemRetry.retried = false;
-
+    
     LOGF("[MCLiteMesh] Telemetry requested from %s (timeout=%ums)\n",
                   ci->name, estTimeout);
     return true;
@@ -783,16 +783,21 @@ void MCLiteMesh::checkTelemTimeout() {
     uint32_t now = millis();
     if ((int32_t)(now - _telemRetry.timeoutMs) < 0) return;
 
-    // If outbound queue still has packets, extend timeout instead of retrying
+    // If outbound queue still has packets, extend timeout instead of retrying.
+    // Push the UI's parallel timeout out in lockstep — otherwise it fires this
+    // same tick (UIManager::update runs right after MeshManager::update), shows
+    // "no response", and clears _telemRetry, cancelling this deferred retry
+    // exactly when the mesh is congested and a retry matters most.
     if (_mgr->getOutboundCount(_ms->getMillis()) > 0) {
         _telemRetry.timeoutMs = now + 2000;
+        if (_onTelemetryRetry) _onTelemetryRetry(2000);
         return;
     }
 
     // Timeout — retry once via flood
     ContactInfo* ci = getContactByIdx((int)_telemRetry.contactIdx);
     if (ci) {
-        Serial.printf("[MCLiteMesh] Telemetry timeout for %s — retrying via flood\n", ci->name);
+        LOGF("[MCLiteMesh] Telemetry timeout for %s -- retrying via flood\n", ci->name);
         ContactInfo flood = *ci;
         flood.out_path_len = OUT_PATH_UNKNOWN;
         uint32_t newTag = 0, newTimeout = 0;
@@ -802,12 +807,12 @@ void MCLiteMesh::checkTelemTimeout() {
             _telemRetry.tag = newTag;
             _telemRetry.retried = true;
             _telemRetry.timeoutMs = now + newTimeout;
-            Serial.printf("[MCLiteMesh] Telemetry flood retry sent to %s (timeout=%ums)\n",
-                          ci->name, newTimeout);
-        if (_onTelemetryRetry) _onTelemetryRetry(newTimeout);
+            LOGF("[MCLiteMesh] Telemetry flood retry sent to %s (timeout=%ums)\n",
+                 ci->name, newTimeout);
+            if (_onTelemetryRetry) _onTelemetryRetry(newTimeout);
             return;
         }
-        Serial.printf("[MCLiteMesh] Telemetry flood retry failed to %s\n", ci->name);
+        LOGF("[MCLiteMesh] Telemetry flood retry failed to %s\n", ci->name);
     }
 
     // Give up

@@ -123,14 +123,14 @@ public:
     // Telemetry modal
     void showTelemetryModal(const ConvoId& id);
     void updateTelemetryModal(const uint8_t* pubKey);
-    void updateChatMapButton(const uint8_t* pubKey);
     void onTelemetryRetry(uint32_t newTimeoutMs);
-
+    
     // Map screen (opened from telemetry modal or home screen)
     void showMapScreen(double lat, double lon, const String& contactName,
-                       uint32_t contactLocationAgeMs = UINT32_MAX);
+        uint32_t contactLocationAgeMs = UINT32_MAX);
     void showMapScreen(const uint8_t* pubKey, double lat, double lon, const String& contactName);
     void showOwnLocationMap();
+    void updateChatMapButton(const uint8_t* pubKey);
 
     // Open the general map (own location + heard-node markers). From the GPS icon.
     void showGeneralMap();

@@ -41,6 +41,7 @@ const DefaultString DEFAULT_STRINGS[] = {
     // Chat
     {"chat_placeholder",    "Type message..."},
     {"btn_send",            "SEND"},
+    {"msg_too_long",        "Message too long"},
     {"location_title",      "Send Location?"},
     {"btn_cancel",          "Cancel"},
     {"btn_location_send",   "Send"},
@@ -202,7 +203,7 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"telem_updated",       "Updated %s ago"},
     {"telem_no_data",       "No telemetry data yet"},
     {"telem_requesting",    "Requesting..."},
-    {"telem_retrying",      "Retrying via flood..."},
+    {"telem_retrying",      "Retrying..."},
     {"telem_no_response",   "No response"},
     {"telem_send_failed",   "Request failed"},
     {"telem_stale",         "(data may be outdated)"},
