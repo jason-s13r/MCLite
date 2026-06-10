@@ -415,6 +415,8 @@ void MapScreen::close() {
 
     _prevGroup = nullptr;
     _zooms.clear();
+    _markers.clear();
+    _markers.shrink_to_fit();
     LOGLN("[MapScreen] closed");
 }
 
