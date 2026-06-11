@@ -249,7 +249,8 @@ private:
     const char* _telemBtns[4] = {nullptr, nullptr, nullptr, nullptr};
 
     void dismissTelemetryModal();
-    void buildTelemetryMsgbox();  // (re)creates the msgbox widget
+    bool evalCanMap(const uint8_t* pubKey) const;
+    void buildTelemetryMsgbox(bool canMap);  // (re)creates the msgbox widget
     static void telemBtnCb(lv_event_t* e);
 
     // Map screen state

@@ -11,6 +11,8 @@
 #include "../i18n/I18n.h"
 #include "../util/TimeHelper.h"
 #include "../util/TextSanitizer.h"
+#include "../util/ContactLocation.h"
+#include "../storage/TileLoader.h"
 
 namespace mclite {
 
@@ -615,17 +617,17 @@ void ChatScreen::hide() {
 
 
 void ChatScreen::updateMapButtonVisibility(const String& shortId) {
-    bool hasLocation = false;
+    bool canMap = false;
     auto& contacts = ContactStore::instance();
     for (size_t i = 0; i < contacts.count(); i++) {
         const Contact* c = contacts.findByIndex(i);
         if (c && c->shortId() == shortId) {
-            const TelemetryData* td = TelemetryCache::instance().get(c->publicKey);
-            hasLocation = td && td->hasLocation;
+            canMap = bestKnownLocation(c->publicKey).valid &&
+                     TileLoader::instance().tilesAvailable();
             break;
         }
     }
-    if (hasLocation) {
+    if (canMap) {
         lv_obj_clear_flag(_mapBtn, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(_mapBtn, LV_OBJ_FLAG_HIDDEN);

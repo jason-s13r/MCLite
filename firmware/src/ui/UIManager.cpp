@@ -146,15 +146,16 @@ bool UIManager::init() {
     });
 
     _chatScreen.onMap([this](const ConvoId& id) {
-        // Find contact and open map if location available
+        // Find contact and open map using best-known location (telemetry,
+        // advert, or heard) — mirrors the telemetry-modal Map button logic.
         auto& contacts = ContactStore::instance();
         for (size_t i = 0; i < contacts.count(); i++) {
             const Contact* c = contacts.findByIndex(i);
             if (c && c->shortId() == id.id) {
-                const TelemetryData* td = TelemetryCache::instance().get(c->publicKey);
-                if (td && td->hasLocation) {
-                    uint32_t ageMs = millis() - td->receivedAt;
-                    showMapScreen(td->lat, td->lon, c->name, ageMs);
+                ContactLocation loc = bestKnownLocation(c->publicKey);
+                if (loc.valid) {
+                    uint32_t ageMs = loc.hasAge ? loc.ageMs : 0;
+                    showMapScreen(loc.lat, loc.lon, c->name, ageMs);
                 } else {
                     showToast(t("telem_no_data"));
                 }
@@ -1682,7 +1683,7 @@ void UIManager::showTelemetryModal(const ConvoId& id) {
 
     // Build widget via helper so updateTelemetryModal() can recreate with a
     // different button count (re-layouting a live btnmatrix doesn't work).
-    buildTelemetryMsgbox();
+    buildTelemetryMsgbox(evalCanMap(contact->publicKey));
 
     // Auto-request if no cached data or stale
     if (!td || !TelemetryCache::instance().isFresh(contact->publicKey)) {
