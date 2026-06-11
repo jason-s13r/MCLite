@@ -6,6 +6,7 @@
 #include "../storage/MessageStore.h"
 #include "../config/ConfigManager.h"
 #include "../config/defaults.h"
+#include "../mesh/ContactStore.h"
 #include "../i18n/I18n.h"
 #include "../util/TimeHelper.h"
 
@@ -702,13 +703,54 @@ void ChatScreen::showCannedPicker() {
     const auto& custom = cfg.messaging.cannedCustom;
     bool isEnglish = cfg.language.isEmpty();
 
+    // Per-conversation override: a contact / channel / room may carry its own
+    // quick-reply list. When present (non-empty) it wins over the global list
+    // entirely; otherwise fall back to the existing global / i18n logic. The
+    // per-conversation texts are raw user strings (language-independent).
+    const std::vector<String>* convoCanned = nullptr;
+    if (_currentConvo) {
+        switch (_currentConvo->type) {
+            case ConvoId::DM:
+                for (const auto& ct : ContactStore::instance().all()) {
+                    if (ct.shortId() == _currentConvo->id) {
+                        if (!ct.canned.empty()) convoCanned = &ct.canned;
+                        break;
+                    }
+                }
+                break;
+            case ConvoId::CHANNEL:
+                for (const auto& ch : cfg.channels) {
+                    if (ch.name == _currentConvo->id) {
+                        if (!ch.canned.empty()) convoCanned = &ch.canned;
+                        break;
+                    }
+                }
+                break;
+            case ConvoId::ROOM:
+                for (const auto& r : cfg.roomServers) {
+                    if (r.publicKey.substring(0, 16) == _currentConvo->id) {
+                        if (!r.canned.empty()) convoCanned = &r.canned;
+                        break;
+                    }
+                }
+                break;
+        }
+    }
+
     // Collect canned message texts
     // Store in static array so btnmatrix labels remain valid
     static const char* labels[9];  // max 8 + sentinel
     static String stored[8];       // keep String storage alive
     int count = 0;
 
-    if (isEnglish && !custom.empty()) {
+    if (convoCanned) {
+        // Per-conversation override list (unconditional — already non-empty)
+        for (size_t i = 0; i < convoCanned->size() && i < 8; i++) {
+            stored[count] = (*convoCanned)[i];
+            labels[count] = stored[count].c_str();
+            count++;
+        }
+    } else if (isEnglish && !custom.empty()) {
         // English + custom array: use ONLY the custom entries
         for (size_t i = 0; i < custom.size() && i < 8; i++) {
             stored[count] = custom[i];

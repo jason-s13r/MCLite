@@ -32,7 +32,8 @@
       "index": 1,
       "allow_sos": true,
       "send_sos": false,
-      "scope": ""
+      "scope": "",
+      "canned": ["On my way", "Need help", "All clear"]
     }
   ],
   "room_servers": [],

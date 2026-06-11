@@ -3080,6 +3080,61 @@ function detectPreset() {
 // ===== Contacts =====
 let contacts = [];
 
+// ===== Per-conversation quick replies (canned) =====
+// Optional override of the global quick-reply list, attached to a single
+// contact / channel / room. Shared editor across all three card types — `coll`
+// is the backing-array name as a string so the inline handlers resolve to the
+// right global array (contacts / channels / rooms).
+function collArray(coll) {
+  return coll === 'contacts' ? contacts : coll === 'channels' ? channels : rooms;
+}
+function collRender(coll) {
+  return coll === 'contacts' ? renderContacts : coll === 'channels' ? renderChannels : renderRooms;
+}
+function addCanned(coll, i) {
+  const item = collArray(coll)[i];
+  if (!item) return;
+  if (!Array.isArray(item.canned)) item.canned = [];
+  if (item.canned.length >= 8) { toast('Maximum 8 quick replies'); return; }
+  item.canned.push('');
+  collRender(coll)();
+}
+function removeCanned(coll, i, j) {
+  const item = collArray(coll)[i];
+  if (!item || !Array.isArray(item.canned)) return;
+  item.canned.splice(j, 1);
+  collRender(coll)();
+}
+// Trim + drop blanks + cap 8 for serialization. Returns undefined when empty so
+// buildConfig can omit the key entirely (keeps config.json clean — global list).
+function cannedOut(arr) {
+  if (!Array.isArray(arr)) return undefined;
+  const cleaned = arr.map(t => (t || '').trim()).filter(t => t).slice(0, 8);
+  return cleaned.length ? cleaned : undefined;
+}
+function cannedEditorHtml(coll, i, arr) {
+  const list = Array.isArray(arr) ? arr : [];
+  const rows = list.map((t, j) => `
+        <div class="row" style="gap:8px; margin-top:6px; align-items:center">
+          <input type="text" value="${esc(t)}" maxlength="160" style="flex:1"
+                 onchange="${coll}[${i}].canned[${j}]=this.value"
+                 placeholder="Quick reply ${j + 1}">
+          <button class="btn-remove" onclick="removeCanned('${coll}', ${i}, ${j})">Remove</button>
+        </div>`).join('');
+  const atMax = list.length >= 8;
+  return `
+      <details class="v4-advanced-disclosure v4-card-advanced">
+        <summary class="v4-advanced-summary">Quick replies (optional)</summary>
+        <div class="v4-advanced-content">
+          <div class="hint">Quick replies just for this conversation — overrides the global list. Handy as a command menu for an automation / Home Assistant bridge. Up to 8; leave empty to use the global list.</div>
+          <div>${rows}</div>
+          <button class="btn btn-outline" style="font-size:0.72rem; padding:2px 8px; margin-top:6px"
+                  ${atMax ? 'disabled' : ''}
+                  onclick="addCanned('${coll}', ${i})">Add reply</button>
+        </div>
+      </details>`;
+}
+
 function renderContacts() {
   const list = document.getElementById('contactList');
   const maxContacts = fleetMode ? 32 - (fleetDevices.length - 1) : 32;
@@ -3167,6 +3222,7 @@ function renderContacts() {
           </div>
         </div>
       </details>
+      ${cannedEditorHtml('contacts', i, c.canned)}
     </div>
   `).join('');
 }
@@ -3174,7 +3230,7 @@ function renderContacts() {
 function addContact(alias = '', pubkey = '') {
   const maxContacts = fleetMode ? 32 - (fleetDevices.length - 1) : 32;
   if (contacts.length >= maxContacts) { toast('Maximum ' + maxContacts + ' contacts' + (fleetMode ? ' (fleet uses ' + (fleetDevices.length - 1) + ' slots)' : '') + ' — firmware limit'); return; }
-  contacts.push({ alias: alias, public_key: pubkey, allow_telemetry: true, allow_location: false, allow_environment: false, always_sound: false, allow_sos: true, send_sos: true });
+  contacts.push({ alias: alias, public_key: pubkey, allow_telemetry: true, allow_location: false, allow_environment: false, always_sound: false, allow_sos: true, send_sos: true, canned: [] });
   renderContacts();
   focusFirstEditableInLastCard('contactList');
 }
@@ -3331,6 +3387,7 @@ function renderChannels() {
           </div>
         </div>
       </details>
+      ${cannedEditorHtml('channels', i, ch.canned)}
     </div>`;
   }).join('');
 }
@@ -3356,7 +3413,7 @@ async function addChannel(type) {
   // Default send_sos: true only for private channels (trusted small group);
   // false for hashtag (community channel — avoid SOS spam). Mirrors firmware default.
   const defaultSendSos = (type === 'private');
-  const ch = { name: '', type: type, psk: '', index: channels.length, allow_sos: true, send_sos: defaultSendSos, read_only: false, scope: '' };
+  const ch = { name: '', type: type, psk: '', index: channels.length, allow_sos: true, send_sos: defaultSendSos, read_only: false, scope: '', canned: [] };
   channels.push(ch);
   renderChannels();
   focusFirstEditableInLastCard('channelList');
@@ -3369,7 +3426,7 @@ function addPublicChannel() {
     name: 'Public', type: 'public',
     psk: '8b3387e9c5cdea6ac9e5edbaa115cd72',
     index: channels.length,
-    allow_sos: false, send_sos: false, read_only: false, scope: ''
+    allow_sos: false, send_sos: false, read_only: false, scope: '', canned: []
   });
   renderChannels();
 }
@@ -3466,6 +3523,7 @@ function renderRooms() {
           </div>
         </div>
       </details>
+      ${cannedEditorHtml('rooms', i, r.canned)}
     </div>
   `).join('');
 }
@@ -3473,7 +3531,7 @@ function renderRooms() {
 function addRoom() {
   if (rooms.length >= 8) { toast('Maximum 8 rooms reached (firmware limit)'); return; }
   rooms.push({ name: '', public_key: '', password: '', allow_sos: true,
-               send_sos: false, read_only: false, scope: '' });
+               send_sos: false, read_only: false, scope: '', canned: [] });
   renderRooms();
   focusFirstEditableInLastCard('roomList');
 }
@@ -3802,6 +3860,7 @@ function buildConfig() {
         send_sos: c.send_sos !== false
       };
       if (c.from_discovery) obj.from_discovery = true;
+      const cnC = cannedOut(c.canned); if (cnC) obj.canned = cnC;
       return obj;
     }),
     channels: channels.filter(c => c.name).map(ch => {
@@ -3811,6 +3870,7 @@ function buildConfig() {
       if (ch.psk) obj.psk = ch.psk;
       if (ch.read_only) obj.read_only = true;
       if (ch.scope) obj.scope = ch.scope;
+      const cnCh = cannedOut(ch.canned); if (cnCh) obj.canned = cnCh;
       return obj;
     }),
     room_servers: rooms.filter(r => r.public_key && r.public_key.length === 64).map(r => {
@@ -3823,6 +3883,7 @@ function buildConfig() {
       };
       if (r.read_only) obj.read_only = true;
       if (r.scope) obj.scope = r.scope;
+      const cnR = cannedOut(r.canned); if (cnR) obj.canned = cnR;
       return obj;
     }),
     display: {
@@ -4295,7 +4356,8 @@ function loadConfig(cfg) {
     always_sound: c.always_sound === true,
     allow_sos: c.allow_sos !== false,
     send_sos: c.send_sos !== false,
-    from_discovery: c.from_discovery === true
+    from_discovery: c.from_discovery === true,
+    canned: Array.isArray(c.canned) ? c.canned.slice(0, 8) : []
   }));
   renderContacts();
 
@@ -4308,7 +4370,8 @@ function loadConfig(cfg) {
     allow_sos: ch.allow_sos !== false,
     send_sos: ch.send_sos !== false,
     read_only: ch.read_only === true,
-    scope: ch.scope || ''
+    scope: ch.scope || '',
+    canned: Array.isArray(ch.canned) ? ch.canned.slice(0, 8) : []
   }));
   renderChannels();
 
@@ -4320,7 +4383,8 @@ function loadConfig(cfg) {
     allow_sos: r.allow_sos !== false,
     send_sos: r.send_sos === true,
     read_only: r.read_only === true,
-    scope: r.scope || ''
+    scope: r.scope || '',
+    canned: Array.isArray(r.canned) ? r.canned.slice(0, 8) : []
   }));
   renderRooms();
 

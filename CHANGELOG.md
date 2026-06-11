@@ -7,6 +7,22 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
 
 ## [Unreleased]
 
+### Added
+- **Per-conversation quick replies** — any contact, channel, or room can carry its own `canned` list (max 8)
+  that overrides the global quick-reply list *for that chat only*; leave it empty to fall back to the global
+  list. Editable per card in the config tool. Turns a conversation into a command menu — e.g. a Home Assistant
+  / automation bridge ("Open gate", "Lights on", "Status?").
+- **Last-known location persists across reboots** — the most recent GPS fix is saved to SD
+  (`/mclite/last_location.json`, throttled) and restored on boot, so the map opens to your last position
+  without waiting for a fresh fix ([@jason-s13r](https://github.com/jason-s13r), #10).
+- **Advertise from the companion app** — the MeshCore phone/desktop app's **Advertise** button now works while
+  connected (BLE/WiFi/USB); previously it was rejected as an unsupported command. Honours the app's flood vs
+  local (zero-hop) option. The on-device advert button and the automatic periodic advert are unchanged.
+
+### Changed
+- The device-info / admin screen is now fully localized — every row label routes through the translation
+  table (de/fr/it) ([@jason-s13r](https://github.com/jason-s13r), #9).
+
 ### Fixed
 - Telemetry retry is no longer cancelled by the contact-info pop-up's own timeout when the mesh's outbound
   queue is busy (the two timers now stay in lockstep) — the retry fires under congestion as intended.
