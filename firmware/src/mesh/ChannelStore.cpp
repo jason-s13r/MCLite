@@ -122,7 +122,7 @@ void ChannelStore::loadCustomChannels() {
     JsonDocument doc;
     DeserializationError err = deserializeJson(doc, json);
     if (err) {
-        Serial.printf("[ChannelStore] Custom channels parse error: %s\n", err.c_str());
+        LOGF("[ChannelStore] Custom channels parse error: %s\n", err.c_str());
         return;
     }
 
@@ -172,7 +172,7 @@ void ChannelStore::loadCustomChannels() {
                 pskOk = (ret == 0 && (outLen == 16 || outLen == 32));
             }
             if (!pskOk) {
-                Serial.printf("[ChannelStore] Skipping custom channel '%s': invalid PSK\n",
+                LOGF("[ChannelStore] Skipping custom channel '%s': invalid PSK\n",
                               cc.name.c_str());
                 continue;
             }
@@ -200,7 +200,7 @@ void ChannelStore::loadCustomChannels() {
         _channels.push_back(channel);
     }
 
-    Serial.printf("[ChannelStore] Loaded %u custom channels\n",
+    LOGF("[ChannelStore] Loaded %u custom channels\n",
                   (unsigned)(_channels.size() - _builtinCount));
 }
 
@@ -241,7 +241,7 @@ Channel* ChannelStore::deriveHashtagChannel(const String& name, bool allowSos, b
     ch.pskB64 = pskToBase64(ch.psk, 16);
 
     _channels.push_back(ch);
-    Serial.printf("[ChannelStore] Derived PSK for hashtag channel '%s' (index=%d, allowSos=%d, sendSos=%d, readOnly=%d)\n",
+    LOGF("[ChannelStore] Derived PSK for hashtag channel '%s' (index=%d, allowSos=%d, sendSos=%d, readOnly=%d)\n",
                   normalized.c_str(), nextIndex, (int)allowSos, (int)sendSos, (int)readOnly);
     return &_channels.back();
 }
@@ -250,7 +250,7 @@ bool ChannelStore::removeChannelByName(const String& name) {
     for (auto it = _channels.begin(); it != _channels.end(); ++it) {
         if (it->name == name) {
             if (!it->custom) {
-                Serial.printf("[ChannelStore] Cannot remove built-in channel '%s'\n", name.c_str());
+                LOGF("[ChannelStore] Cannot remove built-in channel '%s'\n", name.c_str());
                 return false;
             }
             _channels.erase(it);
@@ -289,10 +289,10 @@ bool ChannelStore::saveCustomChannels() {
     // Ensure directory exists
     SDCard::instance().mkdir("/mclite/custom");
     if (!SDCard::instance().writeAtomic("/mclite/custom/channels.json", output)) {
-        Serial.println("[ChannelStore] saveCustomChannels: write failed");
+        LOGLN("[ChannelStore] saveCustomChannels: write failed");
         return false;
     }
-    Serial.printf("[ChannelStore] Saved %u custom channels\n", (unsigned)arr.size());
+    LOGF("[ChannelStore] Saved %u custom channels\n", (unsigned)arr.size());
     return true;
 }
 

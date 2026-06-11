@@ -239,7 +239,7 @@ void MapScreen::doOpen() {
                 MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         }
         if (!s_cbuf) {
-            Serial.printf("[MapScreen] PSRAM alloc failed (%u B); free SPIRAM=%u "
+            LOGF("[MapScreen] PSRAM alloc failed (%u B); free SPIRAM=%u "
                           "largest=%u\n", (unsigned)bytes,
                           (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
                           (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
@@ -303,15 +303,15 @@ void MapScreen::openOwnLocation() {
         _centerLon = 0.0;
         auto& loader = TileLoader::instance();
         if (loader.computeCenterFromTiles(_centerLat, _centerLon)) {
-            Serial.printf("[MapScreen] no fix: using tile-derived center %.5f,%.5f\n",
+            LOGF("[MapScreen] no fix: using tile-derived center %.5f,%.5f\n",
                           _centerLat, _centerLon);
         } else if (gps.loadLastLocation()) {
             _centerLat = gps.cachedLat();
             _centerLon = gps.cachedLon();
-            Serial.printf("[MapScreen] no fix: using SD-persisted last location %.5f,%.5f\n",
+            LOGF("[MapScreen] no fix: using SD-persisted last location %.5f,%.5f\n",
                           _centerLat, _centerLon);
         } else {
-            Serial.println("[MapScreen] no fix: no tiles or persisted location; defaulting to 0,0");
+            LOGLN("[MapScreen] no fix: no tiles or persisted location; defaulting to 0,0");
         }
     }
     _contactLat = _centerLat;
@@ -320,7 +320,7 @@ void MapScreen::openOwnLocation() {
 
     _zooms = TileLoader::instance().availableZooms();
     if (_zooms.empty()) {
-        Serial.println("[MapScreen] no tiles available; aborting openOwnLocation");
+        LOGLN("[MapScreen] no tiles available; aborting openOwnLocation");
         return;
     }
 
@@ -335,7 +335,7 @@ void MapScreen::openOwnLocation() {
                 MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         }
         if (!s_cbuf) {
-            Serial.printf("[MapScreen] PSRAM alloc failed (%u B); free SPIRAM=%u "
+            LOGF("[MapScreen] PSRAM alloc failed (%u B); free SPIRAM=%u "
                           "largest=%u\n", (unsigned)bytes,
                           (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
                           (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));

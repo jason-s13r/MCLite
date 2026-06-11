@@ -259,7 +259,7 @@ bool TileLoader::computeCenterFromTiles(double& lat, double& lon) {
     double cy = (minY + maxY) / 2.0 + 0.5;
     tileXYToLatLon(cx, cy, z, lat, lon);
 
-    Serial.printf("[TileLoader] tile center: z=%u tiles=%u (capped=%d) bbox(%d,%d)-(%d,%d) -> %.5f,%.5f\n",
+    LOGF("[TileLoader] tile center: z=%u tiles=%u (capped=%d) bbox(%d,%d)-(%d,%d) -> %.5f,%.5f\n",
                   (unsigned)z, count, (int)(count >= MAX_SCAN), minX, minY, maxX, maxY, lat, lon);
     return true;
 }

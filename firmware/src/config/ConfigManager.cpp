@@ -567,7 +567,7 @@ bool ConfigManager::generate() {
 bool ConfigManager::addChannel(const ChannelConfig& cc) {
     // Validate: must be a hashtag channel with a valid name
     if (cc.name.length() == 0 || cc.name[0] != '#') {
-        Serial.println("[Config] addChannel: name must start with #");
+        LOGLN("[Config] addChannel: name must start with #");
         return false;
     }
     // Normalize name (lowercase, strip invalid chars)
@@ -578,14 +578,14 @@ bool ConfigManager::addChannel(const ChannelConfig& cc) {
             normalized += c;
     }
     if (normalized.length() <= 1) {
-        Serial.println("[Config] addChannel: invalid hashtag name");
+        LOGLN("[Config] addChannel: invalid hashtag name");
         return false;
     }
 
     // Prevent duplicates
     for (const auto& existing : _config.channels) {
         if (existing.name == normalized) {
-            Serial.printf("[Config] addChannel: duplicate '%s'\n", normalized.c_str());
+            LOGF("[Config] addChannel: duplicate '%s'\n", normalized.c_str());
             return false;
         }
     }
@@ -617,10 +617,10 @@ bool ConfigManager::addChannel(const ChannelConfig& cc) {
     _config.channels.push_back(toAdd);
     if (!save()) {
         _config.channels.pop_back();
-        Serial.println("[Config] addChannel: save failed");
+        LOGLN("[Config] addChannel: save failed");
         return false;
     }
-    Serial.printf("[Config] Saved new hashtag channel: %s (index=%d)\n",
+    LOGF("[Config] Saved new hashtag channel: %s (index=%d)\n",
                   normalized.c_str(), nextIndex);
     return true;
 }
@@ -630,14 +630,14 @@ bool ConfigManager::removeChannel(const String& name) {
         if (it->name == name) {
             _config.channels.erase(it);
             if (!save()) {
-                Serial.println("[Config] removeChannel: save failed");
+                LOGLN("[Config] removeChannel: save failed");
                 return false;
             }
-            Serial.printf("[Config] Removed channel: %s\n", name.c_str());
+            LOGF("[Config] Removed channel: %s\n", name.c_str());
             return true;
         }
     }
-    Serial.printf("[Config] removeChannel: '%s' not found\n", name.c_str());
+    LOGF("[Config] removeChannel: '%s' not found\n", name.c_str());
     return false;
 }
 

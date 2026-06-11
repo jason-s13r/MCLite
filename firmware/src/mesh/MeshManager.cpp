@@ -322,15 +322,15 @@ int MeshManager::addChannel(const char* name, const char* pskB64) {
 
     ChannelDetails* cd = _mesh->addChannel(name, pskB64);
     if (!cd) {
-        Serial.printf("[MeshManager] addChannel failed for '%s'\n", name);
+        LOGF("[MeshManager] addChannel failed for '%s'\n", name);
         return -1;
     }
     int idx = _mesh->findChannelIdx(cd->channel);
     if (idx < 0) {
-        Serial.printf("[MeshManager] addChannel: could not find index for '%s'\n", name);
+        LOGF("[MeshManager] addChannel: could not find index for '%s'\n", name);
         return -1;
     }
-    Serial.printf("[MeshManager] Runtime added channel '%s' at index %d\n", name, idx);
+    LOGF("[MeshManager] Runtime added channel '%s' at index %d\n", name, idx);
     return idx;
 }
 

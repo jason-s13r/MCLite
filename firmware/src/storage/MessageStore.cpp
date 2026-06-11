@@ -234,7 +234,7 @@ void MessageStore::removeConversation(const ConvoId& id) {
     for (auto it = _convos.begin(); it != _convos.end(); ++it) {
         if (it->convoId == id) {
             _convos.erase(it);
-            Serial.printf("[MessageStore] Removed conversation: %s\n", id.id.c_str());
+            LOGF("[MessageStore] Removed conversation: %s\n", id.id.c_str());
             return;
         }
     }
