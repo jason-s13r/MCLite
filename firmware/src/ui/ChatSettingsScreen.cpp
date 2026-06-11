@@ -151,6 +151,34 @@ void ChatSettingsScreen::show() {
         lv_obj_add_event_cb(sw, allowMuteToggleCb, LV_EVENT_VALUE_CHANGED, nullptr);
     }
 
+    // Auto Telemetry switch
+    {
+        lv_obj_t* row = lv_obj_create(_content);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
+        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_radius(row, 4, 0);
+        lv_obj_set_style_pad_all(row, theme::PAD_SMALL, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t* lbl = lv_label_create(row);
+        lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
+        lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
+        lv_label_set_text(lbl, t("auto_telemetry"));
+
+        lv_obj_t* sw = lv_switch_create(row);
+        lv_obj_set_size(sw, 40, 20);
+        if (cfg.messaging.autoTelemetry) {
+            lv_obj_add_state(sw, LV_STATE_CHECKED);
+        }
+
+        lv_obj_add_event_cb(sw, autoTelemetryToggleCb, LV_EVENT_VALUE_CHANGED, nullptr);
+    }
+
     // --- Contacts ---
     auto& contacts = ContactStore::instance();
     char secContactsBuf[32];
@@ -305,6 +333,15 @@ void ChatSettingsScreen::allowMuteToggleCb(lv_event_t* e) {
     bool enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
     auto& mgr = ConfigManager::instance();
     mgr.config().messaging.allowMute = enabled;
+    mgr.save();
+    UIManager::instance().showToast(enabled ? t("enabled") : t("disabled"));
+}
+
+void ChatSettingsScreen::autoTelemetryToggleCb(lv_event_t* e) {
+    lv_obj_t* sw = lv_event_get_target(e);
+    bool enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    auto& mgr = ConfigManager::instance();
+    mgr.config().messaging.autoTelemetry = enabled;
     mgr.save();
     UIManager::instance().showToast(enabled ? t("enabled") : t("disabled"));
 }

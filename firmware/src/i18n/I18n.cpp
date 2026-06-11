@@ -93,6 +93,7 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"on",                  "On"},
     {"muted",               "Muted"},
     {"allow_mute",          "Allow Mute"},
+    {"auto_telemetry",      "Auto Telemetry"},
     {"searching",           "Searching..."},
     {"gps_fix_status",      "Fix"},
     {"gps_live",            "Live"},

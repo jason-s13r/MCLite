@@ -36,6 +36,7 @@ private:
     static void addChannelCancelCb(lv_event_t* e);
     static void channelDeleteCb(lv_event_t* e);
     static void allowMuteToggleCb(lv_event_t* e);
+    static void autoTelemetryToggleCb(lv_event_t* e);
 };
 
 }  // namespace mclite
