@@ -13,8 +13,8 @@
 #include "BleSetupScreen.h"
 #include "MapScreen.h"
 #include "RadioGpsScreen.h"
-#include "DisplaySoundBatteryScreen.h"
-#include "MessagingContactsChannelsRoomsScreen.h"
+#include "DeviceSettingsScreen.h"
+#include "ChatSettingsScreen.h"
 #include "../storage/MessageStore.h"
 
 namespace mclite {
@@ -27,8 +27,8 @@ enum class Screen {
     HEARD_ADVERTS,
     MAP,
     RADIO_GPS,
-    DISPLAY_SOUND_BATTERY,
-    MESSAGING_CONTACTS_CHANNELS_ROOMS,
+    DEVICE_SETTINGS,
+    CHAT_SETTINGS,
     WIFI_SETUP,
     USB_SETUP,
     BLE_SETUP
@@ -159,8 +159,8 @@ private:
     AdminScreen                         _adminScreen;
     HeardAdvertsScreen                  _heardAdvertsScreen;
     RadioGpsScreen                      _radioGpsScreen;
-    DisplaySoundBatteryScreen           _displaySoundBatteryScreen;
-    MessagingContactsChannelsRoomsScreen _messagingContactsChannelsRoomsScreen;
+    DeviceSettingsScreen           _deviceSettingsScreen;
+    ChatSettingsScreen _chatSettingsScreen;
     WiFiSetupScreen                     _wifiSetupScreen;
     UsbSetupScreen                      _usbSetupScreen;
     BleSetupScreen                      _bleSetupScreen;

@@ -29,8 +29,8 @@ private:
 
     static void backBtnCb(lv_event_t* e);
     static void navRadioGpsCb(lv_event_t* e);
-    static void navDisplaySoundBatteryCb(lv_event_t* e);
-    static void navMessagingContactsChannelsRoomsCb(lv_event_t* e);
+    static void navDeviceSettingsCb(lv_event_t* e);
+    static void navChatSettingsCb(lv_event_t* e);
 };
 
 }  // namespace mclite

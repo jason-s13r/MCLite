@@ -70,8 +70,8 @@ const DefaultString DEFAULT_STRINGS[] = {
     // Admin screen
     {"admin_title",         "Device Info"},
     {"radio_gps_title",     "Radio & GPS Settings"},
-    {"display_sound_battery_title", "Device Settings"},
-    {"messaging_contacts_channels_rooms_title", "Chat Settings"},
+    {"device_settings_screen_title", "Device Settings"},
+    {"chat_settings_screen_title", "Chat Settings"},
     {"sec_device",          "Device"},
     {"sec_radio",           "Radio"},
     {"sec_contacts",        "Contacts (%d)"},
@@ -92,6 +92,7 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"off",                 "Off"},
     {"on",                  "On"},
     {"muted",               "Muted"},
+    {"allow_mute",          "Allow Mute"},
     {"searching",           "Searching..."},
     {"gps_fix_status",      "Fix"},
     {"gps_live",            "Live"},

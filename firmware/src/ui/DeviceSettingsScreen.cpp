@@ -1,4 +1,4 @@
-#include "DisplaySoundBatteryScreen.h"
+#include "DeviceSettingsScreen.h"
 #include <Arduino.h>
 #include "UIManager.h"
 #include "theme.h"
@@ -11,7 +11,7 @@
 
 namespace mclite {
 
-void DisplaySoundBatteryScreen::create(lv_obj_t* parent) {
+void DeviceSettingsScreen::create(lv_obj_t* parent) {
     _screen = lv_win_create(parent, theme::CHAT_HEADER_HEIGHT);
     lv_obj_set_size(_screen, Display::width(),
                     Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT);
@@ -54,7 +54,7 @@ void DisplaySoundBatteryScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_text_color(backLbl, theme::ACCENT, 0);
 
     // Title
-    lv_obj_t* title = lv_win_add_title(_screen, t("display_sound_battery_title"));
+    lv_obj_t* title = lv_win_add_title(_screen, t("device_settings_screen_title"));
     lv_obj_set_style_text_font(title, FONT_HEADING, 0);
     lv_obj_set_style_text_color(title, theme::TEXT_PRIMARY, 0);
 
@@ -71,7 +71,7 @@ void DisplaySoundBatteryScreen::create(lv_obj_t* parent) {
     lv_obj_add_flag(_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
-void DisplaySoundBatteryScreen::show() {
+void DeviceSettingsScreen::show() {
     if (!_screen) return;
 
     uint32_t childCount = lv_obj_get_child_cnt(_content);
@@ -255,7 +255,7 @@ void DisplaySoundBatteryScreen::show() {
     lv_obj_clear_flag(_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
-void DisplaySoundBatteryScreen::hide() {
+void DeviceSettingsScreen::hide() {
     if (_screen) {
         lv_group_t* grp = lv_group_get_default();
         if (grp) {
@@ -266,11 +266,11 @@ void DisplaySoundBatteryScreen::hide() {
     }
 }
 
-void DisplaySoundBatteryScreen::backBtnCb(lv_event_t* e) {
+void DeviceSettingsScreen::backBtnCb(lv_event_t* e) {
     UIManager::instance().popScreen();
 }
 
-void DisplaySoundBatteryScreen::brightnessChangedCb(lv_event_t* e) {
+void DeviceSettingsScreen::brightnessChangedCb(lv_event_t* e) {
     lv_obj_t* slider = lv_event_get_target(e);
     lv_obj_t* valLbl = (lv_obj_t*)lv_event_get_user_data(e);
     int v = lv_slider_get_value(slider);
@@ -283,7 +283,7 @@ void DisplaySoundBatteryScreen::brightnessChangedCb(lv_event_t* e) {
     }
 }
 
-void DisplaySoundBatteryScreen::kbdBacklightChangedCb(lv_event_t* e) {
+void DeviceSettingsScreen::kbdBacklightChangedCb(lv_event_t* e) {
     lv_obj_t* slider = lv_event_get_target(e);
     lv_obj_t* valLbl = (lv_obj_t*)lv_event_get_user_data(e);
     int v = lv_slider_get_value(slider);
@@ -297,7 +297,7 @@ void DisplaySoundBatteryScreen::kbdBacklightChangedCb(lv_event_t* e) {
     }
 }
 
-void DisplaySoundBatteryScreen::showBootTextModal(const String& current) {
+void DeviceSettingsScreen::showBootTextModal(const String& current) {
     if (_bootTextModal) hideBootTextModal();
 
     _bootTextModal = lv_obj_create(lv_layer_top());
@@ -369,7 +369,7 @@ void DisplaySoundBatteryScreen::showBootTextModal(const String& current) {
     }
 }
 
-void DisplaySoundBatteryScreen::hideBootTextModal() {
+void DeviceSettingsScreen::hideBootTextModal() {
     if (!_bootTextModal) return;
     if (_bootTextTextarea) {
         lv_group_t* grp = lv_group_get_default();
@@ -380,15 +380,15 @@ void DisplaySoundBatteryScreen::hideBootTextModal() {
     _bootTextTextarea = nullptr;
 }
 
-void DisplaySoundBatteryScreen::bootTextRowCb(lv_event_t* e) {
-    DisplaySoundBatteryScreen* self = static_cast<DisplaySoundBatteryScreen*>(lv_event_get_user_data(e));
+void DeviceSettingsScreen::bootTextRowCb(lv_event_t* e) {
+    DeviceSettingsScreen* self = static_cast<DeviceSettingsScreen*>(lv_event_get_user_data(e));
     if (!self) return;
     const auto& cfg = ConfigManager::instance().config();
     self->showBootTextModal(cfg.display.bootText);
 }
 
-void DisplaySoundBatteryScreen::bootTextConfirmCb(lv_event_t* e) {
-    DisplaySoundBatteryScreen* self = static_cast<DisplaySoundBatteryScreen*>(lv_event_get_user_data(e));
+void DeviceSettingsScreen::bootTextConfirmCb(lv_event_t* e) {
+    DeviceSettingsScreen* self = static_cast<DeviceSettingsScreen*>(lv_event_get_user_data(e));
     if (!self || !self->_bootTextTextarea) return;
 
     const char* raw = lv_textarea_get_text(self->_bootTextTextarea);
@@ -404,8 +404,8 @@ void DisplaySoundBatteryScreen::bootTextConfirmCb(lv_event_t* e) {
     self->show();
 }
 
-void DisplaySoundBatteryScreen::bootTextCancelCb(lv_event_t* e) {
-    DisplaySoundBatteryScreen* self = static_cast<DisplaySoundBatteryScreen*>(lv_event_get_user_data(e));
+void DeviceSettingsScreen::bootTextCancelCb(lv_event_t* e) {
+    DeviceSettingsScreen* self = static_cast<DeviceSettingsScreen*>(lv_event_get_user_data(e));
     if (self) self->hideBootTextModal();
 }
 

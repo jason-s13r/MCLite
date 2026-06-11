@@ -5,7 +5,7 @@
 
 namespace mclite {
 
-class DisplaySoundBatteryScreen {
+class DeviceSettingsScreen {
 public:
     void create(lv_obj_t* parent);
     void show();

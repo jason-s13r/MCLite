@@ -1,4 +1,4 @@
-#include "MessagingContactsChannelsRoomsScreen.h"
+#include "ChatSettingsScreen.h"
 #include <Arduino.h>
 #include <time.h>
 #include "UIManager.h"
@@ -13,7 +13,7 @@
 
 namespace mclite {
 
-void MessagingContactsChannelsRoomsScreen::create(lv_obj_t* parent) {
+void ChatSettingsScreen::create(lv_obj_t* parent) {
     _screen = lv_win_create(parent, theme::CHAT_HEADER_HEIGHT);
     lv_obj_set_size(_screen, Display::width(),
                     Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT);
@@ -56,7 +56,7 @@ void MessagingContactsChannelsRoomsScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_text_color(backLbl, theme::ACCENT, 0);
 
     // Title
-    lv_obj_t* title = lv_win_add_title(_screen, t("messaging_contacts_channels_rooms_title"));
+    lv_obj_t* title = lv_win_add_title(_screen, t("chat_settings_screen_title"));
     lv_obj_set_style_text_font(title, FONT_HEADING, 0);
     lv_obj_set_style_text_color(title, theme::TEXT_PRIMARY, 0);
 
@@ -73,7 +73,7 @@ void MessagingContactsChannelsRoomsScreen::create(lv_obj_t* parent) {
     lv_obj_add_flag(_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
-void MessagingContactsChannelsRoomsScreen::show() {
+void ChatSettingsScreen::show() {
     if (!_screen) return;
 
     uint32_t childCount = lv_obj_get_child_cnt(_content);
@@ -122,6 +122,34 @@ void MessagingContactsChannelsRoomsScreen::show() {
     addRow("Max Retries", String(cfg.messaging.maxRetries));
     addRow("Req. Telemetry", cfg.messaging.requestTelemetry ? t("enabled") : t("disabled"));
     addRow("Telemetry Badges", cfg.messaging.showTelemetry);
+
+    // Allow Mute switch
+    {
+        lv_obj_t* row = lv_obj_create(_content);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
+        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_radius(row, 4, 0);
+        lv_obj_set_style_pad_all(row, theme::PAD_SMALL, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t* lbl = lv_label_create(row);
+        lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
+        lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
+        lv_label_set_text(lbl, t("allow_mute"));
+
+        lv_obj_t* sw = lv_switch_create(row);
+        lv_obj_set_size(sw, 40, 20);
+        if (cfg.messaging.allowMute) {
+            lv_obj_add_state(sw, LV_STATE_CHECKED);
+        }
+
+        lv_obj_add_event_cb(sw, allowMuteToggleCb, LV_EVENT_VALUE_CHANGED, nullptr);
+    }
 
     // --- Contacts ---
     auto& contacts = ContactStore::instance();
@@ -256,7 +284,7 @@ void MessagingContactsChannelsRoomsScreen::show() {
     lv_obj_clear_flag(_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
-void MessagingContactsChannelsRoomsScreen::hide() {
+void ChatSettingsScreen::hide() {
     if (_screen) {
         hideAddChannelModal();
         lv_group_t* grp = lv_group_get_default();
@@ -268,13 +296,22 @@ void MessagingContactsChannelsRoomsScreen::hide() {
     }
 }
 
-void MessagingContactsChannelsRoomsScreen::backBtnCb(lv_event_t* e) {
+void ChatSettingsScreen::backBtnCb(lv_event_t* e) {
     UIManager::instance().popScreen();
+}
+
+void ChatSettingsScreen::allowMuteToggleCb(lv_event_t* e) {
+    lv_obj_t* sw = lv_event_get_target(e);
+    bool enabled = lv_obj_has_state(sw, LV_STATE_CHECKED);
+    auto& mgr = ConfigManager::instance();
+    mgr.config().messaging.allowMute = enabled;
+    mgr.save();
+    UIManager::instance().showToast(enabled ? t("enabled") : t("disabled"));
 }
 
 // ---- Add channel modal ----
 
-void MessagingContactsChannelsRoomsScreen::showAddChannelModal() {
+void ChatSettingsScreen::showAddChannelModal() {
     if (_addChannelModal) hideAddChannelModal();
 
     _addChannelModal = lv_obj_create(lv_layer_top());
@@ -423,7 +460,7 @@ void MessagingContactsChannelsRoomsScreen::showAddChannelModal() {
     }
 }
 
-void MessagingContactsChannelsRoomsScreen::hideAddChannelModal() {
+void ChatSettingsScreen::hideAddChannelModal() {
     if (!_addChannelModal) return;
 
     if (_addChannelTextarea) lv_group_remove_obj(_addChannelTextarea);
@@ -442,13 +479,13 @@ void MessagingContactsChannelsRoomsScreen::hideAddChannelModal() {
 #endif
 }
 
-void MessagingContactsChannelsRoomsScreen::addChannelBtnCb(lv_event_t* e) {
-    MessagingContactsChannelsRoomsScreen* self = static_cast<MessagingContactsChannelsRoomsScreen*>(lv_event_get_user_data(e));
+void ChatSettingsScreen::addChannelBtnCb(lv_event_t* e) {
+    ChatSettingsScreen* self = static_cast<ChatSettingsScreen*>(lv_event_get_user_data(e));
     if (self) self->showAddChannelModal();
 }
 
-void MessagingContactsChannelsRoomsScreen::addChannelConfirmCb(lv_event_t* e) {
-    MessagingContactsChannelsRoomsScreen* self = static_cast<MessagingContactsChannelsRoomsScreen*>(lv_event_get_user_data(e));
+void ChatSettingsScreen::addChannelConfirmCb(lv_event_t* e) {
+    ChatSettingsScreen* self = static_cast<ChatSettingsScreen*>(lv_event_get_user_data(e));
     if (!self || !self->_addChannelTextarea) return;
 
     const char* raw = lv_textarea_get_text(self->_addChannelTextarea);
@@ -491,13 +528,13 @@ void MessagingContactsChannelsRoomsScreen::addChannelConfirmCb(lv_event_t* e) {
     self->show();
 }
 
-void MessagingContactsChannelsRoomsScreen::addChannelCancelCb(lv_event_t* e) {
-    MessagingContactsChannelsRoomsScreen* self = static_cast<MessagingContactsChannelsRoomsScreen*>(lv_event_get_user_data(e));
+void ChatSettingsScreen::addChannelCancelCb(lv_event_t* e) {
+    ChatSettingsScreen* self = static_cast<ChatSettingsScreen*>(lv_event_get_user_data(e));
     if (self) self->hideAddChannelModal();
 }
 
-void MessagingContactsChannelsRoomsScreen::channelDeleteCb(lv_event_t* e) {
-    MessagingContactsChannelsRoomsScreen* self = static_cast<MessagingContactsChannelsRoomsScreen*>(lv_event_get_user_data(e));
+void ChatSettingsScreen::channelDeleteCb(lv_event_t* e) {
+    ChatSettingsScreen* self = static_cast<ChatSettingsScreen*>(lv_event_get_user_data(e));
     String* name = (String*)lv_obj_get_user_data(lv_event_get_target(e));
     if (!self || !name) return;
 
@@ -519,7 +556,7 @@ void MessagingContactsChannelsRoomsScreen::channelDeleteCb(lv_event_t* e) {
 
     struct DeleteCtx {
         String name;
-        MessagingContactsChannelsRoomsScreen* screen;
+        ChatSettingsScreen* screen;
     };
     DeleteCtx* ctx = new DeleteCtx{*name, self};
     lv_obj_set_user_data(msgbox, ctx);

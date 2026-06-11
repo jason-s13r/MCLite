@@ -61,8 +61,8 @@ bool UIManager::init() {
     _heardAdvertsScreen.create(_mainScreen);
     _mapScreen.create(_mainScreen);
     _radioGpsScreen.create(_mainScreen);
-    _displaySoundBatteryScreen.create(_mainScreen);
-    _messagingContactsChannelsRoomsScreen.create(_mainScreen);
+    _deviceSettingsScreen.create(_mainScreen);
+    _chatSettingsScreen.create(_mainScreen);
     _wifiSetupScreen.create(_mainScreen);
     _usbSetupScreen.create(_mainScreen);
     _bleSetupScreen.create(_mainScreen);
@@ -365,8 +365,8 @@ void UIManager::showScreen(Screen screen) {
     _heardAdvertsScreen.hide();
     _mapScreen.hide();
     _radioGpsScreen.hide();
-    _displaySoundBatteryScreen.hide();
-    _messagingContactsChannelsRoomsScreen.hide();
+    _deviceSettingsScreen.hide();
+    _chatSettingsScreen.hide();
     _wifiSetupScreen.hide();
     _usbSetupScreen.hide();
     _bleSetupScreen.hide();
@@ -394,11 +394,11 @@ void UIManager::showScreen(Screen screen) {
         case Screen::RADIO_GPS:
             _radioGpsScreen.show();
             break;
-        case Screen::DISPLAY_SOUND_BATTERY:
-            _displaySoundBatteryScreen.show();
+        case Screen::DEVICE_SETTINGS:
+            _deviceSettingsScreen.show();
             break;
-        case Screen::MESSAGING_CONTACTS_CHANNELS_ROOMS:
-            _messagingContactsChannelsRoomsScreen.show();
+        case Screen::CHAT_SETTINGS:
+            _chatSettingsScreen.show();
             break;
         case Screen::WIFI_SETUP:
             _wifiSetupScreen.show();

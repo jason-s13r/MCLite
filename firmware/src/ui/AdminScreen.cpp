@@ -234,8 +234,8 @@ void AdminScreen::show() {
     };
 
     makeNavRow(t("radio_gps_title"), navRadioGpsCb);
-    makeNavRow(t("display_sound_battery_title"), navDisplaySoundBatteryCb);
-    makeNavRow(t("messaging_contacts_channels_rooms_title"), navMessagingContactsChannelsRoomsCb);
+    makeNavRow(t("device_settings_screen_title"), navDeviceSettingsCb);
+    makeNavRow(t("chat_settings_screen_title"), navChatSettingsCb);
 
     // USB companion shortcut — opens a dedicated screen with just the toggle.
     {
@@ -678,12 +678,12 @@ void AdminScreen::navRadioGpsCb(lv_event_t* e) {
     UIManager::instance().pushScreen(Screen::RADIO_GPS);
 }
 
-void AdminScreen::navDisplaySoundBatteryCb(lv_event_t* e) {
-    UIManager::instance().pushScreen(Screen::DISPLAY_SOUND_BATTERY);
+void AdminScreen::navDeviceSettingsCb(lv_event_t* e) {
+    UIManager::instance().pushScreen(Screen::DEVICE_SETTINGS);
 }
 
-void AdminScreen::navMessagingContactsChannelsRoomsCb(lv_event_t* e) {
-    UIManager::instance().pushScreen(Screen::MESSAGING_CONTACTS_CHANNELS_ROOMS);
+void AdminScreen::navChatSettingsCb(lv_event_t* e) {
+    UIManager::instance().pushScreen(Screen::CHAT_SETTINGS);
 }
 
 }  // namespace mclite

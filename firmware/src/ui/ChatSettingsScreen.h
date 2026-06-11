@@ -5,7 +5,7 @@
 
 namespace mclite {
 
-class MessagingContactsChannelsRoomsScreen {
+class ChatSettingsScreen {
 public:
     void create(lv_obj_t* parent);
     void show();
@@ -35,6 +35,7 @@ private:
     static void addChannelConfirmCb(lv_event_t* e);
     static void addChannelCancelCb(lv_event_t* e);
     static void channelDeleteCb(lv_event_t* e);
+    static void allowMuteToggleCb(lv_event_t* e);
 };
 
 }  // namespace mclite
