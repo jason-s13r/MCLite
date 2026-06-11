@@ -7,6 +7,13 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
 
 ## [Unreleased]
 
+### Fixed
+- A last-known position restored after reboot no longer reports "~0s ago" before the clock has synced. The
+  saved fix carries an absolute timestamp but `millis()` resets on reboot, so until GPS re-locks (or NTP/WiFi
+  syncs the clock) its age can't be computed — it now shows "Last known position" instead of a misleading 0s
+  (which also avoided sending a stale position over the mesh as if it were current). Once the clock syncs, the
+  real "~Xm ago" age is shown again.
+
 ## [0.3.5] — 2026-06-11
 
 ### Fixed

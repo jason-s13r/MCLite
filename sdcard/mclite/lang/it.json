@@ -32,6 +32,7 @@
     "location_title": "Inviare la posizione?",
     "btn_cancel": "Annulla",
     "btn_location_send": "Invia",
+    "loc_last_known": "Ultima posizione",
     "loc_last_known_s": "Ultima posizione (~%ds fa)",
     "loc_last_known_m": "Ultima posizione (~%dm fa)",
     "loc_last_known_h": "Ultima posizione (~%dh fa)",

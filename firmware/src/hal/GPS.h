@@ -36,6 +36,13 @@ public:
     double   cachedLon() const  { return _cached.lon; }
     uint32_t fixAgeSeconds() const;
 
+    // True when we hold a cached fix but cannot date it: it was loaded from a
+    // previous boot (millis() has since reset) and the clock hasn't re-synced,
+    // so neither the uptime delta nor the absolute epoch yields a real age.
+    // fixAgeSeconds() returns 0 in this state; callers should label it
+    // "last known" rather than "0s ago".
+    bool     fixAgeUnknown() const;
+
     // Max age for last-known position (configurable, default 30 min)
     void     setLastKnownMaxAge(uint32_t seconds) { _lastKnownMaxAge = seconds; }
 

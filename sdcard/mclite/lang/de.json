@@ -32,6 +32,7 @@
     "location_title": "Standort senden?",
     "btn_cancel": "Abbrechen",
     "btn_location_send": "Senden",
+    "loc_last_known": "Letzte Position",
     "loc_last_known_s": "Letzte Position (~%ds her)",
     "loc_last_known_m": "Letzte Position (~%dm her)",
     "loc_last_known_h": "Letzte Position (~%dh her)",

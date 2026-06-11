@@ -74,15 +74,29 @@ FixStatus GPS::fixStatus() const {
 
 uint32_t GPS::fixAgeSeconds() const {
     if (!_cached.valid) return UINT32_MAX;
-    // If we have a reboot-safe epoch, use the system clock to compute age.
-    if (_cached.fixEpoch) {
+    // Epoch-based age — only meaningful once the clock is synced (the epoch is
+    // absolute, so this survives reboots; before a sync bestEpoch() is just
+    // uptime-seconds and would read smaller than fixEpoch).
+    if (_cached.fixEpoch && mclite::TimeHelper::instance().isSynced()) {
         uint32_t now = mclite::TimeHelper::instance().bestEpoch();
         if (now >= _cached.fixEpoch) return now - _cached.fixEpoch;
-        // Clock hasn't synced yet since boot; treat loaded fix as fresh.
-        return 0;
     }
-    // Fallback to uptime-based age (valid only within the same boot).
-    return (millis() - _cached.fixMillis) / 1000;
+    // Uptime-based age — valid only within the same boot. A fix loaded from a
+    // previous boot has a fixMillis larger than the current millis(); guard the
+    // unsigned underflow and report 0 (see fixAgeUnknown()).
+    if (millis() >= _cached.fixMillis) return (millis() - _cached.fixMillis) / 1000;
+    return 0;
+}
+
+bool GPS::fixAgeUnknown() const {
+    if (!_cached.valid) return false;
+    if (_cached.fixEpoch) {
+        // Datable only once the clock is synced since boot.
+        return !mclite::TimeHelper::instance().isSynced();
+    }
+    // No epoch: the uptime delta is valid only if millis() hasn't reset since
+    // the fix (i.e. it was captured this boot, not loaded from SD).
+    return millis() < _cached.fixMillis;
 }
 
 uint32_t GPS::currentTimestamp() const {
@@ -128,16 +142,22 @@ String GPS::formatLocationWithStatus() const {
     String loc = formatLocation();
 
     if (status == FixStatus::LAST_KNOWN) {
-        uint32_t age = fixAgeSeconds();
-        char ageBuf[32];
-        if (age < 60)
-            snprintf(ageBuf, sizeof(ageBuf), t("loc_last_known_s"), (int)age);
-        else if (age < 3600)
-            snprintf(ageBuf, sizeof(ageBuf), t("loc_last_known_m"), (int)(age / 60));
-        else
-            snprintf(ageBuf, sizeof(ageBuf), t("loc_last_known_h"), (int)(age / 3600));
         loc += " [";
-        loc += ageBuf;
+        if (fixAgeUnknown()) {
+            // Loaded from a previous boot with no synced clock — age unknown.
+            // Don't claim "~0s ago"; just mark it as the last known position.
+            loc += t("loc_last_known");
+        } else {
+            uint32_t age = fixAgeSeconds();
+            char ageBuf[32];
+            if (age < 60)
+                snprintf(ageBuf, sizeof(ageBuf), t("loc_last_known_s"), (int)age);
+            else if (age < 3600)
+                snprintf(ageBuf, sizeof(ageBuf), t("loc_last_known_m"), (int)(age / 60));
+            else
+                snprintf(ageBuf, sizeof(ageBuf), t("loc_last_known_h"), (int)(age / 3600));
+            loc += ageBuf;
+        }
         loc += "]";
     }
 

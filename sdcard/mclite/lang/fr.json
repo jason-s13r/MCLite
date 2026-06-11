@@ -32,6 +32,7 @@
     "location_title": "Envoyer la position?",
     "btn_cancel": "Annuler",
     "btn_location_send": "Envoyer",
+    "loc_last_known": "Derniere position",
     "loc_last_known_s": "Derniere position (~%ds)",
     "loc_last_known_m": "Derniere position (~%dm)",
     "loc_last_known_h": "Derniere position (~%dh)",

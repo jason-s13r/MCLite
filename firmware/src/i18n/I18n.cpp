@@ -45,6 +45,7 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"location_title",      "Send Location?"},
     {"btn_cancel",          "Cancel"},
     {"btn_location_send",   "Send"},
+    {"loc_last_known",      "Last known position"},
     {"loc_last_known_s",    "Last known position (~%ds ago)"},
     {"loc_last_known_m",    "Last known position (~%dm ago)"},
     {"loc_last_known_h",    "Last known position (~%dh ago)"},
