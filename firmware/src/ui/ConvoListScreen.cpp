@@ -307,14 +307,6 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
         }
     }
 
-    // Mute indicator — before time
-    if (convo->muted) {
-        lv_obj_t* muteIcon = lv_label_create(topLine);
-        lv_obj_set_style_text_font(muteIcon, FONT_BODY, 0);
-        lv_obj_set_style_text_color(muteIcon, theme::TEXT_SECONDARY, 0);
-        lv_label_set_text(muteIcon, LV_SYMBOL_MUTE);
-    }
-
     // --- Rightmost: time indicator ---
 
     // DM: last-seen time
