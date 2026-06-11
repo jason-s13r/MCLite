@@ -296,12 +296,17 @@ void I18n::init(const String& langCode) {
     // Measure total buffer size needed for all keys + values (single pass)
     size_t totalLen = 0;
     size_t numStrings = 0;
+    bool truncated = false;
     for (JsonPair kv : obj) {
-        if (!kv.value().is<const char*>()) continue;
-        if (numStrings >= MAX_STRINGS) break;
+        if (!kv.value().is<const char*>()) continue;  // skip non-string (e.g. "version")
+        if (numStrings >= MAX_STRINGS) { truncated = true; continue; }
         totalLen += strlen(kv.key().c_str()) + 1;
         totalLen += strlen(kv.value().as<const char*>()) + 1;
         numStrings++;
+    }
+    if (truncated) {
+        LOGF("[I18n] WARNING: '%s' exceeds MAX_STRINGS=%d — extra keys fall back to English; raise the cap\n",
+             langCode.c_str(), (int)MAX_STRINGS);
     }
 
     // Single allocation for all strings (avoids heap fragmentation)
