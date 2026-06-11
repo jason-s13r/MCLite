@@ -67,4 +67,29 @@ ContactLocation bestKnownLocation(const uint8_t* pubKey32) {
     return r;
 }
 
+bool advertisesLocation(const uint8_t* pubKey32) {
+    if (!pubKey32) return false;
+
+    // The contact's own advert GPS (ContactInfo.gps_lat/lon, 0/0 = none).
+    MCLiteMesh* mesh = MeshManager::instance().mesh();
+    if (mesh) {
+        int n = mesh->getNumContacts();
+        for (int i = 0; i < n; i++) {
+            ContactInfo* c = mesh->getContactByIdx(i);
+            if (!c || memcmp(c->id.pub_key, pubKey32, 32) != 0) continue;
+            if (c->gps_lat || c->gps_lon) return true;
+            break;  // found the contact; it just doesn't advertise location
+        }
+    }
+
+    // A heard advert with GPS (covers non-contacts too).
+    auto& hc = HeardAdvertCache::instance();
+    const HeardAdvert* es = hc.entries();
+    for (int i = 0; i < hc.count(); i++) {
+        if (memcmp(es[i].pubKey, pubKey32, 32) == 0 && es[i].hasGps) return true;
+    }
+
+    return false;
+}
+
 }  // namespace mclite

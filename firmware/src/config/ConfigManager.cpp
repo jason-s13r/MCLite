@@ -12,6 +12,27 @@ ConfigManager& ConfigManager::instance() {
     return inst;
 }
 
+// Per-conversation quick replies: parse an optional "canned" string array
+// (cap 8, skip blanks) shared by contacts / channels / room_servers.
+static void parseCannedArray(JsonObject obj, std::vector<String>& out) {
+    JsonArray arr = obj["canned"];
+    if (!arr) return;
+    for (size_t i = 0; i < arr.size() && out.size() < 8; i++) {
+        String s = arr[i].as<String>();
+        if (s.length() > 0) out.push_back(s);
+    }
+}
+
+// Serialize the "canned" array only when non-empty (mirrors from_discovery's
+// conditional emit — keeps config.json clean for the common global-list case).
+static void serializeCannedArray(JsonObject obj, const std::vector<String>& canned) {
+    if (canned.empty()) return;
+    JsonArray arr = obj["canned"].to<JsonArray>();
+    for (size_t i = 0; i < canned.size() && i < 8; i++) {
+        if (canned[i].length() > 0) arr.add(canned[i]);
+    }
+}
+
 void ConfigManager::applyDefaults() {
     _config.deviceName = defaults::DEVICE_NAME;
     _config.radio.frequency       = defaults::RADIO_FREQUENCY;
@@ -36,6 +57,7 @@ void ConfigManager::applyDefaults() {
     _config.messaging.cannedMessages   = defaults::CANNED_MESSAGES_ENABLED;
     _config.messaging.cannedCustom.clear();
     _config.messaging.allowMute        = defaults::ALLOW_MUTE;
+    _config.messaging.autoTelemetry    = defaults::AUTO_TELEMETRY;
     _config.soundEnabled = defaults::SOUND_ENABLED;
     _config.sosKeyword   = defaults::SOS_KEYWORD;
     _config.sosRepeat    = defaults::SOS_REPEAT;
@@ -114,6 +136,7 @@ bool ConfigManager::parseJson(const String& json) {
             cc.allowSos       = c["allow_sos"]        | true;
             cc.sendSos        = c["send_sos"]         | true;
             cc.fromDiscovery  = c["from_discovery"]   | false;
+            parseCannedArray(c, cc.canned);
             if (cc.publicKey.length() > 0) {
                 _config.contacts.push_back(cc);
             }
@@ -133,6 +156,7 @@ bool ConfigManager::parseJson(const String& json) {
             rc.sendSos   = r["send_sos"]   | false;
             rc.readOnly  = r["read_only"]  | false;
             rc.scope     = r["scope"]      | "";
+            parseCannedArray(r, rc.canned);
             // Normalize pubkey to lowercase. UIManager compares
             // publicKey.substring(0, 16) against ConvoId::id (always lowercase
             // from pubKeyToShortId), so hand-edited uppercase hex would
@@ -170,6 +194,7 @@ bool ConfigManager::parseJson(const String& json) {
             cc.sendSos  = ch["send_sos"] | defaultSendSos;
             cc.readOnly = ch["read_only"] | false;
             cc.scope    = ch["scope"] | "";
+            parseCannedArray(ch, cc.canned);
             // Private channels require a PSK; hashtag channels can derive from name
             if (cc.psk.length() > 0 || cc.type == "hashtag") {
                 // Skip channels with duplicate indices
@@ -231,6 +256,7 @@ bool ConfigManager::parseJson(const String& json) {
         }
 
         _config.messaging.allowMute = msg["allow_mute"] | defaults::ALLOW_MUTE;
+        _config.messaging.autoTelemetry = msg["auto_telemetry"] | defaults::AUTO_TELEMETRY;
     }
 
     // Sound
@@ -345,6 +371,7 @@ String ConfigManager::toJson() const {
         obj["allow_sos"]       = c.allowSos;
         obj["send_sos"]        = c.sendSos;
         obj["from_discovery"]  = c.fromDiscovery;
+        serializeCannedArray(obj, c.canned);
     }
 
     JsonArray rooms = doc["room_servers"].to<JsonArray>();
@@ -357,6 +384,7 @@ String ConfigManager::toJson() const {
         obj["send_sos"]   = r.sendSos;
         if (r.readOnly) obj["read_only"] = true;
         if (r.scope.length() > 0) obj["scope"] = r.scope;
+        serializeCannedArray(obj, r.canned);
     }
 
     JsonArray channels = doc["channels"].to<JsonArray>();
@@ -374,6 +402,7 @@ String ConfigManager::toJson() const {
         if (ch.scope.length() > 0) {
             obj["scope"] = ch.scope;
         }
+        serializeCannedArray(obj, ch.canned);
     }
 
     JsonObject disp = doc["display"].to<JsonObject>();
@@ -396,6 +425,7 @@ String ConfigManager::toJson() const {
     msg["show_telemetry"]       = _config.messaging.showTelemetry;
     msg["canned_messages"]      = _config.messaging.cannedMessages;
     msg["allow_mute"]           = _config.messaging.allowMute;
+    msg["auto_telemetry"]       = _config.messaging.autoTelemetry;
 
     doc["sound"]["enabled"]     = _config.soundEnabled;
     doc["sound"]["sos_keyword"] = _config.sosKeyword;

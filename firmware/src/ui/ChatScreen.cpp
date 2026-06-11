@@ -8,6 +8,7 @@
 #include "../mesh/ContactStore.h"
 #include "../config/ConfigManager.h"
 #include "../config/defaults.h"
+#include "../mesh/ContactStore.h"
 #include "../i18n/I18n.h"
 #include "../util/TimeHelper.h"
 #include "../util/TextSanitizer.h"
@@ -668,18 +669,12 @@ void ChatScreen::gpsBtnCb(lv_event_t* e) {
 
     String locStr = "@ " + gps.formatLocationWithStatus();
 
-    // Append age qualifier for last-known positions
-    if (status == FixStatus::LAST_KNOWN) {
-        char ageBuf[32];
-        uint32_t age = gps.fixAgeSeconds();
-        if (age < 60)
-            snprintf(ageBuf, sizeof(ageBuf), t("loc_last_known_s"), (int)age);
-        else if (age < 3600)
-            snprintf(ageBuf, sizeof(ageBuf), t("loc_last_known_m"), (int)(age / 60));
-        else
-            snprintf(ageBuf, sizeof(ageBuf), t("loc_last_known_h"), (int)(age / 3600));
-        locStr += " (" + String(ageBuf) + ")";
-    }
+    static const char* btns[3];
+    btns[0] = t("btn_cancel");
+    btns[1] = t("btn_location_send");
+    btns[2] = "";
+
+    String locTitle = String(LV_SYMBOL_GPS " ") + t("location_title");
 
     // Append location to existing draft text, or set as new text if empty
     const char* current = lv_textarea_get_text(self->_textarea);
@@ -950,13 +945,54 @@ void ChatScreen::showCannedPicker() {
     const auto& custom = cfg.messaging.cannedCustom;
     bool isEnglish = cfg.language.isEmpty();
 
+    // Per-conversation override: a contact / channel / room may carry its own
+    // quick-reply list. When present (non-empty) it wins over the global list
+    // entirely; otherwise fall back to the existing global / i18n logic. The
+    // per-conversation texts are raw user strings (language-independent).
+    const std::vector<String>* convoCanned = nullptr;
+    if (_currentConvo) {
+        switch (_currentConvo->type) {
+            case ConvoId::DM:
+                for (const auto& ct : ContactStore::instance().all()) {
+                    if (ct.shortId() == _currentConvo->id) {
+                        if (!ct.canned.empty()) convoCanned = &ct.canned;
+                        break;
+                    }
+                }
+                break;
+            case ConvoId::CHANNEL:
+                for (const auto& ch : cfg.channels) {
+                    if (ch.name == _currentConvo->id) {
+                        if (!ch.canned.empty()) convoCanned = &ch.canned;
+                        break;
+                    }
+                }
+                break;
+            case ConvoId::ROOM:
+                for (const auto& r : cfg.roomServers) {
+                    if (r.publicKey.substring(0, 16) == _currentConvo->id) {
+                        if (!r.canned.empty()) convoCanned = &r.canned;
+                        break;
+                    }
+                }
+                break;
+        }
+    }
+
     // Collect canned message texts
     // Store in static array so btnmatrix labels remain valid
     static const char* labels[9];  // max 8 + sentinel
     static String stored[8];       // keep String storage alive
     int count = 0;
 
-    if (isEnglish && !custom.empty()) {
+    if (convoCanned) {
+        // Per-conversation override list (unconditional — already non-empty)
+        for (size_t i = 0; i < convoCanned->size() && i < 8; i++) {
+            stored[count] = (*convoCanned)[i];
+            labels[count] = stored[count].c_str();
+            count++;
+        }
+    } else if (isEnglish && !custom.empty()) {
         // English + custom array: use ONLY the custom entries
         for (size_t i = 0; i < custom.size() && i < 8; i++) {
             stored[count] = custom[i];

@@ -79,6 +79,7 @@ private:
     // Read-only query handlers (5d.2)
     void cmdGetDeviceTime();
     void cmdSetDeviceTime(size_t len);
+    void cmdSendSelfAdvert(size_t len);
     void cmdGetBattAndStorage();
     void cmdGetContacts(size_t len);
     void cmdGetContactByKey(size_t len);

@@ -5,7 +5,7 @@
 // All three are #ifndef-guarded so a fork can override them with -D build flags
 // (e.g. -DMCLITE_REPO_OWNER=\"someone\") to self-update from its own GitHub repo.
 #ifndef MCLITE_VERSION
-#define MCLITE_VERSION "0.3.3"
+#define MCLITE_VERSION "0.3.5"
 #endif
 #ifndef MCLITE_REPO_OWNER
 #define MCLITE_REPO_OWNER "laserir"   // GitHub owner for OTA update checks
@@ -54,6 +54,18 @@ constexpr bool     REQUEST_TELEMETRY     = true;
 constexpr const char* SHOW_TELEMETRY    = "both";  // "battery", "location", "both", "none"
 constexpr bool     CANNED_MESSAGES_ENABLED = true;
 constexpr bool     ALLOW_MUTE            = false;  // Enable per-chat mute (long-press); off by default
+constexpr bool     AUTO_TELEMETRY        = true;   // Auto-refresh contacts' GPS via periodic telemetry
+
+// Auto-telemetry scheduler tuning (background GPS refresh for contacts who don't advert location)
+constexpr uint32_t AUTO_TELEM_SCAN_MS        = 60000;    // Evaluate at most one request per minute
+constexpr uint32_t AUTO_TELEM_REFRESH_AGE_MS = 1500000;  // 25 min — refresh just before the 30-min stale window
+constexpr uint8_t  AUTO_TELEM_MAX_MISSES     = 2;        // Stop asking a non-responder after N misses (session)
+// Backstop for one auto request. Normally a miss is concluded as soon as the
+// mesh finishes its own request+flood-retry exchange (telemetryPending() goes
+// false); this deadline only frees the slot if the mesh somehow never resolves
+// (e.g. a UI request hijacked it). Generous so it never pre-empts a legitimate
+// multi-hop flood-retry window and false-counts a miss.
+constexpr uint32_t AUTO_TELEM_AWAIT_MS       = 120000;
 // Max message text size in BYTES (UTF-8), matching MeshCore MAX_TEXT_LEN (10*16).
 // The chat textarea caps at 160 *characters*, but multi-byte chars (emoji, accents)
 // can exceed this byte budget — validate byte length before sending.

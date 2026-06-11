@@ -18,6 +18,7 @@ struct Contact {
     bool    alwaysSound    = false;  // Play notification even when muted
     bool    allowSos       = true;   // Allow SOS alerts from this contact
     bool    sendSos        = true;   // Include in outgoing SOS broadcast
+    std::vector<String> canned;      // Per-conversation quick replies (empty = use global list)
 
     // Short hex ID for file paths (first 8 chars of hex-encoded pubkey)
     const String& shortId() const { return _shortId; }

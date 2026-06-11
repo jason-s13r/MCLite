@@ -4,6 +4,7 @@
 #include <functional>
 #include <Arduino.h>
 #include "../storage/TelemetryCache.h"
+#include "../config/defaults.h"
 
 namespace mclite {
 
@@ -74,6 +75,9 @@ public:
     // Clear pending telemetry state (call on timeout)
     void clearPendingTelemetry();
 
+    // True while a telemetry request (UI or auto) is awaiting a reply.
+    bool isTelemetryPending() const;
+
     bool isRadioReady() const { return _radioReady; }
 
     // This node's 32-byte public key, or nullptr before the mesh is initialized.
@@ -94,8 +98,10 @@ public:
 
     // Send an advertisement immediately (user-triggered) and reset the
     // periodic timer so the next scheduled advert is a full interval out.
+    // flood = true (default) is mesh-wide — the on-device button; flood = false
+    // is zero-hop/local for the companion app's local-advert option.
     // Returns the underlying mesh send result.
-    bool sendAdvertNow();
+    bool sendAdvertNow(bool flood = true);
 
     static MeshManager& instance();
 
@@ -129,6 +135,15 @@ private:
     uint32_t _dcLastSampleMs = 0;
     uint8_t  _dcSlotIdx      = 0;
     uint8_t  _dcSlotsFilled  = 0;
+
+    // Auto-refresh contact GPS (background telemetry). Session-only state.
+    void     tickAutoTelemetry();
+    uint32_t _autoTelemLastScanMs     = 0;
+    size_t   _autoTelemNextIdx        = 0;   // round-robin cursor over contacts
+    int      _autoTelemAwaitIdx       = -1;  // contact idx of the in-flight auto request, -1 = none
+    uint32_t _autoTelemAwaitSentMs    = 0;
+    uint32_t _autoTelemAwaitDeadlineMs = 0;
+    uint8_t  _autoTelemMisses[defaults::MAX_CHAT_CONTACTS] = {};  // consecutive misses per contact (back-off)
 
     bool initRadio();
     void wireCallbacks();

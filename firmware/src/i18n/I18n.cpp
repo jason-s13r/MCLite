@@ -127,6 +127,45 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"channel_deleted",   "Channel deleted"},
     {"confirm_delete_title","Delete channel?"},
     {"confirm_delete_body", "Remove '%s' permanently. This cannot be undone."},
+    // Admin screen row labels
+    {"lbl_offgrid",         "Offgrid"},
+    {"lbl_firmware",        "Firmware"},
+    {"lbl_vendor",          "Vendor"},
+    {"lbl_built",           "Built"},
+    {"lbl_device_name",     "Device Name"},
+    {"lbl_public_key",      "Public Key"},
+    {"lbl_frequency",       "Frequency"},
+    {"lbl_sf_bw",           "SF / BW"},
+    {"lbl_coding_rate",     "Coding Rate"},
+    {"lbl_tx_power",        "TX Power"},
+    {"lbl_scope",           "Scope"},
+    {"lbl_path_hash",       "Path Hash"},
+    {"lbl_status",          "Status"},
+    {"lbl_brightness",      "Brightness"},
+    {"lbl_auto_dim",        "Auto-Dim"},
+    {"lbl_dim_brightness",  "Dim Brightness"},
+    {"lbl_kbd_backlight",   "Kbd Backlight"},
+    {"lbl_boot_text",       "Boot Text"},
+    {"lbl_history",         "History"},
+    {"lbl_max_per_chat",    "Max Per Chat"},
+    {"lbl_max_retries",     "Max Retries"},
+    {"lbl_req_telemetry",   "Req. Telemetry"},
+    {"lbl_telemetry_badges","Telemetry Badges"},
+    {"lbl_auto_telemetry",  "Auto GPS Refresh"},
+    {"lbl_gps",             "GPS"},
+    {"lbl_hdop",            "HDOP"},
+    {"lbl_last_known_max",  "Last Known Max"},
+    {"lbl_location_advert", "Location Advert"},
+    {"lbl_timezone",        "Timezone"},
+    {"lbl_clock_offset",    "Clock Offset"},
+    {"lbl_sound",           "Sound"},
+    {"lbl_sos_keyword",     "SOS Keyword"},
+    {"lbl_sos_repeat",      "SOS Repeat"},
+    {"lbl_level",           "Level"},
+    {"lbl_low_alert",       "Low Alert"},
+    {"lbl_lock",            "Lock"},
+    {"lock_key",            "Key Lock"},
+    {"lock_pin",            "PIN Lock"},
 
     // Offgrid mode (tap-to-toggle on admin screen)
     {"offgrid_repeater_mode", "Off-grid Repeater Mode"},
@@ -309,12 +348,17 @@ void I18n::init(const String& langCode) {
     // Measure total buffer size needed for all keys + values (single pass)
     size_t totalLen = 0;
     size_t numStrings = 0;
+    bool truncated = false;
     for (JsonPair kv : obj) {
-        if (!kv.value().is<const char*>()) continue;
-        if (numStrings >= MAX_STRINGS) break;
+        if (!kv.value().is<const char*>()) continue;  // skip non-string (e.g. "version")
+        if (numStrings >= MAX_STRINGS) { truncated = true; continue; }
         totalLen += strlen(kv.key().c_str()) + 1;
         totalLen += strlen(kv.value().as<const char*>()) + 1;
         numStrings++;
+    }
+    if (truncated) {
+        LOGF("[I18n] WARNING: '%s' exceeds MAX_STRINGS=%d — extra keys fall back to English; raise the cap\n",
+             langCode.c_str(), (int)MAX_STRINGS);
     }
 
     // Single allocation for all strings (avoids heap fragmentation)

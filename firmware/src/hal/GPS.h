@@ -11,6 +11,7 @@ struct CachedPosition {
     double lon = 0;
     double altitude = 0;
     uint32_t fixMillis = 0;   // millis() when this fix was captured
+    uint32_t fixEpoch = 0;    // Unix epoch (reboot-safe timestamp)
     uint8_t satellites = 0;
     float hdop = 99.9f;
     bool valid = false;        // has ever had a fix
@@ -60,7 +61,8 @@ public:
     String   formatLocationWithStatus() const;
 
     // Persist / restore last known location to SD so the map can open
-    // without a live GPS fix. Saved automatically on every good fix.
+    // without a live GPS fix. Saved automatically while a live fix is
+    // active, throttled to at most once every 2 minutes (atomic write).
     void saveLastLocation();
     bool loadLastLocation();
 
@@ -75,6 +77,7 @@ private:
     bool _timeSynced = false;
     CachedPosition _cached;
     uint32_t _lastKnownMaxAge = 1800; // 30 minutes default
+    uint32_t _lastSaveMillis = 0;     // throttle SD writes
 };
 
 }  // namespace mclite

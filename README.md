@@ -56,7 +56,7 @@ That's it. Full walkthrough — including updates and companion mode — in [Get
 - **Telemetry** -- responds to MeshCore-standard telemetry requests (battery, GPS) with per-contact permissions. Compatible with MeshCore companion apps. Optionally request telemetry from contacts to see their battery, location, and distance
 - **Map view** -- visualise positions on a slippy map (optional, requires tile pack on SD card). Tap a contact's name in chat for their position, or tap the **status-bar GPS icon** for the general map: your own location plus markers for every heard node / contact that carries GPS (same chat / repeater / room / sensor symbols as the heard-adverts list). Tap a marker for its name, drag to pan, zoomable, with Center and Reload buttons
 - **Message history** -- conversations saved to SD card and restored on reboot
-- **Quick replies** -- optional canned message picker for fast responses (OK, Copy, Need help, etc.), translatable and customizable
+- **Quick replies** -- optional canned message picker for fast responses (OK, Copy, Need help, etc.), translatable and customizable; per-conversation override lists turn a contact/channel/room into a command menu (e.g. a Home Assistant bridge)
 - **Multi-language** -- English, German, French, and Italian included. Add your own translations via SD card
 - **Notification sounds** -- chime on incoming messages, alarm on SOS. Supports custom WAV files from SD card
 - **Haptic feedback** (T-Watch Ultra) -- vibration on incoming messages and SOS alerts, independent of the sound mute
@@ -197,7 +197,10 @@ To set up a group: use **Fleet Mode** in the Setup Wizard. Add a device for each
       "allow_environment": false,      // Let them request environment sensor data (requires allow_telemetry)
       "always_sound": false,           // Play sound even when device is muted
       "allow_sos": true,               // Show SOS alerts from this contact
-      "send_sos": true                 // Include in your outgoing SOS broadcast
+      "send_sos": true,                // Include in your outgoing SOS broadcast
+      "canned": ["Open gate", "Lights on", "Status?"]  // Optional per-conversation quick replies — overrides the
+                                       //   global list for THIS chat (max 8). Works on contacts, channels and rooms.
+                                       //   Great as a command menu for a Home Assistant / automation bridge. Omit = use global.
     }
   ],
 
@@ -259,8 +262,12 @@ To set up a group: use **Fleet Mode** in the Setup Wizard. Add a device for each
     "max_retries": 3,                  // DM delivery retry attempts (1-5)
     "request_telemetry": true,         // Tap contact name to see battery/location (optional)
     "show_telemetry": "both",          // Badges on convo list: "battery", "location", "both", "none"
+    "auto_telemetry": true,            // Auto-refresh GPS of contacts who don't broadcast it, to keep map
+                                       //   markers fresh. Throttled + self-limiting (backs off non-responders). Default on.
     "canned_messages": true            // Quick-reply picker: true = on (default messages, default), false = off,
-                                       //   or ["Reply 1", "Reply 2"] = on with custom messages (max 8)
+                                       //   or ["Reply 1", "Reply 2"] = on with custom messages (max 8).
+                                       //   This is the GLOBAL list; individual contacts/channels/rooms can override
+                                       //   it with their own "canned" array (see above). Per-conversation lists win.
   },
 
   "sound": {

@@ -35,6 +35,7 @@ void ContactStore::loadFromConfig() {
         c.alwaysSound    = cc.alwaysSound;
         c.allowSos       = cc.allowSos;
         c.sendSos        = cc.sendSos;
+        c.canned         = cc.canned;
 
         // Decode public key — supports both hex (64 chars) and base64
         bool keyOk = false;

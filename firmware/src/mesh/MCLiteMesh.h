@@ -76,8 +76,13 @@ public:
     // Main loop — call from MeshManager::update()
     void loop();
 
-    // Send advertisement (name only, no location)
-    bool advertise(const char* name);
+    // Send advertisement (name + optional opt-in location).
+    // flood = true (default) re-broadcasts mesh-wide via the global scope so
+    // repeaters relay it and the mesh learns a return path to us — this is what
+    // the periodic timer and the on-device advert button use, intentionally.
+    // flood = false sends zero-hop (neighbours only), used for the companion
+    // app's "local advert" option.
+    bool advertise(const char* name, bool flood = true);
 
     // Send DM — returns internal packetId, 0 on failure
     uint32_t sendDM(size_t contactIdx, const char* text, uint32_t timestamp,
@@ -112,6 +117,14 @@ public:
 
     // Clear pending telemetry state (call on timeout)
     void clearPendingTelemetry() { _pendingTelemTag = 0; memset(_pendingTelemKey, 0, PUB_KEY_SIZE); _telemRetry.active = false; }
+
+    // True while a telemetry request (UI or auto) is awaiting a reply. Telemetry
+    // is single-slot, so the auto-refresh scheduler uses this to avoid clobbering
+    // a manual request and to serialize its own.
+    bool telemetryPending() const { return _pendingTelemTag != 0; }
+
+    // True if the radio's outbound packet queue still has packets pending.
+    bool outboundBusy() const;
 
     // Access contacts managed by BaseChatMesh
     ContactInfo* getContactByIdx(int idx);

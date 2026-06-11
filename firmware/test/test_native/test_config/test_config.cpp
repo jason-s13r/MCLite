@@ -323,6 +323,86 @@ void test_canned_messages_array_max_8() {
     TEST_ASSERT_EQUAL(8, cfg->config().messaging.cannedCustom.size());
 }
 
+// ═══ Per-conversation quick replies (canned override) ═══
+
+void test_contact_canned_parsed() {
+    parse("{\"contacts\":[{\"alias\":\"Bot\",\"public_key\":\"AAAA\",\"canned\":[\"Open gate\",\"Lights on\"]}]}");
+    const auto& c = cfg->config().contacts[0];
+    TEST_ASSERT_EQUAL(2, c.canned.size());
+    TEST_ASSERT_EQUAL_STRING("Open gate", c.canned[0].c_str());
+    TEST_ASSERT_EQUAL_STRING("Lights on", c.canned[1].c_str());
+}
+
+void test_channel_canned_parsed() {
+    parse("{\"channels\":[{\"name\":\"#ops\",\"type\":\"hashtag\",\"index\":0,\"canned\":[\"Status?\"]}]}");
+    TEST_ASSERT_EQUAL(1, cfg->config().channels[0].canned.size());
+    TEST_ASSERT_EQUAL_STRING("Status?", cfg->config().channels[0].canned[0].c_str());
+}
+
+void test_room_canned_parsed() {
+    parse("{\"room_servers\":[{\"name\":\"HA\",\"public_key\":\"abcd\",\"canned\":[\"A\",\"B\",\"C\"]}]}");
+    TEST_ASSERT_EQUAL(3, cfg->config().roomServers[0].canned.size());
+    TEST_ASSERT_EQUAL_STRING("C", cfg->config().roomServers[0].canned[2].c_str());
+}
+
+void test_contact_canned_absent_is_empty() {
+    parse("{\"contacts\":[{\"alias\":\"Bob\",\"public_key\":\"BBBB\"}]}");
+    TEST_ASSERT_EQUAL(0, cfg->config().contacts[0].canned.size());
+}
+
+void test_canned_blanks_skipped_and_capped() {
+    // 10 entries, one blank → blank dropped, remainder capped at 8
+    parse("{\"contacts\":[{\"alias\":\"B\",\"public_key\":\"AAAA\","
+          "\"canned\":[\"a\",\"\",\"b\",\"c\",\"d\",\"e\",\"f\",\"g\",\"h\",\"i\"]}]}");
+    const auto& c = cfg->config().contacts[0];
+    TEST_ASSERT_EQUAL(8, c.canned.size());
+    TEST_ASSERT_EQUAL_STRING("a", c.canned[0].c_str());
+    TEST_ASSERT_EQUAL_STRING("b", c.canned[1].c_str());  // blank at index 1 skipped
+}
+
+void test_canned_roundtrips_through_serialize() {
+    parse("{\"contacts\":[{\"alias\":\"Bot\",\"public_key\":\"AAAA\",\"canned\":[\"X\",\"Y\"]}],"
+          "\"channels\":[{\"name\":\"#c\",\"type\":\"hashtag\",\"index\":0,\"canned\":[\"Z\"]}],"
+          "\"room_servers\":[{\"name\":\"R\",\"public_key\":\"abcd\",\"canned\":[\"Q\"]}]}");
+    String json = cfg->toJson();
+    cfg->config() = AppConfig{};
+    cfg->parseJson(json);
+    TEST_ASSERT_EQUAL(2, cfg->config().contacts[0].canned.size());
+    TEST_ASSERT_EQUAL_STRING("Y", cfg->config().contacts[0].canned[1].c_str());
+    TEST_ASSERT_EQUAL(1, cfg->config().channels[0].canned.size());
+    TEST_ASSERT_EQUAL_STRING("Z", cfg->config().channels[0].canned[0].c_str());
+    TEST_ASSERT_EQUAL(1, cfg->config().roomServers[0].canned.size());
+    TEST_ASSERT_EQUAL_STRING("Q", cfg->config().roomServers[0].canned[0].c_str());
+}
+
+void test_empty_canned_omitted_from_serialize() {
+    parse("{\"contacts\":[{\"alias\":\"Bob\",\"public_key\":\"AAAA\"}]}");
+    String json = cfg->toJson();
+    // The global "canned_messages" key is always present; the per-conversation
+    // "canned" array must NOT be (empty → omitted).
+    TEST_ASSERT_NULL(strstr(json.c_str(), "\"canned\""));
+}
+
+// ═══ Auto-telemetry (auto-refresh contact GPS) ═══
+
+void test_auto_telemetry_defaults_true() {
+    parse("{}");
+    TEST_ASSERT_TRUE(cfg->config().messaging.autoTelemetry);
+}
+
+void test_auto_telemetry_explicit_false() {
+    parse("{\"messaging\":{\"auto_telemetry\": false}}");
+    TEST_ASSERT_FALSE(cfg->config().messaging.autoTelemetry);
+}
+
+void test_auto_telemetry_round_trips() {
+    parse("{\"messaging\":{\"auto_telemetry\": false}}");
+    String json = cfg->toJson();
+    cfg->config() = AppConfig{};
+    cfg->parseJson(json);
+    TEST_ASSERT_FALSE(cfg->config().messaging.autoTelemetry);
+}
+
 // ═══ Radio scope ═══
 
 void test_radio_scope_default_wildcard() {
@@ -626,6 +706,16 @@ int main() {
     RUN_TEST(test_canned_messages_bool_false);
     RUN_TEST(test_canned_messages_array_enables_and_stores);
     RUN_TEST(test_canned_messages_array_max_8);
+    RUN_TEST(test_contact_canned_parsed);
+    RUN_TEST(test_channel_canned_parsed);
+    RUN_TEST(test_room_canned_parsed);
+    RUN_TEST(test_contact_canned_absent_is_empty);
+    RUN_TEST(test_canned_blanks_skipped_and_capped);
+    RUN_TEST(test_canned_roundtrips_through_serialize);
+    RUN_TEST(test_empty_canned_omitted_from_serialize);
+    RUN_TEST(test_auto_telemetry_defaults_true);
+    RUN_TEST(test_auto_telemetry_explicit_false);
+    RUN_TEST(test_auto_telemetry_round_trips);
 
     // Radio scope
     RUN_TEST(test_radio_scope_default_wildcard);

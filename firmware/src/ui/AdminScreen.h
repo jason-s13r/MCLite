@@ -28,6 +28,7 @@ private:
     bool      _wifiLastConnected = false;
 
     static void backBtnCb(lv_event_t* e);
+    static void offgridToggleCb(lv_event_t* e);
     static void navRadioGpsCb(lv_event_t* e);
     static void navDeviceSettingsCb(lv_event_t* e);
     static void navChatSettingsCb(lv_event_t* e);

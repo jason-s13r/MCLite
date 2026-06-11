@@ -166,6 +166,59 @@ void test_dm_save_does_not_emit_sync_since() {
     TEST_ASSERT_TRUE(it->second.find("syncSince") == std::string::npos);
 }
 
+// ═══ loadHistory caps to the most recent maxHistoryPerChat ═══
+
+void test_load_history_caps_to_most_recent() {
+    ConvoId id { ConvoId::DM, "cafebabe" };
+    auto& store = MessageStore::instance();
+
+    // Write 6 messages with a generous cap so none are pruned on the way in.
+    ConfigManager::instance().config().messaging.maxHistoryPerChat = 100;
+    for (int i = 0; i < 6; i++) {
+        Message m;
+        char buf[8]; snprintf(buf, sizeof(buf), "m%d", i);
+        m.fromSelf  = false;
+        m.text      = buf;
+        m.timestamp = 1000 + i;
+        store.addMessage(id, "Alice", false, m);
+    }
+    TEST_ASSERT_EQUAL(6, store.getConversation(id)->messages.size());
+
+    // Reboot with a smaller cap → only the newest 3 should load.
+    ConfigManager::instance().config().messaging.maxHistoryPerChat = 3;
+    store._convos.clear();
+    store._activityCounter = 0;
+    store.ensureConversation(id, "Alice", false);
+    store.loadHistory(id);
+
+    Conversation* convo = store.getConversation(id);
+    TEST_ASSERT_NOT_NULL(convo);
+    TEST_ASSERT_EQUAL(3, convo->messages.size());
+    // Oldest (m0,m1,m2) dropped; newest kept in chronological order.
+    TEST_ASSERT_EQUAL_STRING("m3", convo->messages[0].text.c_str());
+    TEST_ASSERT_EQUAL_STRING("m5", convo->messages[2].text.c_str());
+}
+
+void test_load_history_no_cap_when_under_limit() {
+    ConvoId id { ConvoId::DM, "cafebabe" };
+    auto& store = MessageStore::instance();
+
+    ConfigManager::instance().config().messaging.maxHistoryPerChat = 100;
+    for (int i = 0; i < 4; i++) {
+        Message m;
+        char buf[8]; snprintf(buf, sizeof(buf), "k%d", i);
+        m.fromSelf = false; m.text = buf; m.timestamp = i;
+        store.addMessage(id, "Bob", false, m);
+    }
+
+    store._convos.clear();
+    store._activityCounter = 0;
+    store.ensureConversation(id, "Bob", false);
+    store.loadHistory(id);
+
+    TEST_ASSERT_EQUAL(4, store.getConversation(id)->messages.size());
+}
+
 int main() {
     UNITY_BEGIN();
 
@@ -181,6 +234,9 @@ int main() {
     RUN_TEST(test_sync_since_never_goes_backwards);
 
     RUN_TEST(test_dm_save_does_not_emit_sync_since);
+
+    RUN_TEST(test_load_history_caps_to_most_recent);
+    RUN_TEST(test_load_history_no_cap_when_under_limit);
 
     return UNITY_END();
 }

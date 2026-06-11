@@ -130,6 +130,41 @@ void AdminScreen::show() {
     {
         lv_obj_t* row = lv_obj_create(_content);
         lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_color(row, theme::OFFGRID_ACCENT, 0);
+        lv_obj_set_style_bg_opa(row, cfg.offgrid.enabled ? LV_OPA_50 : LV_OPA_20, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_radius(row, 4, 0);
+        lv_obj_set_style_pad_all(row, theme::PAD_SMALL, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t* lbl = lv_label_create(row);
+        lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
+        lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY, 0);
+        lv_label_set_text(lbl, t("lbl_offgrid"));
+
+        lv_obj_t* val = lv_label_create(row);
+        lv_obj_set_style_text_font(val, FONT_BODY, 0);
+        lv_obj_set_style_text_color(val, theme::TEXT_PRIMARY, 0);
+        if (cfg.offgrid.enabled) {
+            char buf[24];
+            snprintf(buf, sizeof(buf), "%s (%d MHz)",
+                     t("offgrid_on"),
+                     (int)mclite::offgridFreqFor(cfg.radio.frequency));
+            lv_label_set_text(val, buf);
+        } else {
+            lv_label_set_text(val, t("offgrid_off"));
+        }
+
+        lv_obj_add_event_cb(row, offgridToggleCb, LV_EVENT_CLICKED, nullptr);
+    }
+
+    // Heard adverts shortcut — mirrors info-row styling but clickable, with chevron.
+    {
+        lv_obj_t* row = lv_obj_create(_content);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
         lv_obj_set_style_bg_color(row, theme::BG_SECONDARY, 0);
         lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
         lv_obj_set_style_border_width(row, 0, 0);
@@ -305,12 +340,12 @@ void AdminScreen::show() {
 
     // --- Device ---
     addSection(t("sec_device"));
-    addRow("Firmware", String("MCLite v") + defaults::FIRMWARE_VERSION);
-    addRow("Vendor", defaults::FIRMWARE_VENDOR);
-    addRow("Built", String(__DATE__) + " " + __TIME__);
-    addRow("Device Name", cfg.deviceName);
+    addRow(t("lbl_firmware"), String("MCLite v") + defaults::FIRMWARE_VERSION);
+    addRow(t("lbl_vendor"), defaults::FIRMWARE_VENDOR);
+    addRow(t("lbl_built"), String(__DATE__) + " " + __TIME__);
+    addRow(t("lbl_device_name"), cfg.deviceName);
     if (cfg.publicKey.length() > 0) {
-        addRow("Public Key", cfg.publicKey.substring(0, 16) + "...");
+        addRow(t("lbl_public_key"), cfg.publicKey.substring(0, 16) + "...");
     }
 
     // --- Radio ---
@@ -324,18 +359,18 @@ void AdminScreen::show() {
             activeFreq = mclite::offgridFreqFor(cfg.radio.frequency);
             freqSuffix += " (offgrid)";
         }
-        addRow("Frequency", String(activeFreq, 3) + freqSuffix);
+        addRow(t("lbl_frequency"), String(activeFreq, 3) + freqSuffix);
     }
-    addRow("SF / BW", String(cfg.radio.spreadingFactor) + " / " + String(cfg.radio.bandwidth, 1));
-    addRow("Coding Rate", String(cfg.radio.codingRate));
-    addRow("TX Power", String(cfg.radio.txPower) + " dBm");
-    addRow("Scope", cfg.radio.scope);
+    addRow(t("lbl_sf_bw"), String(cfg.radio.spreadingFactor) + " / " + String(cfg.radio.bandwidth, 1));
+    addRow(t("lbl_coding_rate"), String(cfg.radio.codingRate));
+    addRow(t("lbl_tx_power"), String(cfg.radio.txPower) + " dBm");
+    addRow(t("lbl_scope"), cfg.radio.scope);
     {
         char phBuf[16];
         snprintf(phBuf, sizeof(phBuf), "%u B/hop", (unsigned)(cfg.radio.pathHashMode + 1));
-        addRow("Path Hash", phBuf);
+        addRow(t("lbl_path_hash"), phBuf);
     }
-    addRow("Status", MeshManager::instance().isRadioReady() ? t("ready") : t("error"));
+    addRow(t("lbl_status"), MeshManager::instance().isRadioReady() ? t("ready") : t("error"));
 
     // Channel utilization (TX duty cycle over last hour)
     if (MeshManager::instance().isRadioReady()) {
@@ -410,28 +445,29 @@ void AdminScreen::show() {
 
     // --- Display ---
     addSection(t("sec_display"));
-    addRow("Brightness", String(cfg.display.brightness));
-    addRow("Auto-Dim", cfg.display.autoDimSeconds > 0
+    addRow(t("lbl_brightness"), String(cfg.display.brightness));
+    addRow(t("lbl_auto_dim"), cfg.display.autoDimSeconds > 0
         ? String(cfg.display.autoDimSeconds) + "s" : String(t("off")));
-    addRow("Dim Brightness", cfg.display.dimBrightness > 0
+    addRow(t("lbl_dim_brightness"), cfg.display.dimBrightness > 0
         ? String(cfg.display.dimBrightness) : String(t("off")));
-    addRow("Kbd Backlight", cfg.display.kbdBacklight
+    addRow(t("lbl_kbd_backlight"), cfg.display.kbdBacklight
         ? String(t("on")) + " (" + String(cfg.display.kbdBrightness) + ")" : String(t("off")));
     if (cfg.display.bootText.length() > 0) {
-        addRow("Boot Text", cfg.display.bootText);
+        addRow(t("lbl_boot_text"), cfg.display.bootText);
     }
 
     // --- Messaging ---
     addSection(t("sec_messaging"));
-    addRow("History", cfg.messaging.saveHistory ? t("enabled") : t("disabled"));
-    addRow("Max Per Chat", String(cfg.messaging.maxHistoryPerChat));
-    addRow("Max Retries", String(cfg.messaging.maxRetries));
-    addRow("Req. Telemetry", cfg.messaging.requestTelemetry ? t("enabled") : t("disabled"));
-    addRow("Telemetry Badges", cfg.messaging.showTelemetry);
+    addRow(t("lbl_history"), cfg.messaging.saveHistory ? t("enabled") : t("disabled"));
+    addRow(t("lbl_max_per_chat"), String(cfg.messaging.maxHistoryPerChat));
+    addRow(t("lbl_max_retries"), String(cfg.messaging.maxRetries));
+    addRow(t("lbl_req_telemetry"), cfg.messaging.requestTelemetry ? t("enabled") : t("disabled"));
+    addRow(t("lbl_telemetry_badges"), cfg.messaging.showTelemetry);
+    addRow(t("lbl_auto_telemetry"), cfg.messaging.autoTelemetry ? t("on") : t("off"));
 
     // --- GPS ---
     addSection(t("sec_gps"));
-    addRow("GPS", cfg.gpsEnabled ? t("enabled") : t("disabled"));
+    addRow(t("lbl_gps"), cfg.gpsEnabled ? t("enabled") : t("disabled"));
     if (cfg.gpsEnabled) {
         auto& gps = GPS::instance();
         FixStatus fs = gps.fixStatus();
@@ -442,7 +478,7 @@ void AdminScreen::show() {
                 addRow(t("gps_satellites"), String(gps.satellites()));
                 char hdopBuf[8];
                 snprintf(hdopBuf, sizeof(hdopBuf), "%.1f", gps.hdop());
-                addRow("HDOP", String(hdopBuf));
+                addRow(t("lbl_hdop"), String(hdopBuf));
                 break;
             }
             case FixStatus::LAST_KNOWN: {
@@ -463,8 +499,8 @@ void AdminScreen::show() {
                 break;
         }
         addRow(t("gps_coord_format"), cfg.messaging.locationFormat);
-        addRow("Last Known Max", String(cfg.gpsLastKnownMaxAge) + "s");
-        addRow("Location Advert", cfg.locationAdvertEnabled ? t("on") : t("off"));
+        addRow(t("lbl_last_known_max"), String(cfg.gpsLastKnownMaxAge) + "s");
+        addRow(t("lbl_location_advert"), cfg.locationAdvertEnabled ? t("on") : t("off"));
         if (cfg.gpsTimezone.length() > 0 && TimeHelper::isValidPosixTz(cfg.gpsTimezone)) {
             // Show abbreviation (chars before first digit/sign) + "(auto-DST)"
             String abbr;
@@ -473,48 +509,33 @@ void AdminScreen::show() {
                 if (c == '-' || c == '+' || (c >= '0' && c <= '9')) break;
                 abbr += c;
             }
-            addRow("Timezone", abbr + " (auto-DST)");
+            addRow(t("lbl_timezone"), abbr + " (auto-DST)");
         } else if (cfg.gpsClockOffset != 0) {
-            addRow("Clock Offset", String(cfg.gpsClockOffset) + "h");
+            addRow(t("lbl_clock_offset"), String(cfg.gpsClockOffset) + "h");
         }
     }
 
     // --- Sound ---
     addSection(t("sec_sound"));
-    addRow("Sound", Speaker::instance().isMuted() ? t("muted") : t("on"));
-    addRow("SOS Keyword", cfg.sosKeyword);
-    addRow("SOS Repeat", String(cfg.sosRepeat));
+    addRow(t("lbl_sound"), Speaker::instance().isMuted() ? t("muted") : t("on"));
+    addRow(t("lbl_sos_keyword"), cfg.sosKeyword);
+    addRow(t("lbl_sos_repeat"), String(cfg.sosRepeat));
 
     // --- Battery ---
     addSection(t("sec_battery"));
-    addRow("Level", String(Battery::instance().percent()) + "%");
+    addRow(t("lbl_level"), String(Battery::instance().percent()) + "%");
     if (cfg.battery.lowAlertEnabled) {
-        addRow("Low Alert", String(cfg.battery.lowAlertThreshold) + "%");
+        addRow(t("lbl_low_alert"), String(cfg.battery.lowAlertThreshold) + "%");
     } else {
-        addRow("Low Alert", t("off"));
-    }
-
-    // --- Sound ---
-    addSection(t("sec_sound"));
-    addRow("Sound", Speaker::instance().isMuted() ? t("muted") : t("on"));
-    addRow("SOS Keyword", cfg.sosKeyword);
-    addRow("SOS Repeat", String(cfg.sosRepeat));
-
-    // --- Battery ---
-    addSection(t("sec_battery"));
-    addRow("Level", String(Battery::instance().percent()) + "%");
-    if (cfg.battery.lowAlertEnabled) {
-        addRow("Low Alert", String(cfg.battery.lowAlertThreshold) + "%");
-    } else {
-        addRow("Low Alert", t("off"));
+        addRow(t("lbl_low_alert"), t("off"));
     }
 
     // --- Security ---
     addSection(t("sec_security"));
     String lockLabel = t("off");
-    if (cfg.security.lockMode == "key") lockLabel = "Key Lock";
-    else if (cfg.security.lockMode == "pin") lockLabel = "PIN Lock";
-    addRow("Lock", lockLabel);
+    if (cfg.security.lockMode == "key") lockLabel = t("lock_key");
+    else if (cfg.security.lockMode == "pin") lockLabel = t("lock_pin");
+    addRow(t("lbl_lock"), lockLabel);
 
     // --- Language ---
     addSection(t("sec_language"));
@@ -672,6 +693,55 @@ void AdminScreen::tick() {
             lv_label_set_text(_heardCountLabel, rowBuf);
         }
     }
+}
+
+void AdminScreen::offgridToggleCb(lv_event_t* e) {
+    const auto& cfg = ConfigManager::instance().config();
+    bool enabling = !cfg.offgrid.enabled;
+    float og = mclite::offgridFreqFor(cfg.radio.frequency);
+
+    static char bodyBuf[192];
+    if (enabling) {
+        snprintf(bodyBuf, sizeof(bodyBuf), t("offgrid_confirm_on_body"), (int)og);
+    } else {
+        snprintf(bodyBuf, sizeof(bodyBuf), t("offgrid_confirm_off_body"), cfg.radio.frequency);
+    }
+
+    static const char* btns[3];
+    btns[0] = t("btn_cancel");
+    btns[1] = t("reboot_now");
+    btns[2] = "";
+
+    const char* title = enabling ? t("offgrid_confirm_on_title") : t("offgrid_confirm_off_title");
+
+    lv_obj_t* msgbox = lv_msgbox_create(NULL, title, bodyBuf, btns, false);
+    lv_obj_center(msgbox);
+    lv_obj_set_style_bg_color(msgbox, theme::BG_SECONDARY, 0);
+    lv_obj_set_style_text_color(msgbox, theme::TEXT_PRIMARY, 0);
+    lv_obj_set_style_text_font(msgbox, FONT_HEADING, 0);
+
+    lv_obj_t* btnm = lv_msgbox_get_btns(msgbox);
+    if (btnm) UIManager::instance().switchToModalGroup(btnm);
+
+    lv_obj_add_event_cb(msgbox, [](lv_event_t* ev) {
+        lv_obj_t* mbox = lv_event_get_current_target(ev);
+        uint16_t btnIdx = lv_msgbox_get_active_btn(mbox);
+        if (btnIdx == LV_BTNMATRIX_BTN_NONE) return;
+
+        if (btnIdx == 1) {
+            auto& mgr = ConfigManager::instance();
+            mgr.config().offgrid.enabled = !mgr.config().offgrid.enabled;
+            mgr.save();
+            UIManager::instance().restoreFromModalGroup();
+            lv_msgbox_close(mbox);
+            delay(200);
+            ESP.restart();
+            return;
+        }
+
+        UIManager::instance().restoreFromModalGroup();
+        lv_msgbox_close(mbox);
+    }, LV_EVENT_VALUE_CHANGED, NULL);
 }
 
 void AdminScreen::navRadioGpsCb(lv_event_t* e) {

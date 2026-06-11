@@ -28,4 +28,10 @@ struct ContactLocation {
 // Returns valid=false if nothing is known. pubKey32 may be null.
 ContactLocation bestKnownLocation(const uint8_t* pubKey32);
 
+// True if the node broadcasts its own location — its advert GPS (ContactInfo)
+// or a heard advert with GPS. Ignores telemetry on purpose: the auto-refresh
+// scheduler uses this to skip contacts whose position we already get for free,
+// while judging telemetry freshness separately. pubKey32 may be null.
+bool advertisesLocation(const uint8_t* pubKey32);
+
 }  // namespace mclite

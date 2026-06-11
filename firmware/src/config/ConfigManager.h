@@ -16,6 +16,7 @@ struct ContactConfig {
     bool   allowSos       = true;   // Allow SOS alerts from this contact
     bool   sendSos        = true;   // Include in outgoing SOS broadcast
     bool   fromDiscovery  = false;  // Auto-added from heard adverts; review me
+    std::vector<String> canned;     // Per-conversation quick replies (overrides global; empty = use global)
 };
 
 struct ChannelConfig {
@@ -27,6 +28,7 @@ struct ChannelConfig {
     bool    sendSos = true;   // Include in outgoing SOS broadcast
     bool    readOnly = false;  // Hide input bar in chat view
     String  scope;             // Region scope override ("" = inherit global, "*" = wildcard, "#name" = region)
+    std::vector<String> canned;  // Per-conversation quick replies (overrides global; empty = use global)
 };
 
 struct RoomServerConfig {
@@ -37,6 +39,7 @@ struct RoomServerConfig {
     bool   sendSos  = false;  // Include this room in outgoing SOS broadcasts (default off — community rooms shouldn't be spammed)
     bool   readOnly = false;  // Hide input bar in chat view (listen-only)
     String scope;             // Region scope override ("" = inherit global, "*" = wildcard, "#name" = region)
+    std::vector<String> canned;  // Per-conversation quick replies (overrides global; empty = use global)
 };
 
 struct RadioConfig {
@@ -69,6 +72,7 @@ struct MessagingConfig {
     bool     cannedMessages   = true;    // Enable canned message quick-reply picker
     std::vector<String> cannedCustom;    // Optional custom texts from config array
     bool     allowMute        = false;   // Allow per-chat mute via long-press (off by default)
+    bool     autoTelemetry    = true;    // Periodically auto-refresh contacts' GPS via telemetry (default on)
 };
 
 struct BatteryConfig {

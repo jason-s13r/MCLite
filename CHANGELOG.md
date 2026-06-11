@@ -7,6 +7,43 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
 
 ## [Unreleased]
 
+## [0.3.5] — 2026-06-11
+
+### Fixed
+- **Translations past ~128 keys reverted to English.** The i18n loader capped SD-loaded strings at 128, but the
+  language files now hold ~197 keys — so on German/French/Italian every key past the cap silently fell back to
+  English (e.g. `canned_5`–`8`, plus the offgrid / firmware-update / WiFi / USB / BLE / map / heard-adverts /
+  toast screens). Raised the cap to 256 and added a boot-time warning if a language file ever exceeds it.
+- **Config tool wiped stored WiFi on edit.** The tool's file-import never loaded the `wifi` section, so
+  importing a device's `config.json`, editing it, and re-exporting produced an empty `wifi` block — clearing
+  the device's stored SSID/password on the next copy to SD. WiFi (and the persisted BLE pairing PIN) now
+  round-trip correctly, including through the share-link and start-fresh paths.
+
+## [0.3.4] — 2026-06-11
+
+### Added
+- **Auto-refresh contact GPS** — keeps the map markers / convo-list badges of contacts who *don't* broadcast
+  their own location fresh, by quietly re-requesting telemetry GPS before the cached fix goes stale. Throttled
+  (one request per scan, respects the EU duty cycle, yields to manual requests) and self-limiting (stops asking
+  a contact that doesn't answer). New setting `messaging.auto_telemetry`, **default on**, can be disabled.
+- **Per-conversation quick replies** — any contact, channel, or room can carry its own `canned` list (max 8)
+  that overrides the global quick-reply list *for that chat only*; leave it empty to fall back to the global
+  list. Editable per card in the config tool. Turns a conversation into a command menu — e.g. a Home Assistant
+  / automation bridge ("Open gate", "Lights on", "Status?").
+- **Last-known location persists across reboots** — the most recent GPS fix is saved to SD
+  (`/mclite/last_location.json`, throttled) and restored on boot, so the map opens to your last position
+  without waiting for a fresh fix ([@jason-s13r](https://github.com/jason-s13r), #10).
+- **Advertise from the companion app** — the MeshCore phone/desktop app's **Advertise** button now works while
+  connected (BLE/WiFi/USB); previously it was rejected as an unsupported command. Honours the app's flood vs
+  local (zero-hop) option. The on-device advert button and the automatic periodic advert are unchanged.
+
+### Changed
+- The device-info / admin screen is now fully localized — every row label routes through the translation
+  table (de/fr/it) ([@jason-s13r](https://github.com/jason-s13r), #9).
+- Conversation history now loads only the most recent `max_history_per_chat` messages per chat at boot
+  (previously the whole file was loaded into RAM). Bounds memory if a history file is larger than the cap —
+  e.g. after lowering the setting. No visible change; the runtime cap was already in place.
+
 ### Fixed
 - Telemetry retry is no longer cancelled by the contact-info pop-up's own timeout when the mesh's outbound
   queue is busy (the two timers now stay in lockstep) — the retry fires under congestion as intended.
@@ -17,6 +54,13 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
 - Messages that exceed the 160-**byte** limit (e.g. emoji or accented/non-Latin text — which can be ≤160
   *characters* but more bytes) are now refused with a "Message too long" toast that keeps your text, instead
   of silently failing to send while still drawing a (failed) bubble.
+- A timed-out telemetry request now releases the radio's single telemetry slot when the exchange ends
+  (previously the slot stayed held after a no-response request). Without this, **auto-refresh contact GPS**
+  would stall for the rest of the session after the first contact that didn't answer, and slow/multi-hop
+  contacts could be backed off too eagerly; both are resolved.
+- Auto-refresh no longer lets a single un-sendable contact block the rest of the round-robin, and
+  `max_history_per_chat: 0` now consistently means "unlimited" on both load and prune (previously prune at 0
+  would wipe the conversation).
 
 ## [0.3.3] — 2026-06-10
 

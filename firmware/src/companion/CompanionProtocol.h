@@ -9,7 +9,10 @@
 // from the example's reply builders as each handler is implemented.
 //
 // Scope: messaging + read-only. All config/radio/contact/channel/key WRITE
-// commands are rejected with RESP_CODE_ERR + ERR_CODE_UNSUPPORTED_CMD.
+// commands are rejected with RESP_CODE_ERR + ERR_CODE_UNSUPPORTED_CMD. The one
+// exception is CMD_SEND_SELF_ADVERT, which is honoured — it only re-broadcasts
+// our own advert (same effect as the on-device button / periodic timer) and
+// changes no stored state, so it stays within the messaging scope.
 
 #include <helpers/BaseSerialInterface.h>   // MAX_FRAME_SIZE (172)
 
@@ -23,6 +26,7 @@ enum : uint8_t {
     CMD_GET_CONTACTS           = 4,   // optional 'since' for incremental sync
     CMD_GET_DEVICE_TIME        = 5,
     CMD_SET_DEVICE_TIME        = 6,
+    CMD_SEND_SELF_ADVERT       = 7,   // optional param byte: 1 = flood, 0/absent = zero-hop
     CMD_SYNC_NEXT_MESSAGE      = 10,
     CMD_GET_BATT_AND_STORAGE   = 20,
     CMD_DEVICE_QUERY           = 22,  // (example spells it CMD_DEVICE_QEURY)

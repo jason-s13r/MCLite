@@ -83,6 +83,7 @@ void CompanionService::handleFrame(size_t len) {
         case CMD_SEND_CHANNEL_TXT_MSG: cmdSendChannelTxtMsg(len); break;
         case CMD_GET_DEVICE_TIME:  cmdGetDeviceTime();      break;
         case CMD_SET_DEVICE_TIME:  cmdSetDeviceTime(len);   break;
+        case CMD_SEND_SELF_ADVERT: cmdSendSelfAdvert(len);  break;
         case CMD_GET_BATT_AND_STORAGE: cmdGetBattAndStorage(); break;
         case CMD_GET_CONTACTS:     cmdGetContacts(len);     break;
         case CMD_GET_CONTACT_BY_KEY: cmdGetContactByKey(len); break;
@@ -302,6 +303,20 @@ void CompanionService::cmdSetDeviceTime(size_t len) {
         writeOK();
     } else {
         writeErr(ERR_CODE_ILLEGAL_ARG);
+    }
+}
+
+// CMD_SEND_SELF_ADVERT -> OK / ERR. Optional param byte (_cmd[1]): 1 = flood,
+// 0 or absent = zero-hop (local). Mirrors companion_radio MyMesh.cpp:1222. This
+// is the one "write" we honour from the client: it only re-broadcasts our own
+// advert — the same thing the on-device button and the periodic timer do — and
+// changes no stored config/identity, so it stays within the messaging scope.
+void CompanionService::cmdSendSelfAdvert(size_t len) {
+    bool flood = (len >= 2 && _cmd[1] == 1);
+    if (MeshManager::instance().sendAdvertNow(flood)) {
+        writeOK();
+    } else {
+        writeErr(ERR_CODE_BAD_STATE);  // radio not ready / packet pool exhausted
     }
 }
 
