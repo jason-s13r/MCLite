@@ -192,13 +192,15 @@ void HeardAdvertsScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_bg_opa(_list, LV_OPA_50, LV_PART_SCROLLBAR);
     lv_obj_set_style_bg_color(_list, theme::TEXT_SECONDARY, LV_PART_SCROLLBAR);
 
-    // Empty hint — lives in the content area
+    // Empty hint — lives in the content area, centered when visible
     _emptyHint = lv_label_create(cont);
     lv_obj_set_style_text_font(_emptyHint, FONT_HEADING, 0);
     lv_obj_set_style_text_color(_emptyHint, theme::TEXT_SECONDARY, 0);
     lv_obj_set_style_text_align(_emptyHint, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(_emptyHint, t("heard_adverts_empty"));
     lv_obj_add_flag(_emptyHint, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(_emptyHint, LV_OBJ_FLAG_FLOATING);
+    lv_obj_center(_emptyHint);
 
     lv_obj_add_flag(_screen, LV_OBJ_FLAG_HIDDEN);
 }

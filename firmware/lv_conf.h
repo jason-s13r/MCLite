@@ -78,7 +78,7 @@
 #define LV_USE_IMGBTN     0
 #define LV_USE_KEYBOARD   1
 #define LV_USE_LED        0
-#define LV_USE_LIST       1
+#define LV_USE_LIST       0
 #define LV_USE_MENU       0
 #define LV_USE_METER      0
 #define LV_USE_MSGBOX     1
