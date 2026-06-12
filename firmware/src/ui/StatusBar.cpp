@@ -193,6 +193,7 @@ void StatusBar::create(lv_obj_t* parent) {
 
 void StatusBar::soundClickCb(lv_event_t* e) {
     StatusBar* self = (StatusBar*)lv_event_get_user_data(e);
+    if (!Speaker::instance().soundEnabled()) return;  // master off — no toggle
     Speaker::instance().toggleVolume();
     self->updateSoundIcon();
 }
@@ -203,6 +204,12 @@ void StatusBar::gpsClickCb(lv_event_t* e) {
 
 void StatusBar::updateSoundIcon() {
     if (!_soundIcon) return;
+    // Master switch off → hide the bell entirely (no per-session volume toggle).
+    if (!Speaker::instance().soundEnabled()) {
+        lv_obj_add_flag(_soundIcon, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    lv_obj_clear_flag(_soundIcon, LV_OBJ_FLAG_HIDDEN);
     bool muted = Speaker::instance().isMuted();
 
     if (muted) {

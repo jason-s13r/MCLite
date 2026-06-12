@@ -67,7 +67,7 @@ bool Speaker::init() {
 }
 
 void Speaker::playNotification() {
-    if (!_initialized || isMuted()) return;
+    if (!_initialized || !_soundEnabled || isMuted()) return;
 
     if (_hasCustomSound && playWavFile(CUSTOM_SOUND_PATH, _volume)) {
         return;  // Custom sound played successfully
@@ -78,7 +78,7 @@ void Speaker::playNotification() {
 }
 
 void Speaker::playNotificationForced() {
-    if (!_initialized) return;
+    if (!_initialized || !_soundEnabled) return;  // master switch overrides even forced
 
     // if muted, play at max volume.
     uint8_t volume = isMuted() ? SPEAKER_VOLUME_CHIME_MAX : _volume;
@@ -90,7 +90,7 @@ void Speaker::playNotificationForced() {
 }
 
 void Speaker::startSOS(uint8_t repeatCount) {
-    if (!_initialized || repeatCount == 0) return;
+    if (!_initialized || !_soundEnabled || repeatCount == 0) return;  // master switch = no SOS sound either
 
     // Check for custom SOS WAV on first use
     if (!_sosCheckedWav) {

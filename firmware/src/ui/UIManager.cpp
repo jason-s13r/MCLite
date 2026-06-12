@@ -660,6 +660,11 @@ uint32_t UIManager::handleSend(const ConvoId& id, const String& text) {
     MessageStatus initialStatus;
     if (packetId == 0) {
         initialStatus = MessageStatus::FAILED;
+        // Send never reached the air (length was already guarded above, so this is
+        // most likely the static packet pool drained by a burst, or createDatagram
+        // returning NULL). The FAILED bubble is still drawn so the user can tap to
+        // retry, but toast too so the failure isn't silent.
+        showToast(t("msg_send_failed"));
     } else if (isDM || isRoom) {
         initialStatus = MessageStatus::SENDING;
     } else {

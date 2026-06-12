@@ -29,6 +29,7 @@
     "chat_placeholder": "Messaggio...",
     "btn_send": "INVIA",
     "msg_too_long": "Messaggio troppo lungo",
+    "msg_send_failed": "Invio fallito",
     "location_title": "Inviare la posizione?",
     "btn_cancel": "Annulla",
     "btn_location_send": "Invia",

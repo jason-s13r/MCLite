@@ -20,12 +20,27 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
   volume-scaled, so they play at the chime's level rather than their raw file loudness
   ([@jason-s13r](https://github.com/jason-s13r), #11).
 
+### Changed
+- **`sound.enabled` is now a true master switch.** Previously `false` just booted the device muted (still
+  toggleable via the status-bar bell, and SOS/always-sound contacts could still make noise). Now `false` means
+  *fully silent* — no notifications, no chime, **and no SOS sound** — and the status-bar bell is hidden so
+  there's no per-session volume toggle. Set `sound.enabled: true` (the default) for the previous behavior with
+  the 3-step volume bell.
+
 ### Fixed
 - A last-known position restored after reboot no longer reports "~0s ago" before the clock has synced. The
   saved fix carries an absolute timestamp but `millis()` resets on reboot, so until GPS re-locks (or NTP/WiFi
   syncs the clock) its age can't be computed — it now shows "Last known position" instead of a misleading 0s
   (which also avoided sending a stale position over the mesh as if it were current). Once the clock syncs, the
   real "~Xm ago" age is shown again.
+- **A failed send now shows a toast** instead of silently drawing a `FAILED` bubble. When a message can't be
+  queued — e.g. the static packet pool is drained by a burst — you get a "Send failed - try again" toast (the
+  failed bubble is still there to tap-retry). Previously the only signal was the bubble's small status icon.
+- **Map tile loader hardening.** The slippy-tile PNG decoder now rejects any tile larger than the standard
+  256×256 (a corrupt or non-standard PNG could previously overflow the fixed scanline buffer) and validates
+  tile coordinates (zoom 0–19, indices within range) before touching the SD card — out-of-range tiles grey-fill
+  cleanly instead of building nonsense paths. Missing/undecodable tiles already grey-filled; this closes the
+  oversized-tile gap.
 
 ## [0.3.5] — 2026-06-11
 
