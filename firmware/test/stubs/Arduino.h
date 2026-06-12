@@ -48,6 +48,7 @@ public:
     char operator[](size_t i) const { return _str[i]; }
 
     bool isEmpty() const { return _str.empty(); }
+    void reserve(size_t n) { _str.reserve(n); }
 
     String& operator+=(char c)            { _str += c; return *this; }
     String& operator+=(const char* s)     { _str += s; return *this; }

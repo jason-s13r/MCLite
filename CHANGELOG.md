@@ -7,6 +7,19 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
 
 ## [Unreleased]
 
+### Added
+- **Emoji in chat** — received emoji now render inline (a monochrome OpenMoji font with a Montserrat fallback,
+  so plain text is unchanged and unknown glyphs degrade gracefully). An on-device **emoji picker**
+  (`display.emoji`, **default on**, can be disabled) adds a smiley button to the chat input for composing from a curated set;
+  it won't let you push a message past the 160-byte limit. Incoming/outgoing text is sanitized (strips emoji
+  variation selectors that render as boxes, normalizes “smart” quotes to ASCII). Adopted from the
+  [@jason-s13r](https://github.com/jason-s13r) fork; OpenMoji is CC-BY-SA 4.0 (see LICENSES.md).
+- **Three-step volume** — the status-bar bell now cycles **max → mute → mid → max** instead of a binary
+  mute, and the built-in chime *and* custom WAV notifications scale to the level. Default is max (loudness
+  unchanged); SOS stays fixed and loud; always-sound contacts still override mute. Note: custom WAVs are now
+  volume-scaled, so they play at the chime's level rather than their raw file loudness
+  ([@jason-s13r](https://github.com/jason-s13r), #11).
+
 ### Fixed
 - A last-known position restored after reboot no longer reports "~0s ago" before the clock has synced. The
   saved fix carries an absolute timestamp but `millis()` resets on reboot, so until GPS re-locks (or NTP/WiFi

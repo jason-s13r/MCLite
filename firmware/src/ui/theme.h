@@ -4,7 +4,10 @@
 
 #include "../hal/boards/board.h"
 
-// Forward declarations for generated emoji fonts (must be at global scope)
+// Generated OpenMoji emoji fonts (src/ui/fonts/, board-gated). Each carries a
+// Montserrat `.fallback`, so assigning one to a label renders emoji from it and
+// all ASCII from Montserrat (visually identical). T-Deck links 12/14, T-Watch
+// 16/20 — the declarations for the other board's sizes are unreferenced externs.
 LV_FONT_DECLARE(lv_font_emoji_12)
 LV_FONT_DECLARE(lv_font_emoji_14)
 LV_FONT_DECLARE(lv_font_emoji_16)
@@ -171,18 +174,19 @@ constexpr int CONVO_ROW_HEIGHT  = 48;
 #define FONT_LARGE          &lv_font_montserrat_20
 #define FONT_TITLE          &lv_font_montserrat_24
 #define FONT_STATUSBAR_ICON &lv_font_montserrat_28  // 2x current icon size for finger taps
-// Semantic fonts — one step larger than the size-named FONT_* on T-Watch
-// so body text and section headings read comfortably at arm's length.
-// Used in chat bubbles, the chat header, admin rows, etc.
-#define FONT_BODY     &lv_font_emoji_16   // body text, list rows, bubble text, timestamps
-#define FONT_HEADING  &lv_font_emoji_20   // header titles, modal text, close-button glyph
+// Semantic fonts — one step larger than the size-named FONT_* on T-Watch so body
+// text and section headings read comfortably at arm's length. Emoji fonts are
+// primary here; they fall back to Montserrat for ASCII (--lv-fallback), so emoji
+// in any message render inline. Used in chat bubbles, the chat header, admin rows.
+#define FONT_BODY     &lv_font_emoji_16  // body text, list rows, bubble text, timestamps
+#define FONT_HEADING  &lv_font_emoji_20  // header titles, modal text, close-button glyph
 #else
 #define FONT_SMALL    &lv_font_montserrat_12
 #define FONT_NORMAL   &lv_font_montserrat_14
 #define FONT_LARGE    &lv_font_montserrat_16
 #define FONT_TITLE    &lv_font_montserrat_20
-#define FONT_BODY     &lv_font_emoji_12   // body text with emoji fallback
-#define FONT_HEADING  &lv_font_emoji_14   // header titles, modal text, close-button glyph
+#define FONT_BODY     &lv_font_emoji_12  // body text with emoji fallback
+#define FONT_HEADING  &lv_font_emoji_14  // header titles with emoji fallback
 #endif
 
 }  // namespace theme

@@ -452,6 +452,7 @@ void AdminScreen::show() {
         ? String(cfg.display.dimBrightness) : String(t("off")));
     addRow(t("lbl_kbd_backlight"), cfg.display.kbdBacklight
         ? String(t("on")) + " (" + String(cfg.display.kbdBrightness) + ")" : String(t("off")));
+    addRow(t("lbl_emoji"), cfg.display.emoji ? t("on") : t("off"));
     if (cfg.display.bootText.length() > 0) {
         addRow(t("lbl_boot_text"), cfg.display.bootText);
     }
@@ -596,10 +597,8 @@ void AdminScreen::show() {
         "(c) 2008-2024 Mikal Hart\n\n"
         "Arduino ESP32 core - LGPL-2.1\n"
         "(c) Espressif\n\n"
-        "OpenMoji 15.0 - CC BY-SA 4.0\n"
-        "(c) 2026 Gross, B., Utz, D.,\n"
-        "& The OpenMoji Contributors\n"
-        "https://openmoji.org\n\n"
+        "OpenMoji emoji font - CC-BY-SA 4.0\n"
+        "(c) OpenMoji project (hfg-gmuend)\n\n"
         "MIT/Apache-2.0/Zlib libraries are used under\n"
         "the terms of those licenses. LGPL-2.1 libraries\n"
         "are dynamically linked; users may replace them\n"

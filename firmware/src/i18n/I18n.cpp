@@ -147,6 +147,7 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"lbl_auto_dim",        "Auto-Dim"},
     {"lbl_dim_brightness",  "Dim Brightness"},
     {"lbl_kbd_backlight",   "Kbd Backlight"},
+    {"lbl_emoji",           "Emoji Picker"},
     {"lbl_boot_text",       "Boot Text"},
     {"lbl_history",         "History"},
     {"lbl_max_per_chat",    "Max Per Chat"},

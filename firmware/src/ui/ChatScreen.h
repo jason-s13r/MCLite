@@ -49,7 +49,7 @@ private:
     lv_obj_t* _cannedBtn     = nullptr;
     lv_obj_t* _cannedBtnm    = nullptr;  // btnmatrix picker overlay
     lv_obj_t* _cannedOverlay = nullptr;
-    lv_obj_t* _emojiBtn      = nullptr;
+    lv_obj_t* _emojiBtn      = nullptr;  // emoji picker button (only when display.emoji on)
     lv_obj_t* _emojiBtnm     = nullptr;  // emoji grid picker overlay
     lv_obj_t* _emojiOverlay  = nullptr;
     lv_obj_t* _headerName = nullptr;
@@ -77,12 +77,12 @@ private:
     void updateGpsButtonColor();
     void updateMapButtonVisibility(const String& shortId);
     void showCannedPicker();
-    void showEmojiPicker();
 #ifdef PLATFORM_TWATCH
     void showKeyboard();
     void hideKeyboard();
 #endif
     void hideCannedPicker();
+    void showEmojiPicker();
     void hideEmojiPicker();
     void updateMuteIndicator();
     // Read the textarea and send it — but only if it fits the byte budget.

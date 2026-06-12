@@ -1,3 +1,7 @@
+// OpenMoji (CC-BY-SA 4.0) monochrome emoji font, generated via lv_font_conv.
+// Adopted from the jason-s13r/MCLite fork. See assets/fonts/generate_emoji_fonts.sh.
+// Gated to T-Watch (the only board that uses size 16) to save flash.
+#ifdef PLATFORM_TWATCH
 /*******************************************************************************
  * Size: 16 px
  * Bpp: 1
@@ -9326,3 +9330,4 @@ lv_font_t lv_font_emoji_16 = {
 
 #endif /*#if LV_FONT_EMOJI_16*/
 
+#endif  // PLATFORM_TWATCH

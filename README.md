@@ -57,6 +57,7 @@ That's it. Full walkthrough — including updates and companion mode — in [Get
 - **Map view** -- visualise positions on a slippy map (optional, requires tile pack on SD card). Tap a contact's name in chat for their position, or tap the **status-bar GPS icon** for the general map: your own location plus markers for every heard node / contact that carries GPS (same chat / repeater / room / sensor symbols as the heard-adverts list). Tap a marker for its name, drag to pan, zoomable, with Center and Reload buttons
 - **Message history** -- conversations saved to SD card and restored on reboot
 - **Quick replies** -- optional canned message picker for fast responses (OK, Copy, Need help, etc.), translatable and customizable; per-conversation override lists turn a contact/channel/room into a command menu (e.g. a Home Assistant bridge)
+- **Emoji** -- received emoji render inline in chat (monochrome OpenMoji glyphs with a plain-text fallback, so anything outside the included set degrades gracefully rather than showing boxes). An on-device emoji picker (`display.emoji`, on by default, can be disabled) adds a smiley button to compose from a curated set, without letting a message exceed the 160-byte radio limit
 - **Multi-language** -- English, German, French, and Italian included. Add your own translations via SD card
 - **Notification sounds** -- chime on incoming messages, alarm on SOS. Supports custom WAV files from SD card
 - **Haptic feedback** (T-Watch Ultra) -- vibration on incoming messages and SOS alerts, independent of the sound mute
@@ -252,7 +253,8 @@ To set up a group: use **Fleet Mode** in the Setup Wizard. Add a device for each
     "dim_brightness": 0,               // Brightness when dimmed (0 = screen off, default)
     "boot_text": "",                   // Optional text shown on boot screen (e.g. team name)
     "kbd_backlight": true,             // Keyboard backlight on/off with auto-dim
-    "kbd_brightness": 127              // Keyboard backlight brightness (1-255)
+    "kbd_brightness": 127,             // Keyboard backlight brightness (1-255)
+    "emoji": true                     // Show the chat emoji picker (received emoji always render). Default on.
   },
 
   "messaging": {

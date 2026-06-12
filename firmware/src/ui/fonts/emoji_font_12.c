@@ -1,3 +1,7 @@
+// OpenMoji (CC-BY-SA 4.0) monochrome emoji font, generated via lv_font_conv.
+// Adopted from the jason-s13r/MCLite fork. See assets/fonts/generate_emoji_fonts.sh.
+// Gated to T-Deck (the only board that uses size 12) to save flash.
+#ifdef PLATFORM_TDECK
 /*******************************************************************************
  * Size: 12 px
  * Bpp: 1
@@ -7368,3 +7372,4 @@ lv_font_t lv_font_emoji_12 = {
 
 #endif /*#if LV_FONT_EMOJI_12*/
 
+#endif  // PLATFORM_TDECK
