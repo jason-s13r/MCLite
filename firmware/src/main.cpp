@@ -400,6 +400,8 @@ static void handleKeyShortcuts() {
     char key = IInput::instance().pollKey();
     if (key == 0) return;
 
+    LOGLN(key);
+
     // Don't process shortcuts while PIN locked — keys go to PIN overlay via LVGL
     if (ui.isLocked()) {
         IInput::instance().clearKey();
@@ -434,6 +436,11 @@ static void handleKeyShortcuts() {
     }
     if (key == 0x0C && ui.currentScreen() == Screen::CHAT) {
         ui.insertLocation();
+        IInput::instance().clearKey();
+        return;
+    }
+    if (key == '#') {
+        ui.takeSnapshot();
         IInput::instance().clearKey();
         return;
     }

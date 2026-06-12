@@ -12,6 +12,7 @@
 #include "../hal/Speaker.h"
 #include "../hal/Battery.h"
 #include "../i18n/I18n.h"
+#include "../storage/SDCard.h"
 #include "../storage/TelemetryCache.h"
 #include "../storage/TileLoader.h"
 #include "../util/ContactLocation.h"
@@ -110,6 +111,83 @@ bool UIManager::init() {
     LOGLN("[UI] Initialized");
     return true;
 }
+
+// #if LV_USE_SNAPSHOT
+void UIManager::takeSnapshot()
+{
+    auto& sd = SDCard::instance();
+
+    if (!sd.isMounted()) {
+        return;
+    }
+
+    lv_obj_t* scr = lv_scr_act();
+    lv_img_dsc_t* snapshot = lv_snapshot_take(scr, LV_IMG_CF_TRUE_COLOR);
+    if (!snapshot) {
+        return;
+    }
+
+    uint16_t width = snapshot->header.w;
+    uint16_t height = snapshot->header.h;
+    if (width == 0 || height == 0) {
+        lv_snapshot_free(snapshot);
+        return;
+    }
+
+    // BMP: 24-bit RGB, rows padded to 4-byte boundary
+    uint16_t rowBytes = ((width * 3 + 3) / 4) * 4;
+    uint32_t pixelDataSize = rowBytes * height;
+    uint32_t fileSize = 54 + pixelDataSize;
+
+    uint8_t* bmp = (uint8_t*)malloc(fileSize);
+    if (!bmp) {
+        lv_snapshot_free(snapshot);
+        return;
+    }
+
+    // BMP file header (14 bytes)
+    bmp[0] = 'B'; bmp[1] = 'M';
+    memcpy(bmp + 2, &fileSize, 4);
+    memset(bmp + 6, 0, 4);           // reserved
+    uint32_t offset = 54;
+    memcpy(bmp + 10, &offset, 4);    // data offset
+
+    // DIB header (40 bytes, BITMAPINFOHEADER)
+    uint32_t headerSize = 40;
+    memcpy(bmp + 14, &headerSize, 4);
+    int32_t w = width;
+    int32_t h = height;
+    memcpy(bmp + 18, &w, 4);
+    memcpy(bmp + 22, &h, 4);
+    uint16_t planes = 1;
+    memcpy(bmp + 26, &planes, 2);
+    uint16_t bpp = 24;
+    memcpy(bmp + 28, &bpp, 2);
+    memset(bmp + 30, 0, 4);          // compression = BI_RGB
+    memcpy(bmp + 34, &pixelDataSize, 4);
+    memset(bmp + 38, 0, 16);         // DPI + colors used/important
+
+    // Pixel data: bottom-up, BGR order
+    const lv_color_t* src = (const lv_color_t*)snapshot->data;
+    for (int y = 0; y < height; y++) {
+        uint8_t* dstRow = bmp + 54 + (height - 1 - y) * rowBytes;
+        for (int x = 0; x < width; x++) {
+            uint32_t c32 = lv_color_to32(src[y * width + x]);
+            dstRow[x * 3 + 0] = (c32 >> 0)  & 0xFF;   // blue
+            dstRow[x * 3 + 1] = (c32 >> 8)  & 0xFF;   // green
+            dstRow[x * 3 + 2] = (c32 >> 16) & 0xFF;   // red
+        }
+    }
+
+    sd.mkdir("/mclite");
+    char path[48];
+    snprintf(path, sizeof(path), "/mclite/screenshot_%lu.bmp", millis());
+    sd.writeFileBinary(path, bmp, fileSize);
+
+    free(bmp);
+    lv_snapshot_free(snapshot);
+}
+// #endif
 
 void UIManager::update() {
     uint32_t now = millis();

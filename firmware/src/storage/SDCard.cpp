@@ -80,6 +80,15 @@ bool SDCard::writeFile(const char* path, const String& content) {
     return written == content.length();
 }
 
+bool SDCard::writeFileBinary(const char* path, const uint8_t* data, size_t len) {
+    if (!_mounted) return false;
+    File f = SD.open(path, FILE_WRITE);
+    if (!f) return false;
+    size_t written = f.write(data, len);
+    f.close();
+    return written == len;
+}
+
 bool SDCard::writeAtomic(const char* path, const String& content) {
     if (!_mounted) return false;
 

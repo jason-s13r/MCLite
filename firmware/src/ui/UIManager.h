@@ -30,6 +30,10 @@ public:
     void loadMainScreen();  // Switch from boot screen to main UI
     void update();  // Call from main loop (LVGL timer + status bar refresh)
 
+// #if LV_USE_SNAPSHOT
+    void takeSnapshot();
+// #endif
+
     void showScreen(Screen screen);
     void openChat(const ConvoId& id);
     void goHome();

@@ -11,6 +11,8 @@
 #define LV_COLOR_DEPTH 16
 #define LV_COLOR_16_SWAP 1
 
+#define LV_USE_SNAPSHOT 1
+
 /* Memory */
 #define LV_MEM_CUSTOM 1
 #define LV_MEM_CUSTOM_INCLUDE <stdlib.h>

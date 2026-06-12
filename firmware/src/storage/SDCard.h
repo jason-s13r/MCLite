@@ -14,6 +14,7 @@ public:
     bool dirExists(const char* path);
     String readFile(const char* path, size_t maxSize = 32768);
     bool writeFile(const char* path, const String& content);
+    bool writeFileBinary(const char* path, const uint8_t* data, size_t len);
 
     // Crash-safe write: stages to <path>.tmp, retains the previous file as
     // <path>.bak, then renames tmp into place. Use for files whose corruption
