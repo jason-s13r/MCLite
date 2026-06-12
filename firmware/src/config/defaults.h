@@ -44,6 +44,7 @@ constexpr const char* BOOT_TEXT          = "";
 constexpr uint8_t  DIM_BRIGHTNESS        = 0;
 constexpr bool     KBD_BACKLIGHT         = true;
 constexpr uint8_t  KBD_BRIGHTNESS        = 127;
+constexpr bool     EMOJI_ENABLED         = false;  // Chat emoji picker off by default
 
 // Messaging
 constexpr bool     SAVE_HISTORY          = true;

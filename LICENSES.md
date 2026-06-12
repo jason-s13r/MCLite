@@ -26,10 +26,19 @@ MCLite uses the following open-source libraries. Their license terms apply to th
 |---------|---------|---------|-----------|
 | [ESP Web Tools](https://github.com/esphome/esp-web-tools) | 10.x | Apache-2.0 | (c) 2021 ESPHome |
 
+## Assets
+
+| Asset | License | Copyright |
+|-------|---------|-----------|
+| [OpenMoji](https://openmoji.org/) emoji font (monochrome subset, `firmware/src/ui/fonts/emoji_font_*.c`) | CC-BY-SA 4.0 | (c) OpenMoji project (HfG Schwaebisch Gmuend) |
+
 ## License Notes
 
 - **MIT-licensed** libraries are used under the terms of the MIT License. See each project's repository for the full license text.
 - **Apache-2.0-licensed** libraries (PNGdec) are used under the terms of the Apache License 2.0.
 - **Zlib-licensed** libraries (orlp/ed25519) are used under the terms of the Zlib license.
 - **LGPL-2.1-licensed** libraries (TinyGPSPlus, Arduino ESP32 core) are dynamically linked. Users may replace them by rebuilding with PlatformIO.
+- The **OpenMoji** emoji glyphs (embedded as generated LVGL fonts) are used under **CC-BY-SA 4.0** with
+  attribution to the OpenMoji project. Only a monochrome subset is included; see
+  `firmware/assets/fonts/generate_emoji_fonts.sh`.
 - MCLite itself is released under the **MIT License**. See [LICENSE](LICENSE).

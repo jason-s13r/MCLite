@@ -48,6 +48,7 @@ void ConfigManager::applyDefaults() {
     _config.display.dimBrightness = defaults::DIM_BRIGHTNESS;
     _config.display.kbdBacklight  = defaults::KBD_BACKLIGHT;
     _config.display.kbdBrightness = defaults::KBD_BRIGHTNESS;
+    _config.display.emoji         = defaults::EMOJI_ENABLED;
     _config.messaging.saveHistory      = defaults::SAVE_HISTORY;
     _config.messaging.maxHistoryPerChat = defaults::MAX_HISTORY_PER_CHAT;
     _config.messaging.locationFormat   = defaults::LOCATION_FORMAT;
@@ -222,6 +223,7 @@ bool ConfigManager::parseJson(const String& json) {
         _config.display.kbdBacklight   = disp["kbd_backlight"] | defaults::KBD_BACKLIGHT;
         uint8_t kbdBr = disp["kbd_brightness"] | defaults::KBD_BRIGHTNESS;
         _config.display.kbdBrightness  = constrain(kbdBr, 1, 255);
+        _config.display.emoji          = disp["emoji"] | defaults::EMOJI_ENABLED;
     }
 
     // Messaging
@@ -409,6 +411,7 @@ String ConfigManager::toJson() const {
     disp["dim_brightness"]   = _config.display.dimBrightness;
     disp["kbd_backlight"]    = _config.display.kbdBacklight;
     disp["kbd_brightness"]   = _config.display.kbdBrightness;
+    disp["emoji"]            = _config.display.emoji;
 
     JsonObject msg = doc["messaging"].to<JsonObject>();
     msg["save_history"]         = _config.messaging.saveHistory;

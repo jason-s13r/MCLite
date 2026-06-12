@@ -252,7 +252,8 @@ To set up a group: use **Fleet Mode** in the Setup Wizard. Add a device for each
     "dim_brightness": 0,               // Brightness when dimmed (0 = screen off, default)
     "boot_text": "",                   // Optional text shown on boot screen (e.g. team name)
     "kbd_backlight": true,             // Keyboard backlight on/off with auto-dim
-    "kbd_brightness": 127              // Keyboard backlight brightness (1-255)
+    "kbd_brightness": 127,             // Keyboard backlight brightness (1-255)
+    "emoji": false                    // Show the chat emoji picker (received emoji always render). Default off.
   },
 
   "messaging": {

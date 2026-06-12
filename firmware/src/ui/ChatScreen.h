@@ -44,6 +44,9 @@ private:
     lv_obj_t* _cannedBtn     = nullptr;
     lv_obj_t* _cannedBtnm    = nullptr;  // btnmatrix picker overlay
     lv_obj_t* _cannedOverlay = nullptr;
+    lv_obj_t* _emojiBtn      = nullptr;  // emoji picker button (only when display.emoji on)
+    lv_obj_t* _emojiBtnm     = nullptr;  // emoji grid picker overlay
+    lv_obj_t* _emojiOverlay  = nullptr;
     lv_obj_t* _headerName = nullptr;
     lv_obj_t* _muteIcon = nullptr;  // Mute indicator in header
 #ifdef PLATFORM_TWATCH
@@ -68,6 +71,8 @@ private:
     void hideKeyboard();
 #endif
     void hideCannedPicker();
+    void showEmojiPicker();
+    void hideEmojiPicker();
     void updateMuteIndicator();
     // Read the textarea and send it — but only if it fits the byte budget.
     // Over-budget (e.g. emoji/accents push past MAX_MSG_BYTES) → toast + keep text.
@@ -85,6 +90,8 @@ private:
     static void retryBtnCb(lv_event_t* e);
     static void cannedBtnCb(lv_event_t* e);
     static void cannedBtnmCb(lv_event_t* e);
+    static void emojiBtnCb(lv_event_t* e);
+    static void emojiBtnmCb(lv_event_t* e);
     static void muteIconCb(lv_event_t* e);
 };
 
