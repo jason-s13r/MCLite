@@ -405,22 +405,22 @@ void test_auto_telemetry_round_trips() {
 
 // ═══ Display emoji flag ═══
 
-void test_emoji_defaults_false() {
+void test_emoji_defaults_true() {
     parse("{\"display\":{}}");
+    TEST_ASSERT_TRUE(cfg->config().display.emoji);
+}
+
+void test_emoji_explicit_false() {
+    parse("{\"display\":{\"emoji\": false}}");
     TEST_ASSERT_FALSE(cfg->config().display.emoji);
 }
 
-void test_emoji_explicit_true() {
-    parse("{\"display\":{\"emoji\": true}}");
-    TEST_ASSERT_TRUE(cfg->config().display.emoji);
-}
-
 void test_emoji_round_trips() {
-    parse("{\"display\":{\"emoji\": true}}");
+    parse("{\"display\":{\"emoji\": false}}");
     String json = cfg->toJson();
     cfg->config() = AppConfig{};
     cfg->parseJson(json);
-    TEST_ASSERT_TRUE(cfg->config().display.emoji);
+    TEST_ASSERT_FALSE(cfg->config().display.emoji);
 }
 
 // ═══ Radio scope ═══
@@ -736,8 +736,8 @@ int main() {
     RUN_TEST(test_auto_telemetry_defaults_true);
     RUN_TEST(test_auto_telemetry_explicit_false);
     RUN_TEST(test_auto_telemetry_round_trips);
-    RUN_TEST(test_emoji_defaults_false);
-    RUN_TEST(test_emoji_explicit_true);
+    RUN_TEST(test_emoji_defaults_true);
+    RUN_TEST(test_emoji_explicit_false);
     RUN_TEST(test_emoji_round_trips);
 
     // Radio scope

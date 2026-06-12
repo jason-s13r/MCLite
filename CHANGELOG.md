@@ -9,8 +9,8 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
 
 ### Added
 - **Emoji in chat** — received emoji now render inline (a monochrome OpenMoji font with a Montserrat fallback,
-  so plain text is unchanged and unknown glyphs degrade gracefully). An opt-in on-device **emoji picker**
-  (`display.emoji`, **default off**) adds a smiley button to the chat input for composing from a curated set;
+  so plain text is unchanged and unknown glyphs degrade gracefully). An on-device **emoji picker**
+  (`display.emoji`, **default on**, can be disabled) adds a smiley button to the chat input for composing from a curated set;
   it won't let you push a message past the 160-byte limit. Incoming/outgoing text is sanitized (strips emoji
   variation selectors that render as boxes, normalizes “smart” quotes to ASCII). Adopted from the
   [@jason-s13r](https://github.com/jason-s13r) fork; OpenMoji is CC-BY-SA 4.0 (see LICENSES.md).

@@ -60,7 +60,7 @@ struct DisplayConfig {
     uint8_t  dimBrightness  = 0;     // Brightness when dimmed (0 = screen off)
     bool     kbdBacklight   = true;  // Keyboard backlight follows auto-dim (on/off)
     uint8_t  kbdBrightness  = 127;   // Keyboard backlight level (1-255)
-    bool     emoji          = false; // Show the chat emoji picker (received emoji always render)
+    bool     emoji          = true;  // Show the chat emoji picker (received emoji always render)
 };
 
 struct MessagingConfig {

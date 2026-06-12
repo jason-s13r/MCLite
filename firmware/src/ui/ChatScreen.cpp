@@ -169,8 +169,9 @@ void ChatScreen::createInputBar() {
         lv_obj_center(cannedLbl);
     }
 
-    // Emoji picker button — opt-in (display.emoji). Received emoji always render
-    // (the chat font carries an emoji fallback); this only gates composing them.
+    // Emoji picker button — gated by display.emoji (on by default, can be turned
+    // off). Received emoji always render (the chat font carries an emoji
+    // fallback); this flag only controls whether you can compose them.
     if (ConfigManager::instance().config().display.emoji) {
         _emojiBtn = lv_btn_create(_inputBar);
         lv_obj_set_size(_emojiBtn, theme::BTN_ACTION_W, theme::BTN_ACTION_H);

@@ -2565,10 +2565,10 @@ body.v4 *::-webkit-scrollbar-thumb:hover { background: var(--shell-line-2); }
       <div class="field">
         <label>Emoji Picker<button type="button" class="info-icon" onclick="toggleHint(this)" aria-label="Toggle hint">i</button></label>
         <select id="dispEmoji">
-          <option value="false" selected>Off</option>
-          <option value="true">On</option>
+          <option value="true" selected>On</option>
+          <option value="false">Off</option>
         </select>
-        <div class="hint collapsible">Show the emoji picker in chat for composing emoji. Received emoji always render either way. Default off.</div>
+        <div class="hint collapsible">Show the emoji picker in chat for composing emoji. Received emoji always render either way. Default on.</div>
       </div>
     </div>
   </div>
@@ -4441,7 +4441,7 @@ function loadConfig(cfg) {
     document.getElementById('dispDimBrightness').value = cfg.display.dim_brightness ?? 20;
     document.getElementById('dispBootText').value   = cfg.display.boot_text ?? '';
     document.getElementById('kbdBacklight').value = cfg.display.kbd_backlight !== false ? 'true' : 'false';
-    document.getElementById('dispEmoji').value = cfg.display.emoji === true ? 'true' : 'false';
+    document.getElementById('dispEmoji').value = cfg.display.emoji !== false ? 'true' : 'false';
     document.getElementById('kbdBrightness').value  = cfg.display.kbd_brightness ?? 127;
     document.getElementById('kbdBrightness').disabled = document.getElementById('kbdBacklight').value !== 'true';
   }
@@ -4541,7 +4541,7 @@ async function applyDefaultsAndGenerate() {
   document.getElementById('dispDimBrightness').value = 20;
   document.getElementById('dispBootText').value = '';
   document.getElementById('kbdBacklight').value = 'true';
-  document.getElementById('dispEmoji').value = 'false';
+  document.getElementById('dispEmoji').value = 'true';
   document.getElementById('kbdBrightness').value = 127;
   document.getElementById('kbdBrightness').disabled = false;
   document.getElementById('msgHistory').value = 'true';
