@@ -40,11 +40,19 @@ public:
     void setMuted() { _volume = SPEAKER_VOLUME_CHIME_MUTE; }
     bool isMuted() const { return _volume == SPEAKER_VOLUME_CHIME_MUTE; }
 
+    // Master switch (config `sound.enabled`). When false the speaker is fully
+    // silent — no notifications, no chime, no SOS — and the status-bar bell is
+    // hidden (no per-session volume toggle). Distinct from mute/volume, which is
+    // the user's runtime level while sound is enabled.
+    void setSoundEnabled(bool en) { _soundEnabled = en; }
+    bool soundEnabled() const { return _soundEnabled; }
+
     static Speaker& instance();
 
 private:
     Speaker() = default;
     bool _initialized = false;
+    bool _soundEnabled = true;   // master switch (config sound.enabled)
     bool _hasCustomSound = false;
     bool _hasSOSWav      = false;
     uint8_t _volume = SPEAKER_VOLUME_CHIME_MAX;  // boot at max so upgrades keep current loudness; bell steps down

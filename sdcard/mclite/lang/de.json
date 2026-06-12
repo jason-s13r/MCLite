@@ -29,6 +29,7 @@
     "chat_placeholder": "Nachricht...",
     "btn_send": "SENDEN",
     "msg_too_long": "Nachricht zu lang",
+    "msg_send_failed": "Senden fehlgeschlagen",
     "location_title": "Standort senden?",
     "btn_cancel": "Abbrechen",
     "btn_location_send": "Senden",

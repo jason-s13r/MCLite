@@ -153,9 +153,8 @@ void setup() {
     // 7. Speaker
     Display::instance().setBootStatus("Speaker...");
     Speaker::instance().init();
-    if (!cfg.soundEnabled) {
-        Speaker::instance().setMuted();
-    }
+    // sound.enabled is a true master switch: false = fully silent + no bell.
+    Speaker::instance().setSoundEnabled(cfg.soundEnabled);
 
     // 8. UI — creates main screen (hidden, boot screen still active)
     Display::instance().setBootStatus("Starting...");

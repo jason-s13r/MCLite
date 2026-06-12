@@ -70,6 +70,9 @@ int pngDrawCb(PNGDRAW* pDraw) {
     if (!ctx || !ctx->buf || !_pngCurrent) return 0;
 
     static uint16_t lineBuf[256];  // one scanline of a 256-wide tile
+    // Defense in depth: decodeInto() already rejects tiles wider than 256px,
+    // but a stray wide scanline here would overflow lineBuf — abort the decode.
+    if (pDraw->iWidth > 256) return 0;
     _pngCurrent->getLineAsRGB565(pDraw, lineBuf, PNG_RGB565_BIG_ENDIAN, 0);
 
     const int y = ctx->dstY + pDraw->y;
@@ -102,6 +105,15 @@ void fillGrey(lv_color_t* buf, int bufW, int bufH, int dstX, int dstY) {
         lv_color_t* row = buf + y * bufW;
         for (int x = x0; x < x1; x++) row[x] = grey;
     }
+}
+
+// True if (z, tx, ty) is a valid slippy-tile coordinate: z in [0,19] and the
+// tile indices within [0, 2^z) for that zoom. Guards against negative/overflow
+// indices producing nonsense SD paths.
+bool tileCoordValid(uint8_t z, int tx, int ty) {
+    if (z > 19) return false;
+    const int n = 1 << z;  // tiles per axis at this zoom
+    return tx >= 0 && tx < n && ty >= 0 && ty < n;
 }
 
 }  // namespace
@@ -175,6 +187,7 @@ const std::vector<uint8_t>& TileLoader::availableZooms() {
 
 bool TileLoader::tileExists(uint8_t z, int tx, int ty) {
     if (!tilesAvailable()) return false;
+    if (!tileCoordValid(z, tx, ty)) return false;
     char path[48];
     snprintf(path, sizeof(path), "/tiles/%u/%d/%d.png", (unsigned)z, tx, ty);
     return SDCard::instance().fileExists(path);
@@ -275,6 +288,11 @@ bool TileLoader::decodeInto(lv_color_t* buf, int bufW, int bufH,
                             int dstX, int dstY, uint8_t z, int tx, int ty) {
     if (!buf) return false;
 
+    if (!tileCoordValid(z, tx, ty)) {
+        fillGrey(buf, bufW, bufH, dstX, dstY);
+        return false;
+    }
+
     char path[48];
     snprintf(path, sizeof(path), "/tiles/%u/%d/%d.png", (unsigned)z, tx, ty);
 
@@ -292,6 +310,18 @@ bool TileLoader::decodeInto(lv_color_t* buf, int bufW, int bufH,
     int rc = png->open(path, pngOpenCb, pngCloseCb, pngReadCb, pngSeekCb, pngDrawCb);
     if (rc != PNG_SUCCESS) {
         LOGF("[TileLoader] open failed: %s (rc=%d)\n", path, rc);
+        png->~PNG();
+        fillGrey(buf, bufW, bufH, dstX, dstY);
+        return false;
+    }
+
+    // Reject any tile that isn't a standard <=256px slippy tile. The scanline
+    // callback decodes into a fixed 256-wide buffer, so a wider PNG (corrupt or
+    // non-standard) would overflow it. Grey-fill and bail before decoding.
+    if (png->getWidth() > 256 || png->getHeight() > 256) {
+        LOGF("[TileLoader] tile too large: %s (%dx%d)\n",
+             path, png->getWidth(), png->getHeight());
+        png->close();
         png->~PNG();
         fillGrey(buf, bufW, bufH, dstX, dstY);
         return false;
