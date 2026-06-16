@@ -12,6 +12,11 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
   button that opens its detail dialog, and — when the advert carries a location — a map button that opens the
   map centered on that node. Back now returns to the Admin screen. Thanks [@jason-s13r](https://github.com/jason-s13r) (#15).
 
+### Changed
+- **Auto GPS refresh now defaults off** (`messaging.auto_telemetry`). A fresh device no longer emits periodic
+  telemetry requests on the mesh unless you opt in — quiet by default, matching the advert changes in 0.3.8.
+  Existing configs that set the field are unaffected.
+
 ## [0.3.8] — 2026-06-16
 
 ### Added

@@ -56,7 +56,7 @@ constexpr bool     REQUEST_TELEMETRY     = true;
 constexpr const char* SHOW_TELEMETRY    = "both";  // "battery", "location", "both", "none"
 constexpr bool     CANNED_MESSAGES_ENABLED = true;
 constexpr bool     ALLOW_MUTE            = false;  // Enable per-chat mute (long-press); off by default
-constexpr bool     AUTO_TELEMETRY        = true;   // Auto-refresh contacts' GPS via periodic telemetry
+constexpr bool     AUTO_TELEMETRY        = false;  // Auto-refresh contacts' GPS via periodic telemetry (opt-in)
 
 // Auto-telemetry scheduler tuning (background GPS refresh for contacts who don't advert location)
 constexpr uint32_t AUTO_TELEM_SCAN_MS        = 60000;    // Evaluate at most one request per minute

@@ -264,8 +264,8 @@ To set up a group: use **Fleet Mode** in the Setup Wizard. Add a device for each
     "max_retries": 3,                  // DM delivery retry attempts (1-5)
     "request_telemetry": true,         // Tap contact name to see battery/location (optional)
     "show_telemetry": "both",          // Badges on convo list: "battery", "location", "both", "none"
-    "auto_telemetry": true,            // Auto-refresh GPS of contacts who don't broadcast it, to keep map
-                                       //   markers fresh. Throttled + self-limiting (backs off non-responders). Default on.
+    "auto_telemetry": false,           // Auto-refresh GPS of contacts who don't broadcast it, to keep map
+                                       //   markers fresh. Throttled + self-limiting (backs off non-responders). Opt-in, off by default.
     "canned_messages": true            // Quick-reply picker: true = on (default messages, default), false = off,
                                        //   or ["Reply 1", "Reply 2"] = on with custom messages (max 8).
                                        //   This is the GLOBAL list; individual contacts/channels/rooms can override

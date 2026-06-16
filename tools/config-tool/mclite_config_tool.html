@@ -2648,10 +2648,10 @@ body.v4 *::-webkit-scrollbar-thumb:hover { background: var(--shell-line-2); }
       <div class="field">
         <label>Auto-refresh Contact GPS<button type="button" class="info-icon" onclick="toggleHint(this)" aria-label="Toggle hint">i</button></label>
         <select id="msgAutoTelemetry">
-          <option value="true" selected>Yes</option>
-          <option value="false">No</option>
+          <option value="true">Yes</option>
+          <option value="false" selected>No</option>
         </select>
-        <div class="hint collapsible">Periodically re-request GPS from contacts who don't broadcast it, to keep their map markers fresh. Throttled and self-limiting; default on.</div>
+        <div class="hint collapsible">Periodically re-request GPS from contacts who don't broadcast it, to keep their map markers fresh. Throttled and self-limiting; opt-in, off by default.</div>
       </div>
     </div>
   </div>
@@ -4485,7 +4485,7 @@ function loadConfig(cfg) {
     document.getElementById('msgRetries').value = cfg.messaging.max_retries ?? 3;
     document.getElementById('msgTelemetry').value = String(cfg.messaging.request_telemetry ?? true);
     document.getElementById('msgShowTelemetry').value = cfg.messaging.show_telemetry ?? 'both';
-    document.getElementById('msgAutoTelemetry').value = String(cfg.messaging.auto_telemetry ?? true);
+    document.getElementById('msgAutoTelemetry').value = String(cfg.messaging.auto_telemetry ?? false);
     // canned_messages can be bool or array — config tool only handles the bool toggle
     const cm = cfg.messaging.canned_messages;
     document.getElementById('cannedMessages').value = String(cm === true || Array.isArray(cm) ? true : cm ?? false);
@@ -4585,7 +4585,7 @@ async function applyDefaultsAndGenerate() {
   document.getElementById('msgRetries').value = 3;
   document.getElementById('msgTelemetry').value = 'true';
   document.getElementById('msgShowTelemetry').value = 'both';
-  document.getElementById('msgAutoTelemetry').value = 'true';
+  document.getElementById('msgAutoTelemetry').value = 'false';
   document.getElementById('cannedMessages').value = 'true';
   document.getElementById('msgAllowMute').value = 'false';
   document.getElementById('soundEnabled').value = 'true';

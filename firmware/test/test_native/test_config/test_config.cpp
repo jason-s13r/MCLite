@@ -385,14 +385,14 @@ void test_empty_canned_omitted_from_serialize() {
 
 // ═══ Auto-telemetry (auto-refresh contact GPS) ═══
 
-void test_auto_telemetry_defaults_true() {
+void test_auto_telemetry_defaults_off() {
     parse("{}");
-    TEST_ASSERT_TRUE(cfg->config().messaging.autoTelemetry);
+    TEST_ASSERT_FALSE(cfg->config().messaging.autoTelemetry);
 }
 
-void test_auto_telemetry_explicit_false() {
-    parse("{\"messaging\":{\"auto_telemetry\": false}}");
-    TEST_ASSERT_FALSE(cfg->config().messaging.autoTelemetry);
+void test_auto_telemetry_explicit_true() {
+    parse("{\"messaging\":{\"auto_telemetry\": true}}");
+    TEST_ASSERT_TRUE(cfg->config().messaging.autoTelemetry);
 }
 
 void test_auto_telemetry_round_trips() {
@@ -828,8 +828,8 @@ int main() {
     RUN_TEST(test_canned_blanks_skipped_and_capped);
     RUN_TEST(test_canned_roundtrips_through_serialize);
     RUN_TEST(test_empty_canned_omitted_from_serialize);
-    RUN_TEST(test_auto_telemetry_defaults_true);
-    RUN_TEST(test_auto_telemetry_explicit_false);
+    RUN_TEST(test_auto_telemetry_defaults_off);
+    RUN_TEST(test_auto_telemetry_explicit_true);
     RUN_TEST(test_auto_telemetry_round_trips);
     RUN_TEST(test_emoji_defaults_true);
     RUN_TEST(test_emoji_explicit_false);
