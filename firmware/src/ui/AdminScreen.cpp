@@ -766,10 +766,11 @@ void AdminScreen::themeRowCb(lv_event_t* e) {
     g_themeMap.push_back("");   // sentinel
     int count = (int)g_themeLabels.size();
 
-    // Scrim overlay — tap to dismiss.
-    self->_themeOverlay = lv_obj_create(self->_screen);
-    lv_obj_set_size(self->_themeOverlay, Display::width(),
-                    Display::height() - theme::STATUS_BAR_HEIGHT - theme::FOOTER_HEIGHT);
+    // Scrim overlay — tap to dismiss. Parented to the top layer (NOT the Admin
+    // screen): the Admin screen is an lv_win with a flex layout, so a child added
+    // there would be laid out as a flex item off-screen instead of floating.
+    self->_themeOverlay = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(self->_themeOverlay, Display::width(), Display::height());
     lv_obj_set_pos(self->_themeOverlay, 0, 0);
     lv_obj_set_style_bg_color(self->_themeOverlay, theme::SCRIM(), 0);
     lv_obj_set_style_bg_opa(self->_themeOverlay, LV_OPA_50, 0);
@@ -781,8 +782,8 @@ void AdminScreen::themeRowCb(lv_event_t* e) {
         lv_async_call([](void* ctx) { ((AdminScreen*)ctx)->hideThemePicker(); }, s);
     }, LV_EVENT_CLICKED, self);
 
-    // Button matrix — one theme per full-width row.
-    self->_themeBtnm = lv_btnmatrix_create(self->_screen);
+    // Button matrix — one theme per full-width row (top layer, above the win).
+    self->_themeBtnm = lv_btnmatrix_create(lv_layer_top());
     lv_btnmatrix_set_map(self->_themeBtnm, g_themeMap.data());
 #ifdef PLATFORM_TWATCH
     lv_coord_t rowH = 64;
