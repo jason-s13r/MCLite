@@ -2,6 +2,7 @@
 
 #include <ArduinoJson.h>
 #include <vector>
+#include <utility>
 #include <cstdint>
 
 namespace mclite {
@@ -54,15 +55,25 @@ struct RadioConfig {
                                     // Off avoids spamming shared meshes (issue #13); if set, >=60.
 };
 
+// A user-defined palette from config (display.themes[]). Stored as strings only
+// — no LVGL types — so ConfigManager stays host-testable; the theme layer
+// resolves these into an actual palette at boot. Unspecified keys inherit `base`.
+struct CustomTheme {
+    String name;
+    String base = "dark";                                  // built-in to start from
+    std::vector<std::pair<String, String>> colors;         // canonical key -> "#RRGGBB"
+};
+
 struct DisplayConfig {
     uint8_t  brightness     = 180;
     uint16_t autoDimSeconds = 30;
-    String   theme          = "dark";
+    String   theme          = "dark";  // active theme: a built-in or a custom name
     String   bootText       = "";   // Optional text shown on boot screen below version
     uint8_t  dimBrightness  = 0;     // Brightness when dimmed (0 = screen off)
     bool     kbdBacklight   = true;  // Keyboard backlight follows auto-dim (on/off)
     uint8_t  kbdBrightness  = 127;   // Keyboard backlight level (1-255)
     bool     emoji          = true;  // Show the chat emoji picker (received emoji always render)
+    std::vector<CustomTheme> customThemes;  // optional user palettes (display.themes[])
 };
 
 struct MessagingConfig {

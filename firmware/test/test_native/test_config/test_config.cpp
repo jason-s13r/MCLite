@@ -518,6 +518,56 @@ void test_location_precision_round_trips() {
     TEST_ASSERT_EQUAL_UINT8(16, cfg->config().locationPrecision);
 }
 
+// ═══ Themes ═══
+
+void test_theme_defaults_dark() {
+    parse("{}");
+    TEST_ASSERT_EQUAL_STRING("dark", cfg->config().display.theme.c_str());
+    TEST_ASSERT_EQUAL_UINT32(0, cfg->config().display.customThemes.size());
+}
+
+void test_theme_selected_parsed() {
+    parse("{\"display\":{\"theme\":\"amber\"}}");
+    TEST_ASSERT_EQUAL_STRING("amber", cfg->config().display.theme.c_str());
+}
+
+void test_custom_theme_parsed() {
+    parse("{\"display\":{\"theme\":\"mine\",\"themes\":["
+          "{\"name\":\"mine\",\"base\":\"light\",\"accent\":\"#FF00AA\",\"bg_primary\":\"#101018\"}]}}");
+    auto& ct = cfg->config().display.customThemes;
+    TEST_ASSERT_EQUAL_UINT32(1, ct.size());
+    TEST_ASSERT_EQUAL_STRING("mine", ct[0].name.c_str());
+    TEST_ASSERT_EQUAL_STRING("light", ct[0].base.c_str());
+    TEST_ASSERT_EQUAL_UINT32(2, ct[0].colors.size());   // accent + bg_primary (name/base excluded)
+}
+
+void test_custom_theme_base_defaults_dark() {
+    parse("{\"display\":{\"themes\":[{\"name\":\"x\",\"accent\":\"#123456\"}]}}");
+    auto& ct = cfg->config().display.customThemes;
+    TEST_ASSERT_EQUAL_UINT32(1, ct.size());
+    TEST_ASSERT_EQUAL_STRING("dark", ct[0].base.c_str());
+}
+
+void test_custom_theme_unnamed_skipped() {
+    parse("{\"display\":{\"themes\":[{\"accent\":\"#123456\"},{\"name\":\"ok\"}]}}");
+    auto& ct = cfg->config().display.customThemes;
+    TEST_ASSERT_EQUAL_UINT32(1, ct.size());
+    TEST_ASSERT_EQUAL_STRING("ok", ct[0].name.c_str());
+}
+
+void test_custom_theme_round_trips() {
+    parse("{\"display\":{\"theme\":\"mine\",\"themes\":["
+          "{\"name\":\"mine\",\"base\":\"amber\",\"accent\":\"#FF00AA\"}]}}");
+    String json = cfg->toJson();
+    cfg->config() = AppConfig{};
+    cfg->parseJson(json);
+    TEST_ASSERT_EQUAL_STRING("mine", cfg->config().display.theme.c_str());
+    auto& ct = cfg->config().display.customThemes;
+    TEST_ASSERT_EQUAL_UINT32(1, ct.size());
+    TEST_ASSERT_EQUAL_STRING("amber", ct[0].base.c_str());
+    TEST_ASSERT_EQUAL_UINT32(1, ct[0].colors.size());
+}
+
 // ═══ Radio scope ═══
 
 void test_radio_scope_default_wildcard() {
@@ -850,6 +900,12 @@ int main() {
     RUN_TEST(test_location_precision_legacy_true);
     RUN_TEST(test_location_precision_legacy_false);
     RUN_TEST(test_location_precision_round_trips);
+    RUN_TEST(test_theme_defaults_dark);
+    RUN_TEST(test_theme_selected_parsed);
+    RUN_TEST(test_custom_theme_parsed);
+    RUN_TEST(test_custom_theme_base_defaults_dark);
+    RUN_TEST(test_custom_theme_unnamed_skipped);
+    RUN_TEST(test_custom_theme_round_trips);
 
     // Radio scope
     RUN_TEST(test_radio_scope_default_wildcard);

@@ -235,6 +235,28 @@ bool ConfigManager::parseJson(const String& json) {
         uint8_t kbdBr = disp["kbd_brightness"] | defaults::KBD_BRIGHTNESS;
         _config.display.kbdBrightness  = constrain(kbdBr, 1, 255);
         _config.display.emoji          = disp["emoji"] | defaults::EMOJI_ENABLED;
+
+        // Custom themes (display.themes[]) — each is {name, base?, <colorKey>:"#RRGGBB"…}.
+        // Stored verbatim as strings; the theme layer validates/resolves them at boot.
+        _config.display.customThemes.clear();
+        JsonArray themesArr = disp["themes"];
+        if (!themesArr.isNull()) {
+            for (JsonObject t : themesArr) {
+                String name = t["name"] | "";
+                if (name.length() == 0) continue;
+                CustomTheme ct;
+                ct.name = name;
+                ct.base = t["base"] | "dark";
+                for (JsonPair kv : t) {
+                    String k = kv.key().c_str();
+                    if (k == "name" || k == "base") continue;
+                    if (kv.value().is<const char*>()) {
+                        ct.colors.push_back({k, String(kv.value().as<const char*>())});
+                    }
+                }
+                _config.display.customThemes.push_back(ct);
+            }
+        }
     }
 
     // Messaging
@@ -439,6 +461,15 @@ String ConfigManager::toJson() const {
     disp["kbd_backlight"]    = _config.display.kbdBacklight;
     disp["kbd_brightness"]   = _config.display.kbdBrightness;
     disp["emoji"]            = _config.display.emoji;
+    if (!_config.display.customThemes.empty()) {
+        JsonArray themesArr = disp["themes"].to<JsonArray>();
+        for (const auto& ct : _config.display.customThemes) {
+            JsonObject o = themesArr.add<JsonObject>();
+            o["name"] = ct.name;
+            o["base"] = ct.base;
+            for (const auto& c : ct.colors) o[c.first] = c.second;
+        }
+    }
 
     JsonObject msg = doc["messaging"].to<JsonObject>();
     msg["save_history"]         = _config.messaging.saveHistory;
