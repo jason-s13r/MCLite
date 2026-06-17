@@ -28,6 +28,11 @@ private:
     lv_obj_t* _wifiRowLabel    = nullptr;
     bool      _wifiLastConnected = false;
 
+    // Theme picker overlay (canned-message-style btnmatrix).
+    lv_obj_t* _themeOverlay = nullptr;
+    lv_obj_t* _themeBtnm    = nullptr;
+    void hideThemePicker();
+
     static void backBtnCb(lv_event_t* e);
     static void offgridToggleCb(lv_event_t* e);
     static void themeRowCb(lv_event_t* e);   // opens the theme picker (reboots to apply)
