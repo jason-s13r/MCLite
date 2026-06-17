@@ -1,6 +1,7 @@
 #include "AdminScreen.h"
 #include <Arduino.h>
 #include <time.h>
+#include <vector>
 #include "UIManager.h"
 #include "theme.h"
 #include "../config/ConfigManager.h"
@@ -22,6 +23,17 @@
 #include "../util/locprecision.h"
 
 namespace mclite {
+
+namespace {
+// Friendly name for a theme: translated label for built-ins, raw name for custom.
+String themeDisplayName(const String& name) {
+    if (name == "dark")          return t("theme_dark");
+    if (name == "light")         return t("theme_light");
+    if (name == "amber")         return t("theme_amber");
+    if (name == "high_contrast") return t("theme_high_contrast");
+    return name;  // custom theme — show its own name
+}
+}  // namespace
 
 void AdminScreen::create(lv_obj_t* parent) {
     _screen = lv_win_create(parent, theme::CHAT_HEADER_HEIGHT);
@@ -415,6 +427,36 @@ void AdminScreen::show() {
 
     // --- Display ---
     addSection(t("sec_display"));
+
+    // Theme picker — clickable row; opens a chooser and reboots to apply.
+    {
+        lv_obj_t* row = lv_obj_create(_content);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_color(row, theme::BG_SECONDARY(), 0);
+        lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_radius(row, 4, 0);
+        lv_obj_set_style_pad_all(row, theme::PAD_SMALL, 0);
+        lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+        lv_obj_set_style_bg_color(row, theme::ACCENT(), LV_STATE_FOCUSED);
+        lv_obj_set_style_bg_opa(row, LV_OPA_40, LV_STATE_FOCUSED);
+        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+
+        lv_obj_t* lbl = lv_label_create(row);
+        lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
+        lv_obj_set_style_text_color(lbl, theme::TEXT_SECONDARY(), 0);
+        lv_label_set_text(lbl, t("lbl_theme"));
+
+        lv_obj_t* val = lv_label_create(row);
+        lv_obj_set_style_text_font(val, FONT_BODY, 0);
+        lv_obj_set_style_text_color(val, theme::TEXT_PRIMARY(), 0);
+        lv_label_set_text(val, (themeDisplayName(cfg.display.theme) + "  " LV_SYMBOL_RIGHT).c_str());
+
+        lv_obj_add_event_cb(row, themeRowCb, LV_EVENT_CLICKED, nullptr);
+    }
+
     addRow(t("lbl_brightness"), String(cfg.display.brightness));
     addRow(t("lbl_auto_dim"), cfg.display.autoDimSeconds > 0
         ? String(cfg.display.autoDimSeconds) + "s" : String(t("off")));
@@ -687,6 +729,57 @@ void AdminScreen::offgridToggleCb(lv_event_t* e) {
 
         UIManager::instance().restoreFromModalGroup();
         lv_msgbox_close(mbox);
+    }, LV_EVENT_VALUE_CHANGED, NULL);
+}
+
+void AdminScreen::themeRowCb(lv_event_t* e) {
+    const auto& cfg = ConfigManager::instance().config();
+
+    // Build the chooser: built-in themes first, then any custom names from config.
+    // `names` holds the canonical names (parallel to the buttons); the lambda
+    // below indexes into it. static so the c_str() pointers stay valid while the
+    // modal is open. Rebuilt on each open.
+    static std::vector<String> names;
+    static std::vector<String> labels;
+    static std::vector<const char*> btns;
+    names.clear(); labels.clear(); btns.clear();
+
+    static const char* const BUILTIN[] = {"dark", "light", "amber", "high_contrast"};
+    for (const char* b : BUILTIN) names.push_back(b);
+    for (const auto& ct : cfg.display.customThemes) names.push_back(ct.name);
+
+    for (const auto& n : names) labels.push_back(themeDisplayName(n));
+    for (const auto& l : labels) btns.push_back(l.c_str());
+    btns.push_back(t("btn_cancel"));
+    btns.push_back("");   // LVGL button-array terminator
+
+    lv_obj_t* msgbox = lv_msgbox_create(NULL, t("lbl_theme"), t("theme_apply_body"),
+                                        btns.data(), false);
+    lv_obj_center(msgbox);
+    lv_obj_set_style_bg_color(msgbox, theme::BG_SECONDARY(), 0);
+    lv_obj_set_style_text_color(msgbox, theme::TEXT_PRIMARY(), 0);
+    lv_obj_set_style_text_font(msgbox, FONT_HEADING, 0);
+
+    lv_obj_t* btnm = lv_msgbox_get_btns(msgbox);
+    if (btnm) UIManager::instance().switchToModalGroup(btnm);
+
+    lv_obj_add_event_cb(msgbox, [](lv_event_t* ev) {
+        lv_obj_t* mbox = lv_event_get_current_target(ev);
+        uint16_t idx = lv_msgbox_get_active_btn(mbox);
+        if (idx == LV_BTNMATRIX_BTN_NONE) return;
+
+        bool reboot = false;
+        if (idx < names.size()) {   // a theme button (Cancel sits after them)
+            auto& mgr = ConfigManager::instance();
+            if (mgr.config().display.theme != names[idx]) {
+                mgr.config().display.theme = names[idx];
+                mgr.save();
+                reboot = true;      // inline styles bake the color in → repaint via reboot
+            }
+        }
+        UIManager::instance().restoreFromModalGroup();
+        lv_msgbox_close(mbox);
+        if (reboot) { delay(200); ESP.restart(); }
     }, LV_EVENT_VALUE_CHANGED, NULL);
 }
 
