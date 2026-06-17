@@ -192,40 +192,40 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
     lv_label_set_text(name, nameStr.c_str());
     lv_label_set_long_mode(name, LV_LABEL_LONG_DOT);
 
-    // Last-seen + telemetry badges for DM conversations
+    // Mute indicator — leftmost of the trailing cluster (matches the status-bar
+    // icon order), for any muted DM / channel / room.
+    if (convo->muted && ConfigManager::instance().config().messaging.allowMute) {
+        lv_obj_t* muteIcon = lv_label_create(topLine);
+        lv_obj_set_style_text_font(muteIcon, FONT_BODY, 0);
+        lv_obj_set_style_text_color(muteIcon, theme::TEXT_SECONDARY(), 0);
+        lv_label_set_text(muteIcon, LV_SYMBOL_MUTE);
+    }
+
+    // Trailing badges for DM conversations, created left→right to match the
+    // status bar: GPS, battery, then the last-seen eye + time. The time label is
+    // created LAST so the times line up down the right edge across rows.
     if (convo->convoId.type == ConvoId::DM) {
         auto& contacts = ContactStore::instance();
         for (size_t i = 0; i < contacts.count(); i++) {
             const Contact* c = contacts.findByIndex(i);
             if (!c || c->shortId() != convo->convoId.id) continue;
 
-            // Online indicator + last-seen time
-            if (c->lastSeen > 0) {
-                uint32_t age = millis() - c->lastSeen;
-
-                // Eye icon if < 20min (tolerates one missed advert cycle)
-                if (age < 1200000) {
-                    lv_obj_t* seenIcon = lv_label_create(topLine);
-                    lv_obj_set_style_text_font(seenIcon, FONT_BODY, 0);
-                    lv_obj_set_style_text_color(seenIcon, theme::ONLINE_DOT(), 0);
-                    lv_label_set_text(seenIcon, LV_SYMBOL_EYE_OPEN);
-                }
-
-                // Time label
-                String seenText = formatLastSeen(c->lastSeen);
-                if (seenText.length() > 0) {
-                    lv_obj_t* seenLabel = lv_label_create(topLine);
-                    lv_obj_set_style_text_font(seenLabel, FONT_BODY, 0);
-                    lv_obj_set_style_text_color(seenLabel, theme::TEXT_TIMESTAMP(), 0);
-                    lv_label_set_text(seenLabel, seenText.c_str());
-                }
-            }
-
             // Telemetry badges — independent of lastSeen
             const auto& showTelem = ConfigManager::instance().config().messaging.showTelemetry;
             if (showTelem != "none") {
                 const TelemetryData* td = TelemetryCache::instance().get(c->publicKey);
                 bool telemFresh = td && TelemetryCache::instance().isFresh(c->publicKey);
+
+                // GPS icon — shown whenever we know *any* position for the contact
+                // (fresh telemetry, advert GPS, or a heard advert). White = "we
+                // know where they are"; precision/source detail lives in the modal.
+                if ((showTelem == "location" || showTelem == "both") &&
+                    bestKnownLocation(c->publicKey).valid) {
+                    lv_obj_t* locIcon = lv_label_create(topLine);
+                    lv_obj_set_style_text_font(locIcon, FONT_BODY, 0);
+                    lv_label_set_text(locIcon, LV_SYMBOL_GPS);
+                    lv_obj_set_style_text_color(locIcon, theme::TEXT_PRIMARY(), 0);
+                }
 
                 // Battery icon — telemetry only (no other source carries voltage).
                 if (telemFresh && td->hasVoltage &&
@@ -243,16 +243,27 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
                     lv_obj_set_style_text_color(battIcon,
                         pct <= 20 ? theme::BATTERY_LOW() : theme::TEXT_PRIMARY(), 0);
                 }
+            }
 
-                // GPS icon — shown whenever we know *any* position for the contact
-                // (fresh telemetry, advert GPS, or a heard advert). White = "we
-                // know where they are"; precision/source detail lives in the modal.
-                if ((showTelem == "location" || showTelem == "both") &&
-                    bestKnownLocation(c->publicKey).valid) {
-                    lv_obj_t* locIcon = lv_label_create(topLine);
-                    lv_obj_set_style_text_font(locIcon, FONT_BODY, 0);
-                    lv_label_set_text(locIcon, LV_SYMBOL_GPS);
-                    lv_obj_set_style_text_color(locIcon, theme::TEXT_PRIMARY(), 0);
+            // Online indicator (eye) + last-seen time — time last → right-aligned.
+            if (c->lastSeen > 0) {
+                uint32_t age = millis() - c->lastSeen;
+
+                // Eye icon if < 20min (tolerates one missed advert cycle)
+                if (age < 1200000) {
+                    lv_obj_t* seenIcon = lv_label_create(topLine);
+                    lv_obj_set_style_text_font(seenIcon, FONT_BODY, 0);
+                    lv_obj_set_style_text_color(seenIcon, theme::ONLINE_DOT(), 0);
+                    lv_label_set_text(seenIcon, LV_SYMBOL_EYE_OPEN);
+                }
+
+                // Time label (rightmost)
+                String seenText = formatLastSeen(c->lastSeen);
+                if (seenText.length() > 0) {
+                    lv_obj_t* seenLabel = lv_label_create(topLine);
+                    lv_obj_set_style_text_font(seenLabel, FONT_BODY, 0);
+                    lv_obj_set_style_text_color(seenLabel, theme::TEXT_TIMESTAMP(), 0);
+                    lv_label_set_text(seenLabel, seenText.c_str());
                 }
             }
 
@@ -278,14 +289,6 @@ void ConvoListScreen::addConvoRow(Conversation* convo) {
         lv_obj_set_style_text_font(ts, FONT_BODY, 0);
         lv_obj_set_style_text_color(ts, theme::TEXT_TIMESTAMP(), 0);
         lv_label_set_text(ts, timeStr.c_str());
-    }
-
-    // Mute indicator — shown on the right edge for muted conversations
-    if (convo->muted && ConfigManager::instance().config().messaging.allowMute) {
-        lv_obj_t* muteIcon = lv_label_create(topLine);
-        lv_obj_set_style_text_font(muteIcon, FONT_BODY, 0);
-        lv_obj_set_style_text_color(muteIcon, theme::TEXT_SECONDARY(), 0);
-        lv_label_set_text(muteIcon, LV_SYMBOL_MUTE);
     }
 
     // Bottom line: last message preview

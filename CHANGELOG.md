@@ -23,6 +23,8 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
 - **Standardized screen chrome.** The Admin, WiFi, USB, and Bluetooth screens now use the same windowed
   header with a left-arrow back button as the rest of the UI. Back from a companion/WiFi screen returns to
   Admin; back from Admin returns to the conversation list. Thanks [@jason-s13r](https://github.com/jason-s13r) (#16–#19).
+- **Conversation-list row icon order** now matches the status bar — mute · GPS · battery · last-seen eye ·
+  time, with the time pinned to the right edge so the times line up in a column down the list.
 
 ## [0.3.8] — 2026-06-16
 
