@@ -491,7 +491,7 @@ void WiFiSetupScreen::checkUpdatesNow() {
 }
 
 void WiFiSetupScreen::backBtnCb(lv_event_t* e) {
-    UIManager::instance().goHome();
+    UIManager::instance().showScreen(Screen::ADMIN);
 }
 
 void WiFiSetupScreen::switchCb(lv_event_t* e) {

@@ -50,7 +50,7 @@ void BleSetupScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_text_color(backLbl, theme::ACCENT, 0);
 
     // Title
-    lv_obj_t* title = lv_win_add_title(_screen, "Bluetooth Companion");
+    lv_obj_t* title = lv_win_add_title(_screen, t("ble_companion"));
     lv_obj_set_style_text_font(title, FONT_HEADING, 0);
     lv_obj_set_style_text_color(title, theme::TEXT_PRIMARY, 0);
 

@@ -16,6 +16,9 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
 - **Auto GPS refresh now defaults off** (`messaging.auto_telemetry`). A fresh device no longer emits periodic
   telemetry requests on the mesh unless you opt in — quiet by default, matching the advert changes in 0.3.8.
   Existing configs that set the field are unaffected.
+- **Standardized screen chrome.** The Admin, WiFi, USB, and Bluetooth screens now use the same windowed
+  header with a left-arrow back button as the rest of the UI. Back from a companion/WiFi screen returns to
+  Admin; back from Admin returns to the conversation list. Thanks [@jason-s13r](https://github.com/jason-s13r) (#16–#19).
 
 ## [0.3.8] — 2026-06-16
 
