@@ -889,8 +889,6 @@ void AdminScreen::hide() {
         // so the pointer is dead until next show(). Drop it now to avoid a
         // dangling deref from tick() if something else paints over it.
         _heardCountLabel = nullptr;
-        _uptimeLabel = nullptr;
-        _lastChargedLabel = nullptr;
         lv_obj_add_flag(_screen, LV_OBJ_FLAG_HIDDEN);
     }
 }

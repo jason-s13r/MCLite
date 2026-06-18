@@ -11,13 +11,16 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
 - **Selectable UI themes.** Choose a color palette — **Dark** (default), **Light**, **Amber** (a "military"
   night mode that preserves night vision), or **High contrast** — on-device (Admin → Theme, reboots to apply)
   or via `display.theme` in config. Custom palettes can be defined under `display.themes` (start from a built-in
-  `base`, override any color with `#RRGGBB`). Default appearance is unchanged.
+  `base`, override any color with `#RRGGBB`). Default appearance is unchanged. On/off switches now use the
+  theme accent colour too. Thanks [@jason-s13r](https://github.com/jason-s13r) (#24).
 - **Per-row Info + Map buttons on the Heard Adverts screen.** Each heard node now has an explicit info (eye)
   button that opens its detail dialog, and — when the advert carries a location — a map button that opens the
   map centered on that node. Back now returns to the Admin screen. Thanks [@jason-s13r](https://github.com/jason-s13r) (#15).
 - **Map screen pan buttons + windowed chrome.** The map gains an on-screen D-pad (up/left/centre/right/down)
   alongside the existing drag-to-pan. On the T-Deck the map now keeps the **status bar visible** and uses the
   standard `lv_win` header with a back button (the T-Watch stays full-screen). Thanks [@jason-s13r](https://github.com/jason-s13r) (#22, supersedes #20/#21).
+- **Uptime + last-charged in the Admin Battery section.** Shows when the device booted (wall-clock + relative)
+  and when charging last stopped (with the level at the time). Thanks [@jason-s13r](https://github.com/jason-s13r) (#23).
 
 ### Changed
 - **Auto GPS refresh now defaults off** (`messaging.auto_telemetry`). A fresh device no longer emits periodic
