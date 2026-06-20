@@ -775,6 +775,11 @@ void DeviceSettingsScreen::hide() {
             lv_group_remove_obj(_backBtn);
             lv_group_remove_obj(_content);
         }
+        // Reset scroll so the NEXT entry starts at the top. show() preserves the
+        // scroll across an in-session rebuild (the post-edit refresh), but _content
+        // persists across hide/show, so without this re-entering would restore the
+        // previous session's scroll position.
+        lv_obj_scroll_to_y(_content, 0, LV_ANIM_OFF);
         lv_obj_add_flag(_screen, LV_OBJ_FLAG_HIDDEN);
     }
 }
@@ -1312,6 +1317,7 @@ void DeviceSettingsScreen::hideThemePicker() {
     UIManager::instance().restoreFromModalGroup();
     lv_obj_del_async(_themeBtnm);    _themeBtnm = nullptr;
     lv_obj_del_async(_themeOverlay); _themeOverlay = nullptr;
+    if (_screen) show();   // refresh so the row shows the newly selected theme
 }
 
 void DeviceSettingsScreen::hideNameEditor() {
@@ -1456,6 +1462,7 @@ void DeviceSettingsScreen::hideLanguagePicker() {
     UIManager::instance().restoreFromModalGroup();
     lv_obj_del_async(_langBtnm);    _langBtnm = nullptr;
     lv_obj_del_async(_langOverlay); _langOverlay = nullptr;
+    if (_screen) show();   // refresh so the row shows the newly selected language
 }
 
 void DeviceSettingsScreen::nameReadyCb(lv_event_t* e) {
