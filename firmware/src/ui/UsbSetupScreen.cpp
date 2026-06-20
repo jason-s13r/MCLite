@@ -62,10 +62,15 @@ void UsbSetupScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_pad_row(cont, theme::PAD_SMALL, 0);
     lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+#ifdef PLATFORM_TWATCH
+    lv_obj_set_style_pad_hor(cont, theme::SAFE_AREA_LEFT, 0);
+#else
+    lv_obj_set_style_pad_hor(cont, theme::PAD_MEDIUM, 0);
+#endif
 
     // Control row: status text + switch
     lv_obj_t* ctl = lv_obj_create(cont);
-    lv_obj_set_size(ctl, theme::CONTENT_WIDTH, LV_SIZE_CONTENT);
+    lv_obj_set_size(ctl, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_style_bg_color(ctl, theme::BG_SECONDARY(), 0);
     lv_obj_set_style_radius(ctl, 4, 0);
     lv_obj_set_style_border_width(ctl, 0, 0);
@@ -87,7 +92,7 @@ void UsbSetupScreen::create(lv_obj_t* parent) {
     // Hint
     lv_obj_t* hint = lv_label_create(cont);
     lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
-    lv_obj_set_width(hint, theme::CONTENT_WIDTH);
+    lv_obj_set_width(hint, LV_PCT(100));
     lv_obj_set_style_pad_all(hint, theme::PAD_SMALL, 0);
     lv_obj_set_style_text_font(hint, FONT_BODY, 0);
     lv_obj_set_style_text_color(hint, theme::TEXT_SECONDARY(), 0);

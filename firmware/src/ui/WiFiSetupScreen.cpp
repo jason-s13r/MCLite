@@ -66,10 +66,15 @@ void WiFiSetupScreen::create(lv_obj_t* parent) {
     lv_obj_set_style_pad_row(cont, theme::PAD_SMALL, 0);
     lv_obj_set_flex_flow(cont, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(cont, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+#ifdef PLATFORM_TWATCH
+    lv_obj_set_style_pad_hor(cont, theme::SAFE_AREA_LEFT, 0);
+#else
+    lv_obj_set_style_pad_hor(cont, theme::PAD_MEDIUM, 0);
+#endif
 
     // Control row: WiFi switch + status text
     lv_obj_t* ctl = lv_obj_create(cont);
-    lv_obj_set_size(ctl, theme::CONTENT_WIDTH, LV_SIZE_CONTENT);
+    lv_obj_set_size(ctl, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_style_bg_color(ctl, theme::BG_SECONDARY(), 0);
     lv_obj_set_style_radius(ctl, 4, 0);
     lv_obj_set_style_border_width(ctl, 0, 0);
@@ -91,7 +96,7 @@ void WiFiSetupScreen::create(lv_obj_t* parent) {
     // Companion-mode row (enabled only while WiFi is connected). Turning it on
     // exposes the radio to a phone/PC client over the MeshCore companion protocol.
     _companionRow = lv_obj_create(cont);
-    lv_obj_set_size(_companionRow, theme::CONTENT_WIDTH, LV_SIZE_CONTENT);
+    lv_obj_set_size(_companionRow, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_style_bg_color(_companionRow, theme::BG_SECONDARY(), 0);
     lv_obj_set_style_radius(_companionRow, 4, 0);
     lv_obj_set_style_border_width(_companionRow, 0, 0);
@@ -113,7 +118,7 @@ void WiFiSetupScreen::create(lv_obj_t* parent) {
 
     // "Check for updates" button (shown only while connected)
     _checkBtn = lv_btn_create(cont);
-    lv_obj_set_width(_checkBtn, theme::CONTENT_WIDTH);
+    lv_obj_set_width(_checkBtn, LV_PCT(100));
     lv_obj_set_style_bg_color(_checkBtn, theme::ACCENT(), 0);
     lv_obj_add_event_cb(_checkBtn, checkBtnCb, LV_EVENT_CLICKED, this);
     lv_obj_t* cbl = lv_label_create(_checkBtn);
@@ -124,7 +129,7 @@ void WiFiSetupScreen::create(lv_obj_t* parent) {
     // Reboot button — shown only when WiFi is locked out by an active BLE stack,
     // giving a one-tap way to reboot into a clean state where WiFi works.
     _rebootBtn = lv_btn_create(cont);
-    lv_obj_set_width(_rebootBtn, theme::CONTENT_WIDTH);
+    lv_obj_set_width(_rebootBtn, LV_PCT(100));
     lv_obj_set_style_bg_color(_rebootBtn, theme::ACCENT(), 0);
     lv_obj_add_event_cb(_rebootBtn, rebootBtnCb, LV_EVENT_CLICKED, this);
     lv_obj_t* rbl = lv_label_create(_rebootBtn);
@@ -134,7 +139,7 @@ void WiFiSetupScreen::create(lv_obj_t* parent) {
 
     // Scrollable network list (shown when not connected)
     _list = lv_obj_create(cont);
-    lv_obj_set_size(_list, theme::CONTENT_WIDTH, LV_SIZE_CONTENT);
+    lv_obj_set_size(_list, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_flex_grow(_list, 1);
     lv_obj_set_style_bg_opa(_list, LV_OPA_0, 0);
     lv_obj_set_style_border_width(_list, 0, 0);
@@ -293,7 +298,7 @@ void WiFiSetupScreen::rebuildList() {
     lv_group_t* grp = UIManager::instance().inputGroup();
     for (int i = 0; i < _netCount; i++) {
         lv_obj_t* row = lv_obj_create(_list);
-        lv_obj_set_size(row, theme::CONTENT_WIDTH - theme::PAD_SMALL, LV_SIZE_CONTENT);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
         lv_obj_set_style_bg_color(row, theme::BG_SECONDARY(), 0);
         lv_obj_set_style_radius(row, 4, 0);
         lv_obj_set_style_border_width(row, 0, 0);
@@ -347,7 +352,7 @@ void WiFiSetupScreen::openPasswordEntry(const String& ssid) {
 
     lv_obj_t* lbl = lv_label_create(_pwOverlay);
     lv_label_set_long_mode(lbl, LV_LABEL_LONG_DOT);
-    lv_obj_set_width(lbl, theme::CONTENT_WIDTH);
+    lv_obj_set_width(lbl, LV_PCT(100));
     lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_font(lbl, FONT_HEADING, 0);
     lv_obj_set_style_text_color(lbl, theme::TEXT_PRIMARY(), 0);
@@ -359,7 +364,7 @@ void WiFiSetupScreen::openPasswordEntry(const String& ssid) {
     lv_textarea_set_password_mode(_pwTextarea, true);
     lv_textarea_set_max_length(_pwTextarea, 63);
     lv_textarea_set_placeholder_text(_pwTextarea, t("wifi_password"));
-    lv_obj_set_width(_pwTextarea, theme::CONTENT_WIDTH);
+    lv_obj_set_width(_pwTextarea, LV_PCT(100));
     lv_obj_align(_pwTextarea, LV_ALIGN_TOP_MID, 0, theme::STATUS_BAR_HEIGHT + 44);
     lv_obj_set_style_border_color(_pwTextarea, theme::ACCENT(), LV_STATE_FOCUSED);
     lv_obj_add_event_cb(_pwTextarea, pwReadyCb, LV_EVENT_READY, this);
