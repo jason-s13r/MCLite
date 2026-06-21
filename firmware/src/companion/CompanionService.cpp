@@ -570,8 +570,27 @@ void CompanionService::writeContactFrame(uint8_t code, const ContactInfo& c) {
     _out[i++] = c.flags;
     _out[i++] = c.out_path_len;
     memcpy(&_out[i], c.out_path, MAX_PATH_SIZE); i += MAX_PATH_SIZE;
+
+    // Prefer the locally-configured display name over MeshCore's
+    // advert-overwritten c.name (BaseChatMesh::onAdvertRecv rewrites it on every
+    // advert). Chat contacts come from ContactStore (alias); room servers from
+    // config.roomServers (matched by hex pubkey). The companion protocol is
+    // read-only and keys on pub_key, so this is a safe cosmetic override.
+    const char* disp = c.name;
+    if (Contact* sc = ContactStore::instance().findByPublicKey(c.id.pub_key)) {
+        if (sc->name.length()) disp = sc->name.c_str();
+    } else {
+        char hex[2 * PUB_KEY_SIZE + 1];
+        for (int b = 0; b < PUB_KEY_SIZE; b++) snprintf(hex + 2 * b, 3, "%02x", c.id.pub_key[b]);
+        const auto& rooms = ConfigManager::instance().config().roomServers;
+        for (const auto& rs : rooms) {
+            if (rs.publicKey.length() == 64 && rs.name.length() &&
+                rs.publicKey.equalsIgnoreCase(hex)) { disp = rs.name.c_str(); break; }
+        }
+    }
+
     memset(&_out[i], 0, 32);
-    strncpy((char*)&_out[i], c.name, 32); i += 32;
+    strncpy((char*)&_out[i], disp, 32); i += 32;
     memcpy(&_out[i], &c.last_advert_timestamp, 4); i += 4;
     memcpy(&_out[i], &c.gps_lat, 4); i += 4;
     memcpy(&_out[i], &c.gps_lon, 4); i += 4;
