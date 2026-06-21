@@ -2880,8 +2880,6 @@ body.v4 *::-webkit-scrollbar-thumb:hover { background: var(--shell-line-2); }
         </select>
         <div class="hint collapsible">When hidden, the Companion group (WiFi / USB / Bluetooth) is removed from the admin screen. Services already enabled in config still run.</div>
       </div>
-    </div>
-    <div class="row" style="margin-top:8px">
       <div class="field">
         <label>Conversation Management<button type="button" class="info-icon" onclick="toggleHint(this)" aria-label="Toggle hint">i</button></label>
         <select id="permConversation">
@@ -4105,6 +4103,7 @@ function buildPresetConfig() {
   const cfg = buildConfig();
   delete cfg.identity;
   delete cfg.security;
+  delete cfg.permissions;   // per-device admin policy — never shared (like security)
   if (cfg.device) {
     delete cfg.device.name;
     if (Object.keys(cfg.device).length === 0) delete cfg.device;
