@@ -95,6 +95,33 @@ void test_empty_json_accepted() {
     TEST_ASSERT_TRUE(parse("{}"));
 }
 
+// ═══ Permissions ═══
+
+void test_permissions_default_full() {
+    TEST_ASSERT_TRUE(parse("{}"));
+    TEST_ASSERT_EQUAL_STRING("full", cfg->config().permissions.settings.c_str());
+    TEST_ASSERT_TRUE(cfg->config().permissions.companion);
+    TEST_ASSERT_FALSE(cfg->config().permissions.conversationManagement);
+}
+
+void test_permissions_round_trip() {
+    TEST_ASSERT_TRUE(parse("{\"permissions\":{\"settings\":\"restricted\","
+                           "\"companion\":false,\"conversation_management\":true}}"));
+    TEST_ASSERT_EQUAL_STRING("restricted", cfg->config().permissions.settings.c_str());
+    TEST_ASSERT_FALSE(cfg->config().permissions.companion);
+    TEST_ASSERT_TRUE(cfg->config().permissions.conversationManagement);
+}
+
+void test_permissions_none_mode() {
+    TEST_ASSERT_TRUE(parse("{\"permissions\":{\"settings\":\"none\"}}"));
+    TEST_ASSERT_EQUAL_STRING("none", cfg->config().permissions.settings.c_str());
+}
+
+void test_permissions_invalid_settings_falls_back() {
+    TEST_ASSERT_TRUE(parse("{\"permissions\":{\"settings\":\"bogus\"}}"));
+    TEST_ASSERT_EQUAL_STRING("full", cfg->config().permissions.settings.c_str());
+}
+
 // ═══ Radio bounds checking ═══
 
 void test_radio_frequency_too_low() {
@@ -947,6 +974,12 @@ int main() {
 
     // Save path sanity
     RUN_TEST(test_save_calls_writeatomic);
+
+    // permissions
+    RUN_TEST(test_permissions_default_full);
+    RUN_TEST(test_permissions_round_trip);
+    RUN_TEST(test_permissions_none_mode);
+    RUN_TEST(test_permissions_invalid_settings_falls_back);
 
     // appendDiscoveredContact
     RUN_TEST(test_append_discovered_contact_succeeds);

@@ -8,6 +8,14 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
 ## [Unreleased]
 
 ### Added
+- **Step-wise admin permissions.** Beyond the existing `security.admin_enabled` (global on/off for the Admin
+  screen), a new `permissions` config block scopes what's reachable *inside* Admin: `permissions.settings`
+  (`full` / `restricted` / `none`) — **restricted** keeps only the basics editable (brightness, auto-dim, dim
+  brightness, keyboard brightness, theme) and shows everything else read-only (no chevron); **none** makes all
+  settings read-only. `permissions.companion` (default on) hides the Companion group (WiFi/USB/Bluetooth) when
+  off — configured services still run. `permissions.conversation_management` (default off) is reserved for a
+  future release (on-device add/edit/remove of contacts/channels/rooms; they stay read-only views for now). All
+  three are provisionable from the config tool. Defaults are fully permissive, so existing configs are unchanged.
 - **Settings reorganised into per-section screens + Admin is now a pure hub.** The on-device Admin screen no
   longer mixes settings, diagnostics and shortcuts — it's three labelled groups of links: **Companion** (WiFi /
   USB / Bluetooth), **Conversations** (Contacts / Channels / Rooms, read-only views), and **Settings** (Device,

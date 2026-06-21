@@ -101,6 +101,14 @@ struct SecurityConfig {
     bool   adminEnabled = true;
 };
 
+// Step-wise on-device permissions, applied *within* the Admin gate
+// (security.adminEnabled stays the global "can Admin open at all" switch).
+struct PermissionsConfig {
+    String settings = "full";              // "full" | "restricted" | "none"
+    bool   conversationManagement = false; // add/edit/remove contacts/channels/rooms (future)
+    bool   companion = true;               // show the Companion group in Admin
+};
+
 struct OffgridConfig {
     bool enabled = false;  // When true, forward packets + switch to closest offgrid freq (433/869/918)
 };
@@ -141,6 +149,7 @@ struct AppConfig {
     uint8_t         locationPrecision = 0;  // Location-advert precision: 0=off, 32=exact, 10-31=coarsened grid
     BatteryConfig   battery;
     SecurityConfig  security;
+    PermissionsConfig permissions;
     OffgridConfig   offgrid;
     WiFiConfig      wifi;
     BleConfig       ble;

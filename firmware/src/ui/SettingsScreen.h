@@ -183,6 +183,16 @@ private:
                            int32_t lo, int32_t hi, int32_t val, const String& valText);
     void addSectionHeader(const char* title);
 
+    // Permission gate (permissions.settings): is a control editable now? `basic`
+    // controls (brightness family, theme) stay editable in "restricted" mode;
+    // everything else needs "full". "none" locks everything. The *-Gated helpers
+    // render the interactive control when allowed, else a read-only value row.
+    bool canEdit(bool basic) const;
+    void addNavRowGated(const char* label, const String& value, lv_event_cb_t cb, bool basic);
+    void addSwitchRowGated(const char* label, bool checked, lv_event_cb_t cb, void* ud, bool basic);
+    void addSliderRowGated(const char* label, lv_obj_t** sliderOut, lv_obj_t** valLblOut,
+                           int32_t lo, int32_t hi, int32_t val, const String& valText, bool basic);
+
     // Inline sliders for brightness / auto-dim / dim brightness / keyboard brightness
     lv_obj_t* _brightnessSlider     = nullptr;
     lv_obj_t* _brightnessValLbl     = nullptr;

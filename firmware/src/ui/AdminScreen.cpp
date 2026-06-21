@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include "UIManager.h"
 #include "theme.h"
+#include "../config/ConfigManager.h"
 #include "../hal/Display.h"
 #include "../i18n/I18n.h"
 
@@ -113,11 +114,13 @@ void AdminScreen::show() {
         lv_obj_add_event_cb(row, cb, LV_EVENT_CLICKED, nullptr);
     };
 
-    // ─── Companion ───
-    addHeader(t("grp_companion"));
-    addLink(LV_SYMBOL_WIFI,      t("wifi_companion"), [](lv_event_t*) { UIManager::instance().showScreen(Screen::WIFI_SETUP); });
-    addLink(LV_SYMBOL_USB,       t("usb_companion"),  [](lv_event_t*) { UIManager::instance().showScreen(Screen::USB_SETUP); });
-    addLink(LV_SYMBOL_BLUETOOTH, t("ble_companion"),  [](lv_event_t*) { UIManager::instance().showScreen(Screen::BLE_SETUP); });
+    // ─── Companion ─── (hidden when permissions.companion is false)
+    if (ConfigManager::instance().config().permissions.companion) {
+        addHeader(t("grp_companion"));
+        addLink(LV_SYMBOL_WIFI,      t("wifi_companion"), [](lv_event_t*) { UIManager::instance().showScreen(Screen::WIFI_SETUP); });
+        addLink(LV_SYMBOL_USB,       t("usb_companion"),  [](lv_event_t*) { UIManager::instance().showScreen(Screen::USB_SETUP); });
+        addLink(LV_SYMBOL_BLUETOOTH, t("ble_companion"),  [](lv_event_t*) { UIManager::instance().showScreen(Screen::BLE_SETUP); });
+    }
 
     // ─── Conversations (read-only views on device; icons mirror the convo list) ───
     addHeader(t("grp_conversations"));

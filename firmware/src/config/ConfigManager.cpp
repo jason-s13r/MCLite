@@ -74,6 +74,9 @@ void ConfigManager::applyDefaults() {
     _config.security.pinCode      = defaults::PIN_CODE;
     _config.security.autoLock     = defaults::AUTO_LOCK;
     _config.security.adminEnabled = defaults::ADMIN_ENABLED;
+    _config.permissions.settings              = defaults::PERM_SETTINGS;
+    _config.permissions.conversationManagement = defaults::PERM_CONVERSATION_MGMT;
+    _config.permissions.companion             = defaults::PERM_COMPANION;
     _config.debug.screenshots     = defaults::SCREENSHOTS_ENABLED;
     _config.language = defaults::LANGUAGE;
 }
@@ -356,6 +359,17 @@ bool ConfigManager::parseJson(const String& json) {
         // else: field missing, not pin — keep default (AUTO_LOCK = "key")
     }
 
+    // Permissions — within the Admin gate. Missing block keeps the permissive
+    // defaults (full settings, companion shown) so existing configs are unchanged.
+    {
+        String s = doc["permissions"]["settings"] | defaults::PERM_SETTINGS;
+        if (s != "full" && s != "restricted" && s != "none") s = defaults::PERM_SETTINGS;
+        _config.permissions.settings = s;
+        _config.permissions.conversationManagement =
+            doc["permissions"]["conversation_management"] | defaults::PERM_CONVERSATION_MGMT;
+        _config.permissions.companion = doc["permissions"]["companion"] | defaults::PERM_COMPANION;
+    }
+
     // Offgrid — missing block defaults to enabled=false (backwards compat)
     _config.offgrid.enabled = doc["offgrid"]["enabled"] | false;
 
@@ -500,6 +514,10 @@ String ConfigManager::toJson() const {
     doc["security"]["pin_code"]      = _config.security.pinCode;
     doc["security"]["auto_lock"]     = _config.security.autoLock;
     doc["security"]["admin_enabled"] = _config.security.adminEnabled;
+
+    doc["permissions"]["settings"]                = _config.permissions.settings;
+    doc["permissions"]["conversation_management"] = _config.permissions.conversationManagement;
+    doc["permissions"]["companion"]               = _config.permissions.companion;
 
     doc["offgrid"]["enabled"] = _config.offgrid.enabled;
 

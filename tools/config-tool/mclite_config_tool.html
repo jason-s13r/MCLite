@@ -2860,6 +2860,37 @@ body.v4 *::-webkit-scrollbar-thumb:hover { background: var(--shell-line-2); }
         <div class="hint collapsible">Press 0 on home screen to view device info. Disable to hide admin access.</div>
       </div>
     </div>
+
+    <!-- Step-wise permissions (apply within the admin gate above) -->
+    <div class="row" style="margin-top:8px">
+      <div class="field">
+        <label>Settings Access<button type="button" class="info-icon" onclick="toggleHint(this)" aria-label="Toggle hint">i</button></label>
+        <select id="permSettings">
+          <option value="full" selected>Full (edit everything)</option>
+          <option value="restricted">Restricted (basics only)</option>
+          <option value="none">None (read-only)</option>
+        </select>
+        <div class="hint collapsible">Full = edit any setting on-device. Restricted = only brightness/auto-dim/dim/keyboard brightness and theme are editable; everything else is shown read-only. None = all settings read-only.</div>
+      </div>
+      <div class="field">
+        <label>Companion Access<button type="button" class="info-icon" onclick="toggleHint(this)" aria-label="Toggle hint">i</button></label>
+        <select id="permCompanion">
+          <option value="true" selected>Shown</option>
+          <option value="false">Hidden</option>
+        </select>
+        <div class="hint collapsible">When hidden, the Companion group (WiFi / USB / Bluetooth) is removed from the admin screen. Services already enabled in config still run.</div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div class="field">
+        <label>Conversation Management<button type="button" class="info-icon" onclick="toggleHint(this)" aria-label="Toggle hint">i</button></label>
+        <select id="permConversation">
+          <option value="false" selected>Off</option>
+          <option value="true">On</option>
+        </select>
+        <div class="hint collapsible">Reserved for a future release: when on, contacts / channels / rooms can be added/edited/removed on-device. Currently they are always read-only views regardless of this flag.</div>
+      </div>
+    </div>
   </div>
 
   <div style="text-align:center; padding:16px 0;">
@@ -4024,6 +4055,11 @@ function buildConfig() {
       auto_lock: document.getElementById('autoLock').value,
       admin_enabled: document.getElementById('adminEnabled').value === 'true'
     },
+    permissions: {
+      settings: document.getElementById('permSettings').value,
+      conversation_management: document.getElementById('permConversation').value === 'true',
+      companion: document.getElementById('permCompanion').value === 'true'
+    },
     offgrid: {
       enabled: document.getElementById('offgridEnabled').value === 'true'
     },
@@ -4566,6 +4602,11 @@ function loadConfig(cfg) {
     else document.getElementById('autoLock').value = 'none';
   }
   document.getElementById('adminEnabled').value = String(cfg.security?.admin_enabled ?? true);
+  const permSet = cfg.permissions?.settings;
+  document.getElementById('permSettings').value =
+    (permSet === 'restricted' || permSet === 'none') ? permSet : 'full';
+  document.getElementById('permCompanion').value = String(cfg.permissions?.companion ?? true);
+  document.getElementById('permConversation').value = String(cfg.permissions?.conversation_management ?? false);
   document.getElementById('offgridEnabled').value = cfg.offgrid?.enabled ? 'true' : 'false';
   updateOffgridDerivedFreq();
 
@@ -4643,6 +4684,9 @@ async function applyDefaultsAndGenerate() {
   document.getElementById('pinCode').value = '';
   document.getElementById('autoLock').value = 'key';
   document.getElementById('adminEnabled').value = 'true';
+  document.getElementById('permSettings').value = 'full';
+  document.getElementById('permCompanion').value = 'true';
+  document.getElementById('permConversation').value = 'false';
   toggleLockFields();
   renderContacts();
   renderChannels();

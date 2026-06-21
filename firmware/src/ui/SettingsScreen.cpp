@@ -283,6 +283,29 @@ lv_obj_t* SettingsScreen::addSliderRow(const char* label, lv_obj_t** sliderOut, 
     return row;
 }
 
+bool SettingsScreen::canEdit(bool basic) const {
+    const String& m = ConfigManager::instance().config().permissions.settings;
+    if (m == "none")       return false;
+    if (m == "restricted") return basic;
+    return true;  // "full" (or unknown — fail open to the existing behaviour)
+}
+
+void SettingsScreen::addNavRowGated(const char* label, const String& value, lv_event_cb_t cb, bool basic) {
+    if (canEdit(basic)) addNavRow(label, value, cb);
+    else                addReadOnlyRow(label, value);
+}
+
+void SettingsScreen::addSwitchRowGated(const char* label, bool checked, lv_event_cb_t cb, void* ud, bool basic) {
+    if (canEdit(basic)) addSwitchRow(label, checked, cb, ud);
+    else                addReadOnlyRow(label, checked ? t("on") : t("off"));
+}
+
+void SettingsScreen::addSliderRowGated(const char* label, lv_obj_t** sliderOut, lv_obj_t** valLblOut,
+                                       int32_t lo, int32_t hi, int32_t val, const String& valText, bool basic) {
+    if (canEdit(basic)) addSliderRow(label, sliderOut, valLblOut, lo, hi, val, valText);
+    else                addReadOnlyRow(label, valText);
+}
+
 // ─────────────────────────── show / dispatch ───────────────────────────
 
 void SettingsScreen::show() {
@@ -345,11 +368,11 @@ void SettingsScreen::show() {
 void SettingsScreen::buildDevice() {
     const auto& cfg = ConfigManager::instance().config();
 
-    addNavRow(t("lbl_device_name"), cfg.deviceName, nameRowCb);
-    addNavRow(t("lbl_language"), cfg.language.isEmpty() ? String("English") : cfg.language, languageRowCb);
-    addNavRow(t("lbl_boot_text"),
-              cfg.display.bootText.length() > 0 ? cfg.display.bootText : String(t("off")),
-              bootTextRowCb);
+    addNavRowGated(t("lbl_device_name"), cfg.deviceName, nameRowCb, false);
+    addNavRowGated(t("lbl_language"), cfg.language.isEmpty() ? String("English") : cfg.language, languageRowCb, false);
+    addNavRowGated(t("lbl_boot_text"),
+                   cfg.display.bootText.length() > 0 ? cfg.display.bootText : String(t("off")),
+                   bootTextRowCb, false);
 
     // Read-only diagnostics (moved off Admin).
     addReadOnlyRow(t("lbl_firmware"), String("MCLite v") + defaults::FIRMWARE_VERSION);
@@ -377,7 +400,7 @@ void SettingsScreen::buildRadio() {
         lv_obj_clear_flag(row, LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
         lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-        lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+        // CLICKABLE added below only when editable (full settings access).
 
         lv_obj_t* lbl = lv_label_create(row);
         lv_obj_set_style_text_font(lbl, FONT_BODY, 0);
@@ -395,7 +418,11 @@ void SettingsScreen::buildRadio() {
         } else {
             lv_label_set_text(val, t("offgrid_off"));
         }
-        lv_obj_add_event_cb(row, offgridRowCb, LV_EVENT_CLICKED, this);
+        // Read-only (not clickable) unless full settings access.
+        if (canEdit(false)) {
+            lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_event_cb(row, offgridRowCb, LV_EVENT_CLICKED, this);
+        }
     }
 
     // Heard adverts — live count, opens the list. _heardCountLabel refreshed by tick().
@@ -421,14 +448,14 @@ void SettingsScreen::buildRadio() {
     // Region preset picker — applies a freq/SF/BW/CR bundle (reboot on leave).
     int pi = matchRadioPreset(cfg.radio);
     String presetVal = (pi >= 0) ? String(RADIO_PRESETS[pi].label) : String(t("preset_custom"));
-    addNavRow(t("lbl_region_preset"), presetVal, regionRowCb);
+    addNavRowGated(t("lbl_region_preset"), presetVal, regionRowCb, false);
 
     // TX power slider (reboot on leave).
-    addSliderRow(t("lbl_tx_power"), &_txPowerSlider, &_txPowerValLbl,
-                 0, 22, cfg.radio.txPower, String(cfg.radio.txPower) + " dBm");
+    addSliderRowGated(t("lbl_tx_power"), &_txPowerSlider, &_txPowerValLbl,
+                      0, 22, cfg.radio.txPower, String(cfg.radio.txPower) + " dBm", false);
 
     // Advert interval picker (0 = off; reboot on leave).
-    addNavRow(t("lbl_advert_interval"), advertLabel(cfg.radio.advertIntervalMin), advertRowCb);
+    addNavRowGated(t("lbl_advert_interval"), advertLabel(cfg.radio.advertIntervalMin), advertRowCb, false);
 
     // Read-only diagnostics.
     {
@@ -466,62 +493,63 @@ void SettingsScreen::buildRadio() {
 void SettingsScreen::buildDisplay() {
     const auto& cfg = ConfigManager::instance().config();
 
-    addNavRow(t("lbl_theme"), themeDisplayName(cfg.display.theme), themeRowCb);
-    addSliderRow(t("lbl_brightness"), &_brightnessSlider, &_brightnessValLbl,
-                 10, 255, cfg.display.brightness, String(cfg.display.brightness));
-    addSliderRow(t("lbl_auto_dim"), &_autoDimSlider, &_autoDimValLbl,
-                 0, 300, cfg.display.autoDimSeconds,
-                 cfg.display.autoDimSeconds > 0 ? (String(cfg.display.autoDimSeconds) + "s") : String(t("off")));
-    addSliderRow(t("lbl_dim_brightness"), &_dimBrightnessSlider, &_dimBrightnessValLbl,
-                 0, 255, cfg.display.dimBrightness,
-                 cfg.display.dimBrightness > 0 ? String(cfg.display.dimBrightness) : String(t("off")));
-    addSliderRow(t("lbl_kbd_backlight"), &_kbdBrightnessSlider, &_kbdBrightnessValLbl,
-                 1, 255, cfg.display.kbdBrightness, String(cfg.display.kbdBrightness));
-    addSwitchRow(t("lbl_emoji"), cfg.display.emoji, emojiToggleCb, nullptr);
+    // Brightness family + theme are the "basic" controls — editable in Restricted.
+    addNavRowGated(t("lbl_theme"), themeDisplayName(cfg.display.theme), themeRowCb, true);
+    addSliderRowGated(t("lbl_brightness"), &_brightnessSlider, &_brightnessValLbl,
+                      10, 255, cfg.display.brightness, String(cfg.display.brightness), true);
+    addSliderRowGated(t("lbl_auto_dim"), &_autoDimSlider, &_autoDimValLbl,
+                      0, 300, cfg.display.autoDimSeconds,
+                      cfg.display.autoDimSeconds > 0 ? (String(cfg.display.autoDimSeconds) + "s") : String(t("off")), true);
+    addSliderRowGated(t("lbl_dim_brightness"), &_dimBrightnessSlider, &_dimBrightnessValLbl,
+                      0, 255, cfg.display.dimBrightness,
+                      cfg.display.dimBrightness > 0 ? String(cfg.display.dimBrightness) : String(t("off")), true);
+    addSliderRowGated(t("lbl_kbd_backlight"), &_kbdBrightnessSlider, &_kbdBrightnessValLbl,
+                      1, 255, cfg.display.kbdBrightness, String(cfg.display.kbdBrightness), true);
+    addSwitchRowGated(t("lbl_emoji"), cfg.display.emoji, emojiToggleCb, nullptr, false);
 
     // Screenshots fold into Display (no separate Debug screen / header).
-    addSwitchRow(t("lbl_screenshots"), cfg.debug.screenshots, screenshotsToggleCb, nullptr);
+    addSwitchRowGated(t("lbl_screenshots"), cfg.debug.screenshots, screenshotsToggleCb, nullptr, false);
 }
 
 void SettingsScreen::buildMessaging() {
     const auto& cfg = ConfigManager::instance().config();
 
-    addSwitchRow(t("lbl_history"), cfg.messaging.saveHistory, boolToggleCb,
-                 (void*)BoolField::SaveHistory);
-    addSliderRow(t("lbl_max_per_chat"), &_maxHistorySlider, &_maxHistoryValLbl,
-                 0, 500, cfg.messaging.maxHistoryPerChat, String(cfg.messaging.maxHistoryPerChat));
+    addSwitchRowGated(t("lbl_history"), cfg.messaging.saveHistory, boolToggleCb,
+                      (void*)BoolField::SaveHistory, false);
+    addSliderRowGated(t("lbl_max_per_chat"), &_maxHistorySlider, &_maxHistoryValLbl,
+                      0, 500, cfg.messaging.maxHistoryPerChat, String(cfg.messaging.maxHistoryPerChat), false);
 
     String lf = cfg.messaging.locationFormat;
     String lfLabel = (lf == "mgrs") ? t("loc_mgrs") : (lf == "both") ? t("loc_both") : t("loc_decimal");
-    addNavRow(t("lbl_location_format"), lfLabel, locFormatRowCb);
+    addNavRowGated(t("lbl_location_format"), lfLabel, locFormatRowCb, false);
 
-    addSliderRow(t("lbl_max_retries"), &_maxRetriesSlider, &_maxRetriesValLbl,
-                 1, 5, cfg.messaging.maxRetries, String(cfg.messaging.maxRetries));
-    addSwitchRow(t("lbl_req_telemetry"), cfg.messaging.requestTelemetry, boolToggleCb,
-                 (void*)BoolField::RequestTelemetry);
+    addSliderRowGated(t("lbl_max_retries"), &_maxRetriesSlider, &_maxRetriesValLbl,
+                      1, 5, cfg.messaging.maxRetries, String(cfg.messaging.maxRetries), false);
+    addSwitchRowGated(t("lbl_req_telemetry"), cfg.messaging.requestTelemetry, boolToggleCb,
+                      (void*)BoolField::RequestTelemetry, false);
 
     String st = cfg.messaging.showTelemetry;
     String stLabel = (st == "battery") ? t("tel_battery")
                    : (st == "location") ? t("tel_location")
                    : (st == "both") ? t("tel_both") : t("off");
-    addNavRow(t("lbl_telemetry_badges"), stLabel, showTelemetryRowCb);
+    addNavRowGated(t("lbl_telemetry_badges"), stLabel, showTelemetryRowCb, false);
 
-    addSwitchRow(t("lbl_auto_telemetry"), cfg.messaging.autoTelemetry, boolToggleCb,
-                 (void*)BoolField::AutoTelemetry);
-    addSwitchRow(t("lbl_canned"), cfg.messaging.cannedMessages, boolToggleCb,
-                 (void*)BoolField::CannedMessages);
-    addSwitchRow(t("lbl_allow_mute"), cfg.messaging.allowMute, boolToggleCb,
-                 (void*)BoolField::AllowMute);
+    addSwitchRowGated(t("lbl_auto_telemetry"), cfg.messaging.autoTelemetry, boolToggleCb,
+                      (void*)BoolField::AutoTelemetry, false);
+    addSwitchRowGated(t("lbl_canned"), cfg.messaging.cannedMessages, boolToggleCb,
+                      (void*)BoolField::CannedMessages, false);
+    addSwitchRowGated(t("lbl_allow_mute"), cfg.messaging.allowMute, boolToggleCb,
+                      (void*)BoolField::AllowMute, false);
 }
 
 void SettingsScreen::buildSound() {
     const auto& cfg = ConfigManager::instance().config();
 
-    addSwitchRow(t("lbl_sound"), cfg.soundEnabled, soundToggleCb, nullptr);
-    addNavRow(t("lbl_sos_keyword"), cfg.sosKeyword, sosKeywordRowCb);
-    addSliderRow(t("lbl_sos_repeat"), &_sosRepeatSlider, &_sosRepeatValLbl,
-                 1, 10, cfg.sosRepeat, String(cfg.sosRepeat));
-    if (!cfg.soundEnabled) {
+    addSwitchRowGated(t("lbl_sound"), cfg.soundEnabled, soundToggleCb, nullptr, false);
+    addNavRowGated(t("lbl_sos_keyword"), cfg.sosKeyword, sosKeywordRowCb, false);
+    addSliderRowGated(t("lbl_sos_repeat"), &_sosRepeatSlider, &_sosRepeatValLbl,
+                      1, 10, cfg.sosRepeat, String(cfg.sosRepeat), false);
+    if (_sosRepeatSlider && !cfg.soundEnabled) {
         lv_obj_add_state(_sosRepeatSlider, LV_STATE_DISABLED);
         lv_obj_add_state(_sosRepeatValLbl, LV_STATE_DISABLED);
     }
@@ -530,10 +558,10 @@ void SettingsScreen::buildSound() {
 void SettingsScreen::buildGps() {
     const auto& cfg = ConfigManager::instance().config();
 
-    addSwitchRow(t("lbl_gps"), cfg.gpsEnabled, gpsToggleCb, nullptr);
+    addSwitchRowGated(t("lbl_gps"), cfg.gpsEnabled, gpsToggleCb, nullptr, false);
 
     if (cfg.gpsEnabled) {
-        addNavRow(t("lbl_location_advert"), locPrecisionLabel(cfg.locationPrecision), locPrecisionRowCb);
+        addNavRowGated(t("lbl_location_advert"), locPrecisionLabel(cfg.locationPrecision), locPrecisionRowCb, false);
 
         // Compact display: the POSIX TZ string is long, so show just the leading
         // abbreviation (chars before the first digit/sign) + auto-DST hint. The
@@ -549,14 +577,14 @@ void SettingsScreen::buildGps() {
         } else {
             tzVal = t("off");
         }
-        addNavRow(t("lbl_timezone"), tzVal, timezoneRowCb);
+        addNavRowGated(t("lbl_timezone"), tzVal, timezoneRowCb, false);
 
-        addSliderRow(t("lbl_clock_offset"), &_clockOffsetSlider, &_clockOffsetValLbl,
-                     -12, 14, cfg.gpsClockOffset, String(cfg.gpsClockOffset) + "h");
+        addSliderRowGated(t("lbl_clock_offset"), &_clockOffsetSlider, &_clockOffsetValLbl,
+                          -12, 14, cfg.gpsClockOffset, String(cfg.gpsClockOffset) + "h", false);
 
         // Last-known max age in minutes (60s..7200s → 1..120 min).
-        addSliderRow(t("lbl_last_known_max"), &_lastKnownSlider, &_lastKnownValLbl,
-                     1, 120, cfg.gpsLastKnownMaxAge / 60, String(cfg.gpsLastKnownMaxAge / 60) + "m");
+        addSliderRowGated(t("lbl_last_known_max"), &_lastKnownSlider, &_lastKnownValLbl,
+                          1, 120, cfg.gpsLastKnownMaxAge / 60, String(cfg.gpsLastKnownMaxAge / 60) + "m", false);
 
         // Live read-only diagnostics.
         auto& gps = GPS::instance();
@@ -591,10 +619,10 @@ void SettingsScreen::buildGps() {
 void SettingsScreen::buildBattery() {
     const auto& cfg = ConfigManager::instance().config();
 
-    addSwitchRow(t("lbl_low_alert"), cfg.battery.lowAlertEnabled, lowAlertToggleCb, nullptr);
-    addSliderRow(t("lbl_low_alert_threshold"), &_lowAlertSlider, &_lowAlertValLbl,
-                 5, 50, cfg.battery.lowAlertThreshold, String(cfg.battery.lowAlertThreshold) + "%");
-    if (!cfg.battery.lowAlertEnabled) {
+    addSwitchRowGated(t("lbl_low_alert"), cfg.battery.lowAlertEnabled, lowAlertToggleCb, nullptr, false);
+    addSliderRowGated(t("lbl_low_alert_threshold"), &_lowAlertSlider, &_lowAlertValLbl,
+                      5, 50, cfg.battery.lowAlertThreshold, String(cfg.battery.lowAlertThreshold) + "%", false);
+    if (_lowAlertSlider && !cfg.battery.lowAlertEnabled) {
         lv_obj_add_state(_lowAlertSlider, LV_STATE_DISABLED);
         lv_obj_add_state(_lowAlertValLbl, LV_STATE_DISABLED);
     }
@@ -647,15 +675,15 @@ void SettingsScreen::buildSecurity() {
     String lockModeValue = t("off");
     if (cfg.security.lockMode == "key") lockModeValue = t("lock_key");
     else if (cfg.security.lockMode == "pin") lockModeValue = t("lock_pin");
-    addNavRow(t("lbl_lock_mode"), lockModeValue, lockModeRowCb);
+    addNavRowGated(t("lbl_lock_mode"), lockModeValue, lockModeRowCb, false);
 
-    addNavRow(t("lbl_pin_code"),
-              cfg.security.pinCode.length() > 0 ? String("****") : String(t("off")), pinRowCb);
+    addNavRowGated(t("lbl_pin_code"),
+                   cfg.security.pinCode.length() > 0 ? String("****") : String(t("off")), pinRowCb, false);
 
     String autoLockValue = t("off");
     if (cfg.security.autoLock == "key") autoLockValue = t("lock_key");
     else if (cfg.security.autoLock == "pin") autoLockValue = t("lock_pin");
-    addNavRow(t("lbl_auto_lock"), autoLockValue, autoLockRowCb);
+    addNavRowGated(t("lbl_auto_lock"), autoLockValue, autoLockRowCb, false);
 }
 
 void SettingsScreen::buildConvoList() {

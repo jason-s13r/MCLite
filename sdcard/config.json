@@ -79,6 +79,11 @@
     "auto_lock": "key",
     "admin_enabled": true
   },
+  "permissions": {
+    "settings": "full",
+    "conversation_management": false,
+    "companion": true
+  },
   "offgrid": {
     "enabled": false
   }
