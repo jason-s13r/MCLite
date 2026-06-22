@@ -5,7 +5,7 @@ All notable changes to MCLite are documented here. The format is loosely based o
 
 Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-watch-vX.Y.Z.bin`).
 
-## [Unreleased]
+## [0.4.0] — 2026-06-22
 
 ### Added
 - **Request contact telemetry from the companion app.** The companion protocol now honours the standard
