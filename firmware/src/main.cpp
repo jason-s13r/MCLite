@@ -385,6 +385,11 @@ static void setupMeshCallbacks() {
         UIManager::instance().updateTelemetryModal(pubKey);
     });
 
+    // Forward the raw telemetry LPP to the companion app (PUSH_CODE_TELEMETRY_RESPONSE).
+    mesh.onTelemetryRaw([](const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen) {
+        CompanionService::instance().onTelemetryResponse(pubKey, lpp, lppLen);
+    });
+
     mesh.onTelemetryRetry([](uint32_t newTimeoutMs) {
         UIManager::instance().onTelemetryRetry(newTimeoutMs);
     });

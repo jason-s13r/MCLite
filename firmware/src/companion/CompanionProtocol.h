@@ -9,10 +9,13 @@
 // from the example's reply builders as each handler is implemented.
 //
 // Scope: messaging + read-only. All config/radio/contact/channel/key WRITE
-// commands are rejected with RESP_CODE_ERR + ERR_CODE_UNSUPPORTED_CMD. The one
-// exception is CMD_SEND_SELF_ADVERT, which is honoured — it only re-broadcasts
-// our own advert (same effect as the on-device button / periodic timer) and
-// changes no stored state, so it stays within the messaging scope.
+// commands are rejected with RESP_CODE_ERR + ERR_CODE_UNSUPPORTED_CMD. Two
+// exceptions are honoured because they only transmit and change no stored state:
+//   - CMD_SEND_SELF_ADVERT — re-broadcasts our own advert (same as the on-device
+//     button / periodic timer).
+//   - CMD_SEND_TELEMETRY_REQ — asks a contact for telemetry over the mesh (same
+//     as the on-device chat-header telemetry button); gated by the existing
+//     messaging.request_telemetry flag.
 
 #include <helpers/BaseSerialInterface.h>   // MAX_FRAME_SIZE (172)
 
@@ -34,6 +37,7 @@ enum : uint8_t {
     CMD_LOGOUT                 = 29,
     CMD_GET_CONTACT_BY_KEY     = 30,
     CMD_GET_CHANNEL            = 31,
+    CMD_SEND_TELEMETRY_REQ     = 39,  // [1..3]=reserved [4..35]=32-byte contact pubkey
 };
 
 // ---- Responses (firmware -> app), out_frame[0] ----
@@ -60,6 +64,7 @@ enum : uint8_t {
 enum : uint8_t {
     PUSH_CODE_SEND_CONFIRMED   = 0x82,
     PUSH_CODE_MSG_WAITING      = 0x83,
+    PUSH_CODE_TELEMETRY_RESPONSE = 0x8B,  // [1]=reserved [2..7]=pubkey prefix [8..]=raw LPP
 };
 
 // ---- Error codes (second byte after RESP_CODE_ERR) ----

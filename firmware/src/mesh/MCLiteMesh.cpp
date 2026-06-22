@@ -931,6 +931,21 @@ bool MCLiteMesh::requestTelemetry(size_t contactIdx, uint32_t& estTimeout) {
     return true;
 }
 
+bool MCLiteMesh::requestTelemetryByKey(const uint8_t* pubKey, uint32_t& estTimeout) {
+    if (!_ready || !pubKey) return false;
+    // contacts[] is private in BaseChatMesh, so resolve the index via the public
+    // iterator (same index space getContactByIdx / requestTelemetry use).
+    int n = getNumContacts();
+    for (int idx = 0; idx < n; idx++) {
+        ContactInfo* ci = getContactByIdx(idx);
+        if (ci && memcmp(ci->id.pub_key, pubKey, PUB_KEY_SIZE) == 0) {
+            return requestTelemetry((size_t)idx, estTimeout);
+        }
+    }
+    LOGLN("[MCLiteMesh] Telemetry request: unknown contact key");
+    return false;
+}
+
 void MCLiteMesh::checkTelemTimeout() {
     if (!_telemRetry.active) return;
 
@@ -1129,6 +1144,9 @@ void MCLiteMesh::onContactResponse(const ContactInfo& contact,
     _telemRetry.active = false;
 
     if (_onTelemetry) _onTelemetry(contact, telem);
+    // Also hand the raw CayenneLPP up verbatim — the companion app forwards it to
+    // the phone, which parses it itself (standard PUSH_CODE_TELEMETRY_RESPONSE).
+    if (_onTelemetryRaw) _onTelemetryRaw(contact.id.pub_key, lpp, lppLen);
 }
 
 float MCLiteMesh::getAirtimeBudgetFactor() const {

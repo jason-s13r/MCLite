@@ -67,6 +67,11 @@ public:
     void onContactMessage(const uint8_t* senderPubKey, uint32_t timestamp, const char* text);
     void onChannelMessage(uint8_t meshChannelIdx, uint32_t timestamp, const char* text);
 
+    // Telemetry bridge: MeshManager forwards a contact's telemetry reply here so
+    // the client gets PUSH_CODE_TELEMETRY_RESPONSE with the raw LPP payload (the
+    // app parses it). Direct push; no-op when no client is connected. pubKey is 32 B.
+    void onTelemetryResponse(const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen);
+
 private:
     CompanionService() = default;
 
@@ -89,6 +94,7 @@ private:
     // Outbound messaging handlers (5d.3)
     void cmdSendTxtMsg(size_t len);
     void cmdSendChannelTxtMsg(size_t len);
+    void cmdSendTelemetryReq(size_t len);   // request telemetry from a contact (over the mesh)
     void noteSent(uint32_t packetId);   // track a DM awaiting ACK confirmation
 
     // Stream one contact per loop tick while a GET_CONTACTS sync is in progress.

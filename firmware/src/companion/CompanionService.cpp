@@ -81,6 +81,7 @@ void CompanionService::handleFrame(size_t len) {
         case CMD_DEVICE_QUERY:     cmdDeviceQuery(len);     break;
         case CMD_SEND_TXT_MSG:     cmdSendTxtMsg(len);      break;
         case CMD_SEND_CHANNEL_TXT_MSG: cmdSendChannelTxtMsg(len); break;
+        case CMD_SEND_TELEMETRY_REQ: cmdSendTelemetryReq(len); break;
         case CMD_GET_DEVICE_TIME:  cmdGetDeviceTime();      break;
         case CMD_SET_DEVICE_TIME:  cmdSetDeviceTime(len);   break;
         case CMD_SEND_SELF_ADVERT: cmdSendSelfAdvert(len);  break;
@@ -243,6 +244,54 @@ void CompanionService::cmdSendChannelTxtMsg(size_t len) {
     ConvoId id{ConvoId::CHANNEL, String(ch.name)};
     if (UIManager::instance().handleSend(id, String(text))) writeOK();
     else writeErr(ERR_CODE_NOT_FOUND);
+}
+
+// CMD_SEND_TELEMETRY_REQ -> RESP_CODE_SENT. Layout: [1..3]=reserved [4..35]=32-byte
+// contact pubkey. Sends a MeshCore telemetry request over the mesh (same path as
+// the on-device chat-header button); the async reply arrives later as
+// PUSH_CODE_TELEMETRY_RESPONSE (see onTelemetryResponse). Gated by the existing
+// messaging.request_telemetry flag, and bounded by the single pending-telemetry slot.
+void CompanionService::cmdSendTelemetryReq(size_t len) {
+    if (len < 36) { writeErr(ERR_CODE_ILLEGAL_ARG); return; }       // 1 code + 3 reserved + 32 key
+    if (!ConfigManager::instance().config().messaging.requestTelemetry) {
+        writeErr(ERR_CODE_BAD_STATE); return;                       // telemetry requests disabled
+    }
+    auto* mesh = MeshManager::instance().mesh();
+    if (!mesh) { writeErr(ERR_CODE_BAD_STATE); return; }
+
+    const uint8_t* pubKey = &_cmd[4];
+    if (!mesh->lookupContactByPubKey(pubKey, PUB_KEY_SIZE)) {       // precise "unknown contact"
+        writeErr(ERR_CODE_NOT_FOUND); return;
+    }
+    // Single-slot: don't clobber a UI/auto request already awaiting a reply.
+    if (MeshManager::instance().isTelemetryPending()) { writeErr(ERR_CODE_BAD_STATE); return; }
+
+    uint32_t est_timeout = 0;
+    if (!MeshManager::instance().requestTelemetryByKey(pubKey, est_timeout)) {
+        writeErr(ERR_CODE_BAD_STATE); return;
+    }
+
+    // RESP_CODE_SENT mirrors cmdSendTxtMsg: [1]=route(0) [2..5]=token(0, none) [6..9]=est_timeout.
+    _out[0] = RESP_CODE_SENT;
+    _out[1] = 0;
+    uint32_t token = 0;
+    memcpy(&_out[2], &token, 4);
+    memcpy(&_out[6], &est_timeout, 4);
+    _iface->writeFrame(_out, 10);
+}
+
+// MeshManager forwards a contact's telemetry reply here -> PUSH_CODE_TELEMETRY_RESPONSE.
+// Direct push (like onAckConfirmed), carrying the verbatim CayenneLPP for the app to
+// parse. Layout: [0]=0x8B [1]=reserved(0) [2..7]=6-byte pubkey prefix [8..]=raw LPP.
+void CompanionService::onTelemetryResponse(const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen) {
+    if (!clientConnected() || !pubKey) return;
+    int n = lppLen;
+    if (n > MAX_FRAME_SIZE - 8) n = MAX_FRAME_SIZE - 8;   // clamp (LPP is small; defensive)
+    _out[0] = PUSH_CODE_TELEMETRY_RESPONSE;
+    _out[1] = 0;
+    memcpy(&_out[2], pubKey, 6);
+    if (n > 0 && lpp) memcpy(&_out[8], lpp, n);
+    _iface->writeFrame(_out, 8 + (n > 0 ? n : 0));
 }
 
 void CompanionService::noteSent(uint32_t packetId) {

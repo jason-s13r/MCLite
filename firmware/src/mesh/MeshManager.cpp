@@ -125,6 +125,11 @@ void MeshManager::wireCallbacks() {
         if (_onTelemetry) _onTelemetry(contact.id.pub_key, data);
     });
 
+    // Telemetry response, raw CayenneLPP (companion app forwards it verbatim)
+    _mesh->onTelemetryRaw([this](const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen) {
+        if (_onTelemetryRaw) _onTelemetryRaw(pubKey, lpp, lppLen);
+    });
+
     // Telemetry retry notification (flood fallback)
     _mesh->onTelemetryRetry([this](uint32_t newTimeoutMs) {
         if (_onTelemetryRetry) _onTelemetryRetry(newTimeoutMs);
@@ -327,6 +332,11 @@ uint32_t MeshManager::sendGroupMessage(uint8_t channelIndex, const String& text)
 bool MeshManager::requestTelemetry(size_t contactIndex, uint32_t& estTimeout) {
     if (!_mesh || !_radioReady) return false;
     return _mesh->requestTelemetry(contactIndex, estTimeout);
+}
+
+bool MeshManager::requestTelemetryByKey(const uint8_t* pubKey, uint32_t& estTimeout) {
+    if (!_mesh || !_radioReady) return false;
+    return _mesh->requestTelemetryByKey(pubKey, estTimeout);
 }
 
 void MeshManager::clearPendingTelemetry() {

@@ -32,6 +32,9 @@ using MeshAckCb      = std::function<void(uint32_t packetId)>;
 using MeshFailCb     = std::function<void(uint32_t packetId)>;
 using MeshAdvertCb   = std::function<void(const ContactInfo& contact, bool isNew)>;
 using MeshTelemetryCb = std::function<void(const ContactInfo& contact, const TelemetryData& data)>;
+// Raw CayenneLPP payload of a telemetry reply (pubKey is 32 B). Used by the
+// companion app, which forwards the verbatim LPP to the phone for it to parse.
+using MeshTelemetryRawCb = std::function<void(const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen)>;
 using MeshTelemetryRetryCb = std::function<void(uint32_t newTimeoutMs)>;
 using MeshRoomMsgCb   = std::function<void(const ContactInfo& contact,
                                             const uint8_t* sender_prefix /* 4 B */,
@@ -108,12 +111,18 @@ public:
     void onFail(MeshFailCb cb)         { _onFail = cb; }
     void onAdvert(MeshAdvertCb cb)     { _onAdvert = cb; }
     void onTelemetry(MeshTelemetryCb cb) { _onTelemetry = cb; }
+    void onTelemetryRaw(MeshTelemetryRawCb cb) { _onTelemetryRaw = cb; }
     void onTelemetryRetry(MeshTelemetryRetryCb cb) { _onTelemetryRetry = cb; }
     void onRoomMsg(MeshRoomMsgCb cb)     { _onRoomMsg = cb; }
     void onRoomLogin(MeshRoomLoginCb cb) { _onRoomLogin = cb; }
 
     // Request telemetry from a contact — returns true on success
     bool requestTelemetry(size_t contactIdx, uint32_t& estTimeout);
+
+    // Same, but addressed by 32-byte pubkey (used by the companion app, which has
+    // the key, not an index). Resolves to the contact's index and delegates to
+    // requestTelemetry. Returns false if the key isn't a known contact or send fails.
+    bool requestTelemetryByKey(const uint8_t* pubKey, uint32_t& estTimeout);
 
     // Clear pending telemetry state (call on timeout)
     void clearPendingTelemetry() { _pendingTelemTag = 0; memset(_pendingTelemKey, 0, PUB_KEY_SIZE); _telemRetry.active = false; }
@@ -257,6 +266,7 @@ private:
     MeshFailCb     _onFail;
     MeshAdvertCb    _onAdvert;
     MeshTelemetryCb _onTelemetry;
+    MeshTelemetryRawCb _onTelemetryRaw;
     MeshTelemetryRetryCb _onTelemetryRetry;
     MeshRoomMsgCb   _onRoomMsg;
     MeshRoomLoginCb _onRoomLogin;

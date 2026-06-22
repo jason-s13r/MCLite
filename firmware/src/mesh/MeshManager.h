@@ -23,6 +23,7 @@ using OnAckCallback      = std::function<void(uint32_t packetId)>;
 using OnFailCallback     = std::function<void(uint32_t packetId)>;
 using OnAdvertCallback     = std::function<void(const uint8_t* senderKey)>;
 using OnTelemetryCallback  = std::function<void(const uint8_t* pubKey, const TelemetryData& data)>;
+using OnTelemetryRawCallback = std::function<void(const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen)>;
 using OnTelemetryRetryCallback = std::function<void(uint32_t newTimeoutMs)>;
 using OnRoomMessageCallback = std::function<void(size_t roomIdx,
                                                   const String& roomName,
@@ -52,6 +53,7 @@ public:
     void onFail(OnFailCallback cb)            { _onFail = cb; }
     void onAdvert(OnAdvertCallback cb)        { _onAdvert = cb; }
     void onTelemetry(OnTelemetryCallback cb)  { _onTelemetry = cb; }
+    void onTelemetryRaw(OnTelemetryRawCallback cb) { _onTelemetryRaw = cb; }
     void onTelemetryRetry(OnTelemetryRetryCallback cb) { _onTelemetryRetry = cb; }
     void onRoomMessage(OnRoomMessageCallback cb) { _onRoomMsg = cb; }
     void onRoomLogin(OnRoomLoginCallback cb)     { _onRoomLogin = cb; }
@@ -67,6 +69,8 @@ public:
 
     // Request telemetry from a contact — returns true on success
     bool requestTelemetry(size_t contactIndex, uint32_t& estTimeout);
+    // Same, addressed by 32-byte pubkey (companion app path).
+    bool requestTelemetryByKey(const uint8_t* pubKey, uint32_t& estTimeout);
 
     // ─── Contact sharing ───
     // Re-broadcast a contact's signed advert at zero hop so nearby nodes can add
@@ -124,6 +128,7 @@ private:
     OnFailCallback     _onFail;
     OnAdvertCallback    _onAdvert;
     OnTelemetryCallback _onTelemetry;
+    OnTelemetryRawCallback _onTelemetryRaw;
     OnTelemetryRetryCallback _onTelemetryRetry;
     OnRoomMessageCallback _onRoomMsg;
     OnRoomLoginCallback   _onRoomLogin;

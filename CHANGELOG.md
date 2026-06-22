@@ -8,6 +8,13 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
 ## [Unreleased]
 
 ### Added
+- **Request contact telemetry from the companion app.** The companion protocol now honours the standard
+  `CMD_SEND_TELEMETRY_REQ` (39): a connected client (meshcore-cli, meshcore-proxy, custom apps, and the official
+  app where its UI offers it) can ask MCLite to query a contact's telemetry over the mesh, and the parsed reply
+  is pushed back as the standard `PUSH_CODE_TELEMETRY_RESPONSE` (0x8B) carrying the raw CayenneLPP. Reuses the
+  on-device telemetry path and its single pending-request slot (rejects with an error while a request is already
+  in flight), and is gated by the existing `messaging.request_telemetry` setting. The first companion command
+  that initiates a mesh request — it changes no stored state (same scope as send-message / send-advert).
 - **Share a contact over the air.** Direct-message chats gain a **Share** button in the header that
   re-broadcasts that contact's original signed advert at zero hop — a nearby device hears it and can add the
   contact straight from its **Heard Adverts**, no key typing. This is MeshCore's standard contact-sharing
