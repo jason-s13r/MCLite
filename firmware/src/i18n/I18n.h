@@ -19,7 +19,7 @@ public:
 
 private:
     I18n() = default;
-    // Must stay above the number of keys in the largest SD lang file (~197 today).
+    // Must stay above the number of keys in the largest SD lang file (~268 today).
     // When exceeded, the loader silently truncates and every key past the cap
     // falls back to English — keep generous headroom as strings are added.
     static constexpr size_t MAX_STRINGS = 320;

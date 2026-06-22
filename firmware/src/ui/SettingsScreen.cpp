@@ -831,9 +831,10 @@ void SettingsScreen::openButtonModal(ConvoModal purpose) {
     if (_convoModalBtnm) return;
     _convoModal = purpose;
 
-    // Labels + optional title per purpose.
+    // Labels + optional title/body per purpose.
     g_btnModalLabels.clear();
     String title;
+    String body;
     switch (purpose) {
         case ConvoModal::AddChooser:
             if (_section == SettingsSection::Contacts) {
@@ -852,7 +853,8 @@ void SettingsScreen::openButtonModal(ConvoModal purpose) {
             else if (_section == SettingsSection::Channels && i < cfg.channels.size())  name = cfg.channels[i].name;
             else if (_section == SettingsSection::Rooms && i < cfg.roomServers.size())  name = cfg.roomServers[i].name;
             char buf[96]; snprintf(buf, sizeof(buf), t("convo_del_confirm"), name.c_str());
-            title = buf;
+            title = t("convo_del_title");
+            body  = buf;
             g_btnModalLabels = { t("btn_delete"), t("btn_cancel") };
             break;
         }
@@ -874,7 +876,7 @@ void SettingsScreen::openButtonModal(ConvoModal purpose) {
         default: return;
     }
 
-    _convoModalBtnm = ModalDialog::show(title, "", g_btnModalLabels,
+    _convoModalBtnm = ModalDialog::show(title, body, g_btnModalLabels,
         [this](lv_obj_t* dlg, int idx) { onConvoModalChoice(dlg, idx); });
 }
 

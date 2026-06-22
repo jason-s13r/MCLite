@@ -11,6 +11,7 @@
 #include "../util/hex.h"
 #include "../util/offgrid.h"
 #include "../util/locprecision.h"
+#include <helpers/AdvertDataHelpers.h>
 #include <helpers/ArduinoHelpers.h>
 #include <helpers/ESP32Board.h>
 #include <helpers/radiolib/CustomSX1262Wrapper.h>
@@ -585,6 +586,28 @@ void MCLiteMesh::retryOrFail(AckEntry& entry) {
 
 // ---- BaseChatMesh overrides ----
 
+void MCLiteMesh::onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id,
+                              uint32_t timestamp, const uint8_t* app_data, size_t app_data_len) {
+    // BaseChatMesh only stores the raw advert blob (putBlobByKey) for nodes already
+    // in contacts[], so a node heard but not yet saved never gets cached — and a
+    // contact saved from Heard Adverts then can't be shared until it re-adverts.
+    // Capture the blob here for every *valid* advert. Mirror the base's header
+    // normalization (FLOOD route, no transport codes) so the stored packet is
+    // byte-identical to what shareContactZeroHop() re-broadcasts.
+    AdvertDataParser parser(app_data, app_data_len);
+    if (parser.isValid() && parser.hasName()) {
+        uint8_t saved = packet->header;
+        packet->header = (packet->header & ~PH_ROUTE_MASK) | ROUTE_TYPE_FLOOD;
+        uint8_t buf[ADVERT_BLOB_MAX];
+        int plen = packet->writeTo(buf);
+        packet->header = saved;
+        if (plen > 0 && (size_t)plen <= ADVERT_BLOB_MAX) {
+            putBlobByKey(id.pub_key, PUB_KEY_SIZE, buf, plen);
+        }
+    }
+    BaseChatMesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len);
+}
+
 void MCLiteMesh::onDiscoveredContact(ContactInfo& contact, bool is_new,
                                       uint8_t path_len, const uint8_t* path) {
     LOGF("[MCLiteMesh] Discovered contact: %s (%s, hops=%d)\n",
@@ -643,8 +666,11 @@ bool MCLiteMesh::loadAdvertBlobFromSD(const uint8_t* key, uint8_t* dest, uint16_
     advertBlobPath(key, path, sizeof(path));
     if (!SDCard::instance().fileExists(path)) return false;
     String hex = SDCard::instance().readFile(path);
+    // Reject a truncated/corrupt file (e.g. partial write) rather than decode it
+    // to a garbage packet we'd then re-broadcast: require even length + pure hex.
+    if (hex.length() == 0 || (hex.length() % 2) != 0 || !isHexString(hex)) return false;
     size_t n = hex.length() / 2;
-    if (n == 0 || n > ADVERT_BLOB_MAX) return false;
+    if (n > ADVERT_BLOB_MAX) return false;
     for (size_t i = 0; i < n; i++) {
         char pair[3] = { hex[i * 2], hex[i * 2 + 1], '\0' };
         dest[i] = (uint8_t)strtoul(pair, nullptr, 16);

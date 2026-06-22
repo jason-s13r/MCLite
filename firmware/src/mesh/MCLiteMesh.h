@@ -158,6 +158,13 @@ public:
 protected:
     // ---- Required BaseChatMesh overrides ----
 
+    // Capture the raw advert blob for every heard node (not just existing
+    // contacts, which is all the base class stores) so a contact saved from
+    // Heard Adverts can be shared immediately and after a reboot. Delegates to
+    // BaseChatMesh for the actual contact/discovery handling.
+    void onAdvertRecv(mesh::Packet* packet, const mesh::Identity& id, uint32_t timestamp,
+                      const uint8_t* app_data, size_t app_data_len) override;
+
     void onDiscoveredContact(ContactInfo& contact, bool is_new,
                              uint8_t path_len, const uint8_t* path) override;
 
@@ -224,7 +231,11 @@ private:
     // Sized to a full transport unit so a multi-hop advert (header + path + payload)
     // is never rejected; shareContactZeroHop re-sends the raw packet verbatim.
     static constexpr size_t ADVERT_BLOB_MAX   = MAX_TRANS_UNIT;
-    static constexpr size_t ADVERT_BLOB_SLOTS = MAX_CONTACTS;
+    // Match the Heard-Adverts list capacity (HeardAdvertCache HEARD_ADVERT_CAP=64),
+    // not MAX_CONTACTS: we cache blobs for every heard node so that anything still
+    // visible in the heard list can be saved AND shared. Saved/config contacts are
+    // additionally backed to SD, so RAM eviction never disables sharing for them.
+    static constexpr size_t ADVERT_BLOB_SLOTS = 64;
     struct AdvertBlob {
         uint8_t  key[PUB_KEY_SIZE] = {0};
         uint8_t  data[ADVERT_BLOB_MAX];

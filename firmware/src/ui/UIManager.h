@@ -232,7 +232,7 @@ private:
     bool        _telemHasMap = false;  // tracks whether the Map button is shown (rebuild on change)
 
     void dismissTelemetryModal();
-    void refreshChatHeaderButtons();  // reveal map/share header buttons per availability
+    void refreshChatHeaderButtons(bool evalShare = true);  // map always; share (SD-backed) skipped on the 1Hz tick
     bool evalCanMap(const uint8_t* pubKey) const;
     void buildTelemetryMsgbox(bool canMap);  // (re)creates the modal
     void onTelemModalChoice(lv_obj_t* dlg, int idx);

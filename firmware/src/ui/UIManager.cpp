@@ -175,7 +175,7 @@ void UIManager::update() {
         // Re-evaluate the chat header map button so it appears when an advert
         // brings in a position and disappears when a last-known fix ages out of
         // its freshness window (bestKnownLocation is time-sensitive).
-        if (_currentScreen == Screen::CHAT) refreshChatHeaderButtons();
+        if (_currentScreen == Screen::CHAT) refreshChatHeaderButtons(false);  // map only; share is evaluated on open
         _lastStatusUpdate = now;
     }
 
@@ -370,14 +370,19 @@ void UIManager::showScreen(Screen screen) {
     }
 }
 
-void UIManager::refreshChatHeaderButtons() {
+void UIManager::refreshChatHeaderButtons(bool evalShare) {
     // Reveal the chat header's map button only when we have a position for the
     // open DM contact (so the map always opens with something to centre on), and
     // the Share button only when we hold a re-broadcastable advert for them.
+    //
+    // The map check is in-memory and runs on the 1 Hz status tick (location ages
+    // out). Share availability only changes when a fresh advert is heard (which
+    // updates the in-RAM blob cache) and its check can touch the SD card, so it's
+    // evaluated only on chat open / after telemetry (evalShare), never per tick.
     const ConvoId* cc = _chatScreen.currentConvo();
     if (_currentScreen != Screen::CHAT || !cc || cc->type != ConvoId::DM) {
         _chatScreen.setMapAvailable(false);
-        _chatScreen.setShareAvailable(false);
+        if (evalShare) _chatScreen.setShareAvailable(false);
         return;
     }
     const bool shareOn = ConfigManager::instance().config().messaging.shareContact;
@@ -386,13 +391,13 @@ void UIManager::refreshChatHeaderButtons() {
         const Contact* c = contacts.findByIndex(i);
         if (c && c->shortId() == cc->id) {
             _chatScreen.setMapAvailable(bestKnownLocation(c->publicKey).valid);
-            _chatScreen.setShareAvailable(shareOn &&
+            if (evalShare) _chatScreen.setShareAvailable(shareOn &&
                 MeshManager::instance().canShareContact(c->publicKey));
             return;
         }
     }
     _chatScreen.setMapAvailable(false);
-    _chatScreen.setShareAvailable(false);
+    if (evalShare) _chatScreen.setShareAvailable(false);
 }
 
 void UIManager::openChat(const ConvoId& id) {
@@ -539,6 +544,13 @@ void UIManager::showSOSAlert(const ConvoId& id, const Message& msg) {
     // Close previous SOS alert if open
     if (_sosMsgbox) {
         dismissSOSAlert(false);
+    }
+    // SOS is async and can fire over an open modal. Only one ModalDialog may be
+    // active (they share a single modal input group), so tear down a telemetry
+    // pop-up first — otherwise its panel/scrim would be orphaned on screen while
+    // SOS steals the group. (Other transient modals are screen-local + brief.)
+    if (_telemMsgbox) {
+        dismissTelemetryModal();
     }
 
     _sosConvoId = id;
