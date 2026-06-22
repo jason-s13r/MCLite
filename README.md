@@ -16,18 +16,21 @@ Most features below are optional. The primary goal is to keep things extremely s
   <a href="https://laserir.github.io/MCLite/tools/config-tool/mclite_config_tool.html"><img src="docs/images/btn-config.svg" alt="Open Config Tool" height="48"></a>
 </p>
 
-<p align="center">
-<img src="docs/images/conversation-list.png" width="360" alt="Conversation list screen">&nbsp;&nbsp;
-<img src="docs/images/chat-view.png" width="360" alt="Chat view with map / telemetry / share header buttons">
-</p>
-
-<p align="center">
-<img src="docs/images/chat-canned-messages.png" width="190" alt="Canned quick-reply picker">&nbsp;
-<img src="docs/images/chat-emoji-picker.png" width="190" alt="Emoji picker">&nbsp;
-<img src="docs/images/heard-adverts.png" width="190" alt="Heard adverts list">&nbsp;
-<img src="docs/images/admin-screen.png" width="190" alt="Admin hub">&nbsp;
-<img src="docs/images/admin-contacts.png" width="190" alt="On-device contact management">
-</p>
+<table align="center">
+  <tr>
+    <td align="center"><img src="docs/images/conversation-list.png" width="240" alt="Conversation list"><br><sub>Conversations</sub></td>
+    <td align="center"><img src="docs/images/chat-view.png" width="240" alt="Chat view with map / telemetry / share header buttons"><br><sub>Chat &mdash; map / telemetry / share</sub></td>
+    <td align="center"><img src="docs/images/chat-canned-messages.png" width="240" alt="Canned quick-reply picker"><br><sub>Canned quick replies</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/chat-emoji-picker.png" width="240" alt="Emoji picker"><br><sub>Emoji picker</sub></td>
+    <td align="center"><img src="docs/images/heard-adverts.png" width="240" alt="Heard adverts list"><br><sub>Heard adverts</sub></td>
+    <td align="center"><img src="docs/images/admin-screen.png" width="240" alt="Admin hub"><br><sub>Admin hub</sub></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="3"><img src="docs/images/admin-contacts.png" width="240" alt="On-device contact management"><br><sub>On-device contact management</sub></td>
+  </tr>
+</table>
 
 <p align="center">
 <img src="docs/images/twatchultra.jpg" width="810" alt="MCLite running on three T-Watch Ultra devices">
