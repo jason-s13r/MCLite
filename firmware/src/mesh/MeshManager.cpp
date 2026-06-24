@@ -173,11 +173,12 @@ void MeshManager::wireCallbacks() {
 
     // Room login response (from sendLogin handshake)
     _mesh->onRoomLogin([this, findRoomIdx](const ContactInfo& contact,
-                                            uint8_t status, uint8_t permissions) {
+                                            uint8_t status, uint8_t permissions,
+                                            uint8_t aclPerms, uint8_t fwLevel) {
         if (!_onRoomLogin) return;
         int roomIdx = findRoomIdx(contact);
         if (roomIdx < 0) return;
-        _onRoomLogin((size_t)roomIdx, String(contact.name), status, permissions);
+        _onRoomLogin((size_t)roomIdx, String(contact.name), status, permissions, aclPerms, fwLevel);
     });
 }
 

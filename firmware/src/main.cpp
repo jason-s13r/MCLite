@@ -402,9 +402,10 @@ static void setupMeshCallbacks() {
     });
 
     mesh.onRoomLogin([](size_t roomIdx, const String& roomName,
-                         uint8_t status, uint8_t permissions) {
+                         uint8_t status, uint8_t permissions,
+                         uint8_t aclPerms, uint8_t fwLevel) {
         UIManager::instance().onRoomLoginResponse(roomIdx, roomName, status, permissions);
-        CompanionService::instance().onRoomLoginResult(roomIdx, status, permissions);
+        CompanionService::instance().onRoomLoginResult(roomIdx, status, permissions, aclPerms, fwLevel);
     });
 }
 

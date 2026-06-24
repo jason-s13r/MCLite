@@ -76,7 +76,8 @@ public:
     // Drives PUSH_CODE_LOGIN_SUCCESS/FAIL, but only for logins the app initiated
     // (CMD_SEND_LOGIN) — a background/on-device auto-login pushes nothing. Also runs
     // the instant wrong-password fallback (retry once with the configured password).
-    void onRoomLoginResult(size_t roomIdx, uint8_t status, uint8_t permissions);
+    void onRoomLoginResult(size_t roomIdx, uint8_t status, uint8_t permissions,
+                           uint8_t aclPerms, uint8_t fwLevel);
 
 private:
     CompanionService() = default;
@@ -106,7 +107,7 @@ private:
     void cmdAddUpdateContact(size_t len);   // add a contact, or edit an existing one's name (live, no reboot)
     void cmdRemoveContact(size_t len);      // remove a contact + its history/advert (live, no reboot)
     void cmdShareContact(size_t len);       // re-broadcast a contact's advert (zero hop)
-    void cmdReboot();                       // reboot the device (no response)
+    void cmdReboot(size_t len);             // reboot the device (requires "reboot" magic word; no response)
 
     // Device-settings writes (gate: permissions.settings == "full"). Name applies live;
     // radio/TX/path-hash/PIN save to config and reboot to apply (re-applied at boot).

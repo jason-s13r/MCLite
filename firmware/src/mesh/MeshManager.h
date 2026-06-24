@@ -33,7 +33,9 @@ using OnRoomMessageCallback = std::function<void(size_t roomIdx,
 using OnRoomLoginCallback   = std::function<void(size_t roomIdx,
                                                   const String& roomName,
                                                   uint8_t status,
-                                                  uint8_t permissions)>;
+                                                  uint8_t permissions,
+                                                  uint8_t aclPerms,
+                                                  uint8_t fwLevel)>;
 
 class MeshManager {
 public:

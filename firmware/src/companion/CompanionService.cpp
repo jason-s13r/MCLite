@@ -115,7 +115,7 @@ void CompanionService::handleFrame(size_t len) {
         case CMD_EXPORT_CONTACT:   cmdExportContact(len);   break;
         case CMD_IMPORT_CONTACT:   cmdImportContact(len);   break;
         case CMD_GET_AUTOADD_CONFIG: cmdGetAutoaddConfig(); break;
-        case CMD_REBOOT:           cmdReboot();             break;
+        case CMD_REBOOT:           cmdReboot(len);          break;
         case CMD_SYNC_NEXT_MESSAGE: cmdSyncNextMessage();   break;
         case CMD_LOGOUT:           writeOK();               break;   // no room sessions yet
         case CMD_HAS_CONNECTION:   writeErr(ERR_CODE_NOT_FOUND); break;
@@ -373,7 +373,8 @@ void CompanionService::cmdSendLogin(size_t len) {
 
 // MeshManager forwards every room-login response here. We only act on logins the app
 // initiated (an active _pendingLogin), so background/on-device auto-logins push nothing.
-void CompanionService::onRoomLoginResult(size_t roomIdx, uint8_t status, uint8_t permissions) {
+void CompanionService::onRoomLoginResult(size_t roomIdx, uint8_t status, uint8_t permissions,
+                                         uint8_t aclPerms, uint8_t fwLevel) {
     if (roomIdx >= MAX_ROOMS) return;
     PendingLogin& p = _pendingLogin[roomIdx];
     if (!p.active) return;
@@ -381,13 +382,16 @@ void CompanionService::onRoomLoginResult(size_t roomIdx, uint8_t status, uint8_t
     if (status == 0 /* RESP_SERVER_LOGIN_OK */) {
         p.active = false;
         if (!clientConnected()) return;
+        // Reference layout (companion_radio): [0]=0x85 [1]=perms [2..7]=prefix [8..11]=tag
+        // [12]=v7 ACL perms [13]=firmware ver level — 14 bytes.
         _out[0] = PUSH_CODE_LOGIN_SUCCESS;
         _out[1] = permissions;
         memcpy(&_out[2], p.prefix, 6);
         uint32_t tag = 0;
         memcpy(&_out[8], &tag, 4);   // tag not surfaced by onRoomLogin; app matches on prefix
-        _out[12] = permissions;      // new_permissions (V7+)
-        _iface->writeFrame(_out, 13);
+        _out[12] = aclPerms;         // v7 ACL permissions (data[7])
+        _out[13] = fwLevel;          // firmware version level (data[12])
+        _iface->writeFrame(_out, 14);
         return;
     }
 
@@ -401,9 +405,11 @@ void CompanionService::onRoomLoginResult(size_t roomIdx, uint8_t status, uint8_t
 
     p.active = false;
     if (!clientConnected()) return;
+    // Reference layout: [0]=0x86 [1]=0 reserved [2..7]=prefix — 8 bytes.
     _out[0] = PUSH_CODE_LOGIN_FAIL;
-    memcpy(&_out[1], p.prefix, 6);
-    _iface->writeFrame(_out, 7);
+    _out[1] = 0;                     // reserved
+    memcpy(&_out[2], p.prefix, 6);
+    _iface->writeFrame(_out, 8);
 }
 
 void CompanionService::noteSent(uint32_t packetId) {
@@ -779,7 +785,10 @@ void CompanionService::cmdShareContact(size_t len) {
 
 // CMD_REBOOT -> (no response, per protocol). Reboot the device: a power-cycle, no stored-state
 // change, so it's allowed ungated. Reuses the deferred-reboot path (loop() performs the restart).
-void CompanionService::cmdReboot() {
+// Requires the "reboot" magic word ([1..6]) so a stray byte can't restart the device (mirrors the
+// reference companion_radio guard).
+void CompanionService::cmdReboot(size_t len) {
+    if (len < 7 || memcmp(&_cmd[1], "reboot", 6) != 0) return;
     _rebootAtMs = millis() + REBOOT_DELAY_MS;
 }
 

@@ -123,8 +123,8 @@ enum : uint8_t {
 enum : uint8_t {
     PUSH_CODE_SEND_CONFIRMED   = 0x82,
     PUSH_CODE_MSG_WAITING      = 0x83,
-    PUSH_CODE_LOGIN_SUCCESS    = 0x85,  // [1]=permissions [2..7]=pubkey prefix [8..11]=tag [12]=new_perms
-    PUSH_CODE_LOGIN_FAIL       = 0x86,  // [1..6]=pubkey prefix
+    PUSH_CODE_LOGIN_SUCCESS    = 0x85,  // [1]=perms [2..7]=prefix [8..11]=tag [12]=v7 ACL perms [13]=fw level
+    PUSH_CODE_LOGIN_FAIL       = 0x86,  // [1]=reserved [2..7]=pubkey prefix
     PUSH_CODE_TELEMETRY_RESPONSE = 0x8B,  // [1]=reserved [2..7]=pubkey prefix [8..]=raw LPP
 };
 

@@ -288,6 +288,7 @@ bool ConfigManager::parseJson(const String& json) {
             _config.messaging.cannedMessages = cm.as<bool>();
         } else if (cm.is<JsonArray>()) {
             _config.messaging.cannedMessages = true;
+            _config.messaging.cannedCustom.clear();  // defensive: don't append onto applyDefaults() state
             JsonArray arr = cm.as<JsonArray>();
             for (size_t i = 0; i < arr.size() && i < 8; i++) {
                 _config.messaging.cannedCustom.push_back(arr[i].as<String>());

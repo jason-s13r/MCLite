@@ -41,7 +41,8 @@ using MeshRoomMsgCb   = std::function<void(const ContactInfo& contact,
                                             uint32_t sender_timestamp,
                                             const char* text)>;
 using MeshRoomLoginCb = std::function<void(const ContactInfo& contact,
-                                            uint8_t status, uint8_t permissions)>;
+                                            uint8_t status, uint8_t permissions,
+                                            uint8_t aclPerms, uint8_t fwLevel)>;
 
 // Pending ACK entry
 struct AckEntry {

@@ -1089,7 +1089,9 @@ void MCLiteMesh::onContactResponse(const ContactInfo& contact,
         if (len < 7) return;  // need at least status + legacy perms
         uint8_t status      = data[4];
         uint8_t permissions = data[6];
-        if (_onRoomLogin) _onRoomLogin(contact, status, permissions);
+        uint8_t aclPerms    = (len > 7)  ? data[7]  : permissions;  // v7 ACL perms (fallback: legacy)
+        uint8_t fwLevel     = (len > 12) ? data[12] : 0;            // server firmware level
+        if (_onRoomLogin) _onRoomLogin(contact, status, permissions, aclPerms, fwLevel);
         return;
     }
 
