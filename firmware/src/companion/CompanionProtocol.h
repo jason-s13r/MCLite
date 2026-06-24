@@ -9,13 +9,16 @@
 // from the example's reply builders as each handler is implemented.
 //
 // Scope: messaging + read-only. All config/radio/contact/channel/key WRITE
-// commands are rejected with RESP_CODE_ERR + ERR_CODE_UNSUPPORTED_CMD. Two
-// exceptions are honoured because they only transmit and change no stored state:
+// commands are rejected with RESP_CODE_ERR + ERR_CODE_UNSUPPORTED_CMD. A few
+// commands are honoured because they only transmit / hold an in-RAM session and
+// change no stored config:
 //   - CMD_SEND_SELF_ADVERT — re-broadcasts our own advert (same as the on-device
 //     button / periodic timer).
 //   - CMD_SEND_TELEMETRY_REQ — asks a contact for telemetry over the mesh (same
 //     as the on-device chat-header telemetry button); gated by the existing
 //     messaging.request_telemetry flag.
+//   - CMD_SEND_LOGIN — logs into an already-configured room/repeater over the mesh
+//     (same as the on-device room login); session is RAM-only, no config write.
 
 #include <helpers/BaseSerialInterface.h>   // MAX_FRAME_SIZE (172)
 
@@ -37,6 +40,7 @@ enum : uint8_t {
     CMD_LOGOUT                 = 29,
     CMD_GET_CONTACT_BY_KEY     = 30,
     CMD_GET_CHANNEL            = 31,
+    CMD_SEND_LOGIN             = 26,  // [1..32]=32-byte room/repeater pubkey [33..]=password (<=15)
     CMD_SEND_TELEMETRY_REQ     = 39,  // [1..3]=reserved [4..35]=32-byte contact pubkey
 };
 
@@ -64,6 +68,8 @@ enum : uint8_t {
 enum : uint8_t {
     PUSH_CODE_SEND_CONFIRMED   = 0x82,
     PUSH_CODE_MSG_WAITING      = 0x83,
+    PUSH_CODE_LOGIN_SUCCESS    = 0x85,  // [1]=permissions [2..7]=pubkey prefix [8..11]=tag [12]=new_perms
+    PUSH_CODE_LOGIN_FAIL       = 0x86,  // [1..6]=pubkey prefix
     PUSH_CODE_TELEMETRY_RESPONSE = 0x8B,  // [1]=reserved [2..7]=pubkey prefix [8..]=raw LPP
 };
 

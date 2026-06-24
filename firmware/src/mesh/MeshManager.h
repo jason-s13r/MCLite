@@ -62,6 +62,10 @@ public:
     // a successful send; the actual login outcome arrives asynchronously via
     // onRoomLogin. Idempotent server-side (refreshes the session).
     bool loginRoom(size_t roomIdx, uint32_t& estTimeout);
+    // Same, but with an explicit password (used by the companion app, which
+    // supplies its own; not persisted). Falls back to the config-password overload
+    // by leaving the app field empty — see CompanionService::cmdSendLogin.
+    bool loginRoom(size_t roomIdx, const char* password, uint32_t& estTimeout);
 
     // Send a post to a room (by config index). Returns internal packetId, 0 on
     // failure. ACK arrives via the existing onAck/onFail callbacks.

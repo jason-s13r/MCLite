@@ -404,6 +404,7 @@ static void setupMeshCallbacks() {
     mesh.onRoomLogin([](size_t roomIdx, const String& roomName,
                          uint8_t status, uint8_t permissions) {
         UIManager::instance().onRoomLoginResponse(roomIdx, roomName, status, permissions);
+        CompanionService::instance().onRoomLoginResult(roomIdx, status, permissions);
     });
 }
 

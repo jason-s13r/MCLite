@@ -194,6 +194,12 @@ bool MeshManager::loginRoom(size_t roomIdx, uint32_t& estTimeout) {
     return result != MSG_SEND_FAILED;
 }
 
+bool MeshManager::loginRoom(size_t roomIdx, const char* password, uint32_t& estTimeout) {
+    if (!_mesh) return false;
+    if (roomIdx >= ConfigManager::instance().config().roomServers.size()) return false;
+    return _mesh->loginRoom(roomIdx, password ? password : "", estTimeout) != MSG_SEND_FAILED;
+}
+
 uint32_t MeshManager::sendRoomPost(size_t roomIdx, const String& text) {
     if (!_mesh || !_radioReady) return 0;
     const auto& cfg = ConfigManager::instance().config();

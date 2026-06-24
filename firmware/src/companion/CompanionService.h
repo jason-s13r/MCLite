@@ -72,6 +72,12 @@ public:
     // app parses it). Direct push; no-op when no client is connected. pubKey is 32 B.
     void onTelemetryResponse(const uint8_t* pubKey, const uint8_t* lpp, uint8_t lppLen);
 
+    // Room-login bridge: MeshManager forwards a room/repeater login response here.
+    // Drives PUSH_CODE_LOGIN_SUCCESS/FAIL, but only for logins the app initiated
+    // (CMD_SEND_LOGIN) — a background/on-device auto-login pushes nothing. Also runs
+    // the instant wrong-password fallback (retry once with the configured password).
+    void onRoomLoginResult(size_t roomIdx, uint8_t status, uint8_t permissions);
+
 private:
     CompanionService() = default;
 
@@ -95,6 +101,7 @@ private:
     void cmdSendTxtMsg(size_t len);
     void cmdSendChannelTxtMsg(size_t len);
     void cmdSendTelemetryReq(size_t len);   // request telemetry from a contact (over the mesh)
+    void cmdSendLogin(size_t len);          // log into an already-configured room/repeater
     void noteSent(uint32_t packetId);   // track a DM awaiting ACK confirmation
 
     // Stream one contact per loop tick while a GET_CONTACTS sync is in progress.
@@ -123,6 +130,14 @@ private:
     struct PendingAck { uint32_t packetId; uint32_t sentMs; bool active; };
     static constexpr int PENDING_ACKS = 8;
     PendingAck _pending[PENDING_ACKS] = {};
+
+    // App-initiated room logins (CMD_SEND_LOGIN), keyed by config room index. Drives
+    // the LOGIN_SUCCESS/FAIL push + the instant wrong-password fallback (retry once
+    // with the configured password). prefix = first 6 B of the room pubkey.
+    static constexpr size_t MAX_ROOMS = 8;
+    struct PendingLogin { bool active = false; bool retried = false;
+                          bool fallbackEligible = false; uint8_t prefix[6] = {0}; };
+    PendingLogin _pendingLogin[MAX_ROOMS];
 
     // Offline queue of pre-built sync frames (drained by SYNC_NEXT_MESSAGE).
     struct OfflineMsg { uint8_t len; uint8_t buf[MAX_FRAME_SIZE]; };

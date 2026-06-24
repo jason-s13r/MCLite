@@ -82,6 +82,7 @@ void CompanionService::handleFrame(size_t len) {
         case CMD_SEND_TXT_MSG:     cmdSendTxtMsg(len);      break;
         case CMD_SEND_CHANNEL_TXT_MSG: cmdSendChannelTxtMsg(len); break;
         case CMD_SEND_TELEMETRY_REQ: cmdSendTelemetryReq(len); break;
+        case CMD_SEND_LOGIN:       cmdSendLogin(len);       break;
         case CMD_GET_DEVICE_TIME:  cmdGetDeviceTime();      break;
         case CMD_SET_DEVICE_TIME:  cmdSetDeviceTime(len);   break;
         case CMD_SEND_SELF_ADVERT: cmdSendSelfAdvert(len);  break;
@@ -292,6 +293,91 @@ void CompanionService::onTelemetryResponse(const uint8_t* pubKey, const uint8_t*
     memcpy(&_out[2], pubKey, 6);
     if (n > 0 && lpp) memcpy(&_out[8], lpp, n);
     _iface->writeFrame(_out, 8 + (n > 0 ? n : 0));
+}
+
+// CMD_SEND_LOGIN -> RESP_CODE_SENT. Layout: [1..32]=32-byte room pubkey, [33..]=password
+// (remainder, <=15). Logs into an already-configured room/repeater over the mesh (reuses the
+// on-device loginRoom path). A blank app password uses the configured one; a wrong non-blank
+// password triggers an instant one-shot retry with the configured password (see onRoomLoginResult).
+void CompanionService::cmdSendLogin(size_t len) {
+    if (len < 33) { writeErr(ERR_CODE_ILLEGAL_ARG); return; }
+    const auto& cfg = ConfigManager::instance().config();
+
+    // Resolve the 32-byte room pubkey to a config room index.
+    char keyHex[PUB_KEY_SIZE * 2 + 1];
+    for (int i = 0; i < PUB_KEY_SIZE; i++) sprintf(keyHex + i * 2, "%02x", _cmd[1 + i]);
+    keyHex[PUB_KEY_SIZE * 2] = '\0';
+    int roomIdx = -1;
+    for (size_t i = 0; i < cfg.roomServers.size() && i < MAX_ROOMS; i++) {
+        if (cfg.roomServers[i].publicKey.equalsIgnoreCase(keyHex)) { roomIdx = (int)i; break; }
+    }
+    if (roomIdx < 0) { writeErr(ERR_CODE_NOT_FOUND); return; }
+
+    // Password = frame remainder, clamped to 15 (MeshCore room-password limit).
+    size_t pwLen = len - 33;
+    if (pwLen > 15) pwLen = 15;
+    char password[16];
+    memcpy(password, &_cmd[33], pwLen);
+    password[pwLen] = '\0';
+
+    uint32_t est = 0;
+    bool ok, fallbackEligible = false;
+    if (pwLen > 0) {
+        ok = MeshManager::instance().loginRoom((size_t)roomIdx, password, est);
+        const String& configPw = cfg.roomServers[roomIdx].password;
+        // Eligible only when config has a (different) non-empty password to try.
+        fallbackEligible = configPw.length() > 0 && !configPw.equals(password);
+    } else {
+        ok = MeshManager::instance().loginRoom((size_t)roomIdx, est);  // configured password
+    }
+    if (!ok) { writeErr(ERR_CODE_BAD_STATE); return; }
+
+    PendingLogin& p = _pendingLogin[roomIdx];
+    p.active = true; p.retried = false; p.fallbackEligible = fallbackEligible;
+    memcpy(p.prefix, &_cmd[1], 6);
+
+    // RESP_CODE_SENT mirrors cmdSendTxtMsg: [1]=route(0) [2..5]=token(0) [6..9]=est_timeout.
+    _out[0] = RESP_CODE_SENT;
+    _out[1] = 0;
+    uint32_t token = 0;
+    memcpy(&_out[2], &token, 4);
+    memcpy(&_out[6], &est, 4);
+    _iface->writeFrame(_out, 10);
+}
+
+// MeshManager forwards every room-login response here. We only act on logins the app
+// initiated (an active _pendingLogin), so background/on-device auto-logins push nothing.
+void CompanionService::onRoomLoginResult(size_t roomIdx, uint8_t status, uint8_t permissions) {
+    if (roomIdx >= MAX_ROOMS) return;
+    PendingLogin& p = _pendingLogin[roomIdx];
+    if (!p.active) return;
+
+    if (status == 0 /* RESP_SERVER_LOGIN_OK */) {
+        p.active = false;
+        if (!clientConnected()) return;
+        _out[0] = PUSH_CODE_LOGIN_SUCCESS;
+        _out[1] = permissions;
+        memcpy(&_out[2], p.prefix, 6);
+        uint32_t tag = 0;
+        memcpy(&_out[8], &tag, 4);   // tag not surfaced by onRoomLogin; app matches on prefix
+        _out[12] = permissions;      // new_permissions (V7+)
+        _iface->writeFrame(_out, 13);
+        return;
+    }
+
+    // Failure: instant one-shot fallback to the configured password, if eligible.
+    if (!p.retried && p.fallbackEligible) {
+        p.retried = true;
+        uint32_t est = 0;
+        MeshManager::instance().loginRoom(roomIdx, est);  // configured password; suppress interim 0x86
+        return;
+    }
+
+    p.active = false;
+    if (!clientConnected()) return;
+    _out[0] = PUSH_CODE_LOGIN_FAIL;
+    memcpy(&_out[1], p.prefix, 6);
+    _iface->writeFrame(_out, 7);
 }
 
 void CompanionService::noteSent(uint32_t packetId) {
