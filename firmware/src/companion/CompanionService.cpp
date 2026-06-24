@@ -589,6 +589,7 @@ void CompanionService::cmdSetChannel(size_t len) {
         String chName = mgr.config().channels[idx].name;
         if (!mgr.removeChannelAt(idx)) { writeErr(ERR_CODE_BAD_STATE); return; }
         MessageStore::instance().removeConversation(ConvoId{ConvoId::CHANNEL, chName});  // parity w/ on-device
+        UIManager::instance().refreshConvoList();   // drop the row now, don't wait for the reboot
         _rebootAtMs = millis() + REBOOT_DELAY_MS;
         writeOK();
         return;
@@ -629,16 +630,24 @@ void CompanionService::cmdSetChannel(size_t len) {
     // the add) then returns the real key instead of zeros, and the channel is usable straight
     // away — no reboot, session stays connected. Config is persisted, so a later reboot
     // rebuilds the same table.
+    //
+    // EXCEPTION: if a reboot is already queued (a prior channel REMOVE — which can't drop a
+    // channel from the live mesh table, so it rebuilds at boot), the mesh table is stale and
+    // about to be rebuilt. GET_CHANNEL reads the mesh by index, so registering live now would
+    // land at a slot misaligned with the reindexed config. In that case (or if live
+    // registration isn't possible) just persist and let the reboot rebuild the table.
     ChannelStore::instance().loadFromConfig();
     Channel* nc = ChannelStore::instance().findByIndex(mgr.config().channels.back().index);
     auto* mesh = MeshManager::instance().mesh();
-    if (nc && mesh) {
+    if (_rebootAtMs == 0 && nc && mesh) {
         mesh->addChannel(nc->name.c_str(), nc->pskB64.c_str());
         // Create the on-device conversation + redraw the convo list (mirrors main.cpp's
         // boot-time ensureConversation for channels) so the channel appears live.
         MessageStore::instance().ensureConversation(
             ConvoId{ConvoId::CHANNEL, nc->name}, nc->name, nc->isPrivate(), nc->readOnly);
         UIManager::instance().refreshConvoList();
+    } else {
+        _rebootAtMs = millis() + REBOOT_DELAY_MS;   // rebuild the table from config at boot
     }
 
     writeOK();
@@ -738,6 +747,7 @@ void CompanionService::cmdRemoveContact(size_t len) {
     if (!mgr.removeContactAt((size_t)idx)) { writeErr(ERR_CODE_FILE_IO_ERROR); return; }
     MessageStore::instance().removeConversation(ConvoId{ConvoId::DM, shortId});
     MeshManager::instance().deleteAdvertBlob(pubKey);
+    UIManager::instance().refreshConvoList();   // drop the row now, don't wait for the reboot
     _rebootAtMs = millis() + REBOOT_DELAY_MS;
     writeOK();
 }
