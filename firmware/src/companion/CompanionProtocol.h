@@ -45,6 +45,10 @@
 //   - CMD_SET_RADIO_TX_POWER — TX power dBm (validated). Reboots to apply.
 //   - CMD_SET_DEVICE_PIN — BLE pairing PIN (0 or 6 digits; 0 regenerates). Reboots (BLE re-init).
 //   - CMD_SET_PATH_HASH_MODE — 1/2/3 bytes per hop (cfg.radio.pathHashMode). Reboots to apply.
+//   - CMD_SET_DEFAULT_FLOOD_SCOPE — persistent region/flood-scope (name+key). Stored as the
+//     region string (cfg.radio.scope) when the key matches the name's derived key (public
+//     '#'-region); reboots to apply. CMD_GET_DEFAULT_FLOOD_SCOPE reads it back.
+//   - CMD_SET_FLOOD_SCOPE_KEY — session-only flood-scope override (raw key); live, not persisted.
 // Deliberately rejected (fall through to UNSUPPORTED_CMD), conflicting with MCLite's design:
 //   SET_ADVERT_LATLON(14) [GPS-based location], SET_TUNING_PARAMS(21), SET_OTHER_PARAMS(38) +
 //   SET_AUTOADD_CONFIG(58/59) [fixed manual-add + per-contact telemetry], EXPORT/IMPORT_PRIVATE_KEY
@@ -83,6 +87,9 @@ enum : uint8_t {
     CMD_SET_RADIO_TX_POWER     = 12,  // [1]=int8 dBm
     CMD_SET_DEVICE_PIN         = 37,  // [1..4]=u32 PIN (0 or 100000-999999; 0 = regenerate)
     CMD_SET_PATH_HASH_MODE     = 61,  // [1]=0 (reserved) [2]=mode (0/1/2 -> 1/2/3 bytes per hop)
+    CMD_SET_FLOOD_SCOPE_KEY    = 54,  // [1]=0 (reserved) [2..17]=16-byte key (absent = null); session-only
+    CMD_SET_DEFAULT_FLOOD_SCOPE = 63, // [1..31]=name [32..47]=16-byte key (len==1 = clear); persistent region
+    CMD_GET_DEFAULT_FLOOD_SCOPE = 64, // -> RESP_CODE_DEFAULT_FLOOD_SCOPE
 };
 
 // ---- Responses (firmware -> app), out_frame[0] ----
@@ -103,6 +110,7 @@ enum : uint8_t {
     RESP_CODE_CONTACT_MSG_RECV_V3 = 16,  // sync reply (app ver >= 3)
     RESP_CODE_CHANNEL_MSG_RECV_V3 = 17,  // sync reply (app ver >= 3)
     RESP_CODE_CHANNEL_INFO     = 18,  // reply to CMD_GET_CHANNEL
+    RESP_CODE_DEFAULT_FLOOD_SCOPE = 28,  // reply to CMD_GET_DEFAULT_FLOOD_SCOPE: [1..31]=name [32..47]=key
 };
 
 // ---- Push codes (unsolicited firmware -> app), out_frame[0] ----

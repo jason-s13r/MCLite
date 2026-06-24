@@ -116,6 +116,9 @@ private:
     void cmdSetTxPower(size_t len);
     void cmdSetDevicePin(size_t len);
     void cmdSetPathHashMode(size_t len);
+    void cmdSetDefaultFloodScope(size_t len);   // persistent region (name+key) -> cfg.radio.scope
+    void cmdGetDefaultFloodScope();             // read current region (name + derived key)
+    void cmdSetFloodScopeKey(size_t len);       // session-only live scope override (raw key)
     void noteSent(uint32_t packetId);   // track a DM awaiting ACK confirmation
 
     // Stream one contact per loop tick while a GET_CONTACTS sync is in progress.

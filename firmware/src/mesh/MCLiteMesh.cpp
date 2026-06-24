@@ -49,6 +49,15 @@ static TransportKey scopeToTransportKey(const String& scope) {
     return tk;
 }
 
+void MCLiteMesh::deriveScopeKey(const String& scope, uint8_t out[16]) {
+    TransportKey tk = scopeToTransportKey(scope);
+    memcpy(out, tk.key, 16);
+}
+
+void MCLiteMesh::setGlobalScope(const uint8_t key[16]) {
+    memcpy(_globalScope.key, key, 16);   // live session override (not persisted)
+}
+
 MCLiteMesh::MCLiteMesh(CustomSX1262& radio, SimpleMeshTables& tables)
     : BaseChatMesh(
           *(new CustomSX1262Wrapper(radio, sBoard)),

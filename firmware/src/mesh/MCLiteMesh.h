@@ -87,6 +87,13 @@ public:
     // app's "local advert" option.
     bool advertise(const char* name, bool flood = true);
 
+    // Region/flood-scope helpers for the companion. deriveScopeKey computes the same
+    // transport key MCLite uses for a scope string (SHA256("#name")[:16]; "*"/"" => null),
+    // so the app's name+key can be verified/answered. setGlobalScope overrides the live
+    // session scope (companion CMD_SET_FLOOD_SCOPE_KEY) — not persisted, reverts on reboot.
+    static void deriveScopeKey(const String& scope, uint8_t out[16]);
+    void setGlobalScope(const uint8_t key[16]);   // all-zero key => null (no scope)
+
     // Send DM — returns internal packetId, 0 on failure
     uint32_t sendDM(size_t contactIdx, const char* text, uint32_t timestamp,
                     uint8_t maxRetries);

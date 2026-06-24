@@ -45,6 +45,12 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
   keys, advert location (MCLite advertises GPS at the configured precision), and auto-add stay device-managed by
   design and are rejected.
 
+- **Set the region/scope from the companion app.** The companion now honours `CMD_SET_DEFAULT_FLOOD_SCOPE` (set the
+  persistent region), `CMD_GET_DEFAULT_FLOOD_SCOPE` (read it), and `CMD_SET_FLOOD_SCOPE_KEY` (a temporary session
+  override), gated by `permissions.settings = full`. Together with the existing path-hash command, the radio's
+  region and path-hash size are now both configurable from the app — the two settings a large 3-byte mesh needs.
+  A public `#region` round-trips exactly (MCLite derives the same transport key MeshCore does); a custom/private key
+  that isn't derivable from the name is refused.
 - **Edit region and path-hash size on the device.** Admin → Radio now lets you change the **region/scope** and the
   **path-hash size** (1/2/3 bytes per hop) directly on-device (a roller for the size, a text editor for the region),
   gated by `permissions.settings = full`. Both apply on a quick reboot. Handy for matching a large 3-byte mesh

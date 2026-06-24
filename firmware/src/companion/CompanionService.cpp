@@ -108,6 +108,9 @@ void CompanionService::handleFrame(size_t len) {
         case CMD_SET_RADIO_TX_POWER: cmdSetTxPower(len);    break;
         case CMD_SET_DEVICE_PIN:   cmdSetDevicePin(len);    break;
         case CMD_SET_PATH_HASH_MODE: cmdSetPathHashMode(len); break;
+        case CMD_SET_DEFAULT_FLOOD_SCOPE: cmdSetDefaultFloodScope(len); break;
+        case CMD_GET_DEFAULT_FLOOD_SCOPE: cmdGetDefaultFloodScope();    break;
+        case CMD_SET_FLOOD_SCOPE_KEY: cmdSetFloodScopeKey(len);  break;
         case CMD_REBOOT:           cmdReboot();             break;
         case CMD_SYNC_NEXT_MESSAGE: cmdSyncNextMessage();   break;
         case CMD_LOGOUT:           writeOK();               break;   // no room sessions yet
@@ -871,6 +874,70 @@ void CompanionService::cmdSetPathHashMode(size_t len) {
     r.pathHashMode = mode;
     if (!ConfigManager::instance().save()) { r.pathHashMode = prev; writeErr(ERR_CODE_FILE_IO_ERROR); return; }
     _rebootAtMs = millis() + REBOOT_DELAY_MS;
+    writeOK();
+}
+
+// ── Region / flood-scope (54 session, 63 persistent, 64 read) ──────────────────
+// MCLite models a region as a string (cfg.radio.scope, e.g. "#region" / "*") and derives the
+// transport key SHA256("#name")[:16] (== MeshCore getAutoKeyFor for public hashtag regions).
+
+// CMD_SET_DEFAULT_FLOOD_SCOPE -> OK/ERR. Persistent. [1..31]=name, [32..47]=16-byte key;
+// len==1 (no name/key) clears to none ("*"). For a public '#'-region the app's key equals the
+// name's derived key -> store the name; a custom/private key can't be represented -> BAD_STATE.
+void CompanionService::cmdSetDefaultFloodScope(size_t len) {
+    if (!settingsAllowed()) { writeErr(ERR_CODE_BAD_STATE); return; }
+    auto& cfg = ConfigManager::instance().config();
+    String prev = cfg.radio.scope;
+    String scope;
+    if (len < 1 + 31 + 16) {
+        scope = "*";                                   // clear to none
+    } else {
+        char nameBuf[32];
+        memcpy(nameBuf, &_cmd[1], 31);
+        nameBuf[31] = '\0';
+        String name(nameBuf);
+        if (name.length() == 0) {
+            scope = "*";
+        } else {
+            uint8_t derived[16];
+            MCLiteMesh::deriveScopeKey(name, derived);
+            if (memcmp(derived, &_cmd[32], 16) != 0) {  // custom/private key — not representable
+                writeErr(ERR_CODE_BAD_STATE);
+                return;
+            }
+            scope = name;                              // store verbatim (WYSIWYG, matches on-device)
+        }
+    }
+    if (cfg.radio.scope != scope) {
+        cfg.radio.scope = scope;
+        if (!ConfigManager::instance().save()) { cfg.radio.scope = prev; writeErr(ERR_CODE_FILE_IO_ERROR); return; }
+        _rebootAtMs = millis() + REBOOT_DELAY_MS;      // _globalScope re-derives at boot
+    }
+    writeOK();
+}
+
+// CMD_GET_DEFAULT_FLOOD_SCOPE -> RESP_CODE_DEFAULT_FLOOD_SCOPE. Read (no gate). "*" => null (1 byte).
+void CompanionService::cmdGetDefaultFloodScope() {
+    const String& scope = ConfigManager::instance().config().radio.scope;
+    _out[0] = RESP_CODE_DEFAULT_FLOOD_SCOPE;
+    if (scope == "*" || scope.length() == 0) { _iface->writeFrame(_out, 1); return; }
+    memset(&_out[1], 0, 31);
+    strncpy((char*)&_out[1], scope.c_str(), 31);
+    MCLiteMesh::deriveScopeKey(scope, &_out[1 + 31]);
+    _iface->writeFrame(_out, 1 + 31 + 16);
+}
+
+// CMD_SET_FLOOD_SCOPE_KEY -> OK/ERR. Session-only live override (raw key, no persist). [1]=0
+// reserved, [2..17]=key (absent = null). Reverts to the config-derived scope on reboot.
+void CompanionService::cmdSetFloodScopeKey(size_t len) {
+    if (len < 2 || _cmd[1] != 0) { writeErr(ERR_CODE_ILLEGAL_ARG); return; }
+    if (!settingsAllowed()) { writeErr(ERR_CODE_BAD_STATE); return; }
+    auto* mesh = MeshManager::instance().mesh();
+    if (!mesh) { writeErr(ERR_CODE_BAD_STATE); return; }
+    uint8_t key[16];
+    if (len >= 2 + 16) memcpy(key, &_cmd[2], 16);
+    else               memset(key, 0, 16);             // null = no scope
+    mesh->setGlobalScope(key);
     writeOK();
 }
 
