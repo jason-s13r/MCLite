@@ -497,7 +497,20 @@ String ConfigManager::toJson() const {
     msg["max_retries"]          = _config.messaging.maxRetries;
     msg["request_telemetry"]    = _config.messaging.requestTelemetry;
     msg["show_telemetry"]       = _config.messaging.showTelemetry;
-    msg["canned_messages"]      = _config.messaging.cannedMessages;
+    // canned_messages is a combined field: bool (on/off, use i18n defaults) OR an array
+    // (custom list, implies on). Honor the on/off bool first so a disabled toggle persists,
+    // then serialize the custom array when present — otherwise a configured array was silently
+    // dropped on save (it was written as a bare bool), losing the user's custom list on reboot.
+    if (!_config.messaging.cannedMessages) {
+        msg["canned_messages"] = false;
+    } else if (_config.messaging.cannedCustom.empty()) {
+        msg["canned_messages"] = true;
+    } else {
+        JsonArray canned = msg["canned_messages"].to<JsonArray>();
+        for (size_t i = 0; i < _config.messaging.cannedCustom.size() && i < 8; i++)
+            if (_config.messaging.cannedCustom[i].length() > 0)
+                canned.add(_config.messaging.cannedCustom[i]);
+    }
     msg["allow_mute"]           = _config.messaging.allowMute;
     msg["auto_telemetry"]       = _config.messaging.autoTelemetry;
     msg["share_contact"]        = _config.messaging.shareContact;

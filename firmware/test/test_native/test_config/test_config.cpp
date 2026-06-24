@@ -387,6 +387,28 @@ void test_canned_blanks_skipped_and_capped() {
     TEST_ASSERT_EQUAL_STRING("b", c.canned[1].c_str());  // blank at index 1 skipped
 }
 
+void test_canned_global_array_roundtrips() {
+    // Bug 1 regression: a global custom array must survive save() (it was written as a bare
+    // bool, dropping the list on the next boot).
+    parse("{\"messaging\":{\"canned_messages\":[\"Help\",\"OK\",\"Wait\"]}}");
+    String json = cfg->toJson();
+    cfg->config() = AppConfig{};
+    cfg->parseJson(json);
+    TEST_ASSERT_TRUE(cfg->config().messaging.cannedMessages);
+    TEST_ASSERT_EQUAL(3, cfg->config().messaging.cannedCustom.size());
+    TEST_ASSERT_EQUAL_STRING("Wait", cfg->config().messaging.cannedCustom[2].c_str());
+}
+
+void test_canned_global_off_roundtrips() {
+    // Honor the on/off bool: a disabled toggle stays disabled across save().
+    parse("{\"messaging\":{\"canned_messages\":false}}");
+    String json = cfg->toJson();
+    cfg->config() = AppConfig{};
+    cfg->parseJson(json);
+    TEST_ASSERT_FALSE(cfg->config().messaging.cannedMessages);
+    TEST_ASSERT_EQUAL(0, cfg->config().messaging.cannedCustom.size());
+}
+
 void test_canned_roundtrips_through_serialize() {
     parse("{\"contacts\":[{\"alias\":\"Bot\",\"public_key\":\"AAAA\",\"canned\":[\"X\",\"Y\"]}],"
           "\"channels\":[{\"name\":\"#c\",\"type\":\"hashtag\",\"index\":0,\"canned\":[\"Z\"]}],"
@@ -1082,6 +1104,8 @@ int main() {
     RUN_TEST(test_room_canned_parsed);
     RUN_TEST(test_contact_canned_absent_is_empty);
     RUN_TEST(test_canned_blanks_skipped_and_capped);
+    RUN_TEST(test_canned_global_array_roundtrips);
+    RUN_TEST(test_canned_global_off_roundtrips);
     RUN_TEST(test_canned_roundtrips_through_serialize);
     RUN_TEST(test_empty_canned_omitted_from_serialize);
     RUN_TEST(test_auto_telemetry_defaults_off);

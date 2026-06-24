@@ -45,6 +45,17 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
   keys, advert location (MCLite advertises GPS at the configured precision), and auto-add stay device-managed by
   design and are rejected.
 
+### Fixed
+- **Custom canned-message list (global) was lost on save.** A `canned_messages` array configured at the messaging
+  level was serialized back as a bare `true`, so the custom list vanished on the next boot — and with the new
+  companion config writes, almost any settings change triggered it. Serialization now writes the array faithfully
+  (and honors the on/off toggle, so a disabled state also persists). Per-conversation canned lists
+  (per contact/channel/room) were always stored separately and were never affected. Thanks @jason-s13r (#34).
+- **Non-English devices ignored a configured global canned list in the chat quick-reply picker.** The picker only
+  honored a custom `canned_messages` array when the UI language was English; on other languages it always showed
+  the translated defaults. A configured custom array is an explicit, language-independent choice and now wins
+  regardless of language (translated defaults still apply when no custom array is set). Thanks @jason-s13r (#34).
+
 ## [0.4.0] — 2026-06-22
 
 ### Added

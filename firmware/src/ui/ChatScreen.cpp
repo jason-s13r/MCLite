@@ -765,7 +765,6 @@ void ChatScreen::cannedBtnCb(lv_event_t* e) {
 void ChatScreen::showCannedPicker() {
     const auto& cfg = ConfigManager::instance().config();
     const auto& custom = cfg.messaging.cannedCustom;
-    bool isEnglish = cfg.language.isEmpty();
 
     // Per-conversation override: a contact / channel / room may carry its own
     // quick-reply list. When present (non-empty) it wins over the global list
@@ -814,15 +813,17 @@ void ChatScreen::showCannedPicker() {
             labels[count] = stored[count].c_str();
             count++;
         }
-    } else if (isEnglish && !custom.empty()) {
-        // English + custom array: use ONLY the custom entries
+    } else if (!custom.empty()) {
+        // A configured global custom array wins over i18n defaults regardless of UI language —
+        // it's the user's explicit, language-independent list. (Previously gated on English, so
+        // non-English users never saw their custom array even when one was configured.)
         for (size_t i = 0; i < custom.size() && i < 8; i++) {
             stored[count] = custom[i];
             labels[count] = stored[count].c_str();
             count++;
         }
     } else {
-        // Non-English (lang file wins) or English with no custom array (defaults)
+        // No custom array: use the i18n strings (language-sensitive defaults)
         for (int i = 1; i <= 8; i++) {
             char key[12];
             snprintf(key, sizeof(key), "canned_%d", i);
