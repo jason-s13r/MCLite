@@ -7,6 +7,7 @@
 #include "../mesh/MeshManager.h"
 #include "../mesh/MCLiteMesh.h"   // mesh() reads: contacts, channels, RTC
 #include "../mesh/ContactStore.h"
+#include "../mesh/ChannelStore.h"
 #include "../ui/UIManager.h"      // handleSend() — send + on-device parity
 #include "../storage/MessageStore.h"  // ConvoId
 #include "../hal/Battery.h"
@@ -587,17 +588,38 @@ void CompanionService::cmdSetChannel(size_t len) {
     if (idx == 0 || name.equalsIgnoreCase("Public")) {
         cc.type = "public";   // appendChannel forces the canonical name/PSK/SOS flags
     } else {
-        cc.type = "private";  // explicit 16-byte secret -> 32 hex (passes appendChannel's check)
-        char psk[33];
-        for (int i = 0; i < 16; i++) sprintf(psk + i * 2, "%02x", _cmd[34 + i]);
-        psk[32] = '\0';
-        cc.psk = psk;
+        // A zero secret means a name-derived (hashtag) channel: the app sends no key and
+        // expects the device to derive it from the name. Store it as a hashtag (empty PSK)
+        // so ChannelStore derives SHA256(name)[:16] at boot — otherwise we'd save an all-zero
+        // PSK and the channel would have a 00000000... key. A real 16-byte secret -> private.
+        bool zeroSecret = true;
+        for (int i = 0; i < 16; i++) if (_cmd[34 + i]) { zeroSecret = false; break; }
+        if (zeroSecret) {
+            cc.type = "hashtag";   // psk stays empty -> derived from the '#'-name at boot
+        } else {
+            cc.type = "private";   // explicit 16-byte secret -> 32 hex (passes appendChannel's check)
+            char psk[33];
+            for (int i = 0; i < 16; i++) sprintf(psk + i * 2, "%02x", _cmd[34 + i]);
+            psk[32] = '\0';
+            cc.psk = psk;
+        }
     }
     if (!mgr.appendChannel(cc)) {
         writeErr((int)mgr.config().channels.size() >= defaults::MAX_CHANNELS
                      ? ERR_CODE_TABLE_FULL : ERR_CODE_BAD_STATE);   // BAD_STATE also = dup/edit (out of scope)
         return;
     }
+
+    // Register the new channel live so the app's immediate GET_CHANNEL (it builds the
+    // confirmation/share QR right after the add) returns the real key instead of zeros.
+    // The deferred reboot still rebuilds everything from config. Reload ChannelStore so the
+    // hashtag PSK is derived / private PSK decoded, then add by its assigned index (skip-safe);
+    // mesh->addChannel lands at the mesh's next slot, which is the idx the app will query.
+    ChannelStore::instance().loadFromConfig();
+    Channel* nc = ChannelStore::instance().findByIndex(mgr.config().channels.back().index);
+    auto* mesh = MeshManager::instance().mesh();
+    if (nc && mesh) mesh->addChannel(nc->name.c_str(), nc->pskB64.c_str());
+
     _rebootAtMs = millis() + REBOOT_DELAY_MS;
     writeOK();
 }
