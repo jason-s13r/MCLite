@@ -1127,18 +1127,18 @@ bool CompanionService::trySendSyncResponse() {
     return _iface->writeFrame(&f, 1) == 1;
 }
 
-// Position the backfill cursor at the next message and build its sync frame into _out.
-// Returns the frame length, or 0 when history is exhausted. Walks MessageStore in stable
-// insertion order and replays BOTH directions: received messages and device-composed
-// (fromSelf) ones, so a freshly-connected app gets the full on-device history. (App-
-// composed sends aren't stored here — cmdSendTxtMsg doesn't addMessage — so there's no
-// duplication.) Whole conversations whose contact/channel can't be resolved are skipped.
+// Position the backfill cursor at the next RECEIVED message and build its sync frame
+// into _out. Returns the frame length, or 0 when history is exhausted. Walks MessageStore
+// in stable insertion order; whole conversations whose contact/channel can't be resolved
+// are skipped.
 //
-// Direction note: the stock companion protocol has only *received* message frames. For
-// CHANNELS that's fine — posts carry the sender inline, so our own posts read correctly
-// with the device name. For DMs there is no outgoing frame, so a device-composed DM is
-// delivered as a CONTACT_MSG_RECV from the contact and the app shows it on the incoming
-// side. See known-issues.
+// RECEIVED-ONLY by design. The MeshCore companion protocol has no outgoing-message frame:
+// the sync stream is only CONTACT/CHANNEL_MSG_RECV (verified against the 1.16 reference,
+// where the offline queue is fed exclusively by receive callbacks). So messages composed
+// ON THE DEVICE (fromSelf) are NOT replayed — delivering them would force them onto the
+// incoming side (wrong, especially for DMs). On-device sending still works and goes out
+// over the mesh; it just won't appear in the companion app. See README + known-issues.
+// (App-composed sends aren't in MessageStore anyway — cmdSendTxtMsg doesn't addMessage.)
 int CompanionService::buildNextBackfillFrame() {
     auto& store = MessageStore::instance();
     auto& cs = ContactStore::instance();
@@ -1147,6 +1147,7 @@ int CompanionService::buildNextBackfillFrame() {
         Conversation* convo = store.conversationByIndex((size_t)_bfConvoIdx);
         if (convo && _bfMsgIdx < (int)convo->messages.size()) {
             const Message& m = convo->messages[_bfMsgIdx];
+            if (m.fromSelf) { _bfMsgIdx++; continue; }   // device-composed: not syncable (see above)
 
             if (convo->convoId.type == ConvoId::DM) {
                 Contact* sc = nullptr;
@@ -1160,10 +1161,7 @@ int CompanionService::buildNextBackfillFrame() {
             } else if (convo->convoId.type == ConvoId::CHANNEL) {
                 int meshIdx = channelIdxByName(convo->convoId.id);
                 if (meshIdx >= 0) {
-                    // Our own posts use the device name; received posts keep their sender.
-                    String sender = m.fromSelf ? ConfigManager::instance().config().deviceName
-                                               : m.senderName;
-                    String wire = sender.length() ? (sender + ": " + m.text) : m.text;
+                    String wire = m.senderName.length() ? (m.senderName + ": " + m.text) : m.text;
                     return buildChannelRecvFrame((uint8_t)meshIdx, m.timestamp, wire.c_str());
                 }
                 // unresolved channel → skip the whole conversation (fall through)
