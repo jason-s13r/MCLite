@@ -55,6 +55,11 @@ bool MeshManager::initRadio() {
     if (cfg.offgrid.enabled) freq = MCLiteMesh::offgridFreqFor(cfg.radio.frequency);
     radio.setFrequency(freq);
     radio.setSpreadingFactor(cfg.radio.spreadingFactor);
+    // Match MeshCore 1.16's SF-dependent preamble (RadioLibWrapper::preambleLengthForSF):
+    // 32 symbols for SF<=8, 16 for SF>8. std_init() seeds a fixed 16 and our direct
+    // setSpreadingFactor() bypasses the wrapper's updatePreamble(), so set it explicitly here
+    // to stay interoperable with a 1.16 mesh (e.g. low-SF networks running SF7).
+    radio.setPreambleLength(cfg.radio.spreadingFactor <= 8 ? 32 : 16);
     radio.setBandwidth(cfg.radio.bandwidth);
     radio.setCodingRate(cfg.radio.codingRate);
     radio.setOutputPower(cfg.radio.txPower);
