@@ -181,10 +181,18 @@ private:
     // Offline queue of pre-built sync frames (drained by SYNC_NEXT_MESSAGE).
     struct OfflineMsg { uint8_t len; uint8_t buf[MAX_FRAME_SIZE]; };
     static constexpr int OFFLINE_QUEUE_SIZE = 24;
-    OfflineMsg _offline[OFFLINE_QUEUE_SIZE];
+    OfflineMsg _offline[OFFLINE_QUEUE_SIZE];   // LIVE messages received while connected
     int _offlineLen = 0;
     void enqueueOffline(const uint8_t* frame, int len);
     void tickleMsgWaiting();
+
+    // Cursor-driven backfill: on connect, SYNC walks MessageStore directly (no cap) and
+    // builds each inbound history frame on demand, so every stored message is delivered
+    // (the old fixed 24-slot pre-stage dropped the newest messages and starved chats).
+    bool _bfActive = false;     // history backfill in progress this session
+    int  _bfConvoIdx = 0;       // cursor: conversation index into MessageStore
+    int  _bfMsgIdx = 0;         // cursor: message index within that conversation
+    int  buildNextBackfillFrame();   // positions the cursor at the next inbound msg, builds it into _out; 0 = done
     // Send the next SYNC response (a queued message, or NO_MORE_MESSAGES). Only pops
     // the message once the transport confirms it accepted the frame, so a silently
     // dropped frame (WiFi send_queue full) never loses a message. Returns false if the

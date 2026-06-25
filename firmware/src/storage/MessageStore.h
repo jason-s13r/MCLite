@@ -74,6 +74,14 @@ public:
     // Get all conversations sorted by last activity
     std::vector<Conversation*> getConversationsSorted();
 
+    // Stable index access to the underlying conversation list (insertion order, NOT
+    // recency — unlike getConversationsSorted). Used by the companion sync cursor so a
+    // session can walk every stored message without a fixed-size staging cap. An index
+    // can shift if a conversation is removed mid-walk; callers tolerate it (the app
+    // dedups by sender+timestamp and re-syncs on reconnect).
+    size_t conversationCount() const { return _convos.size(); }
+    Conversation* conversationByIndex(size_t i) { return i < _convos.size() ? &_convos[i] : nullptr; }
+
     // Mark conversation as read
     void markRead(const ConvoId& id);
 

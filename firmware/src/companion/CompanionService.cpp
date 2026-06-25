@@ -37,6 +37,9 @@ void CompanionService::resetSessionState() {
     _appVer = 0;
     _offlineLen = 0;
     _syncResponsePending = false;
+    _bfActive = false;
+    _bfConvoIdx = 0;
+    _bfMsgIdx = 0;
     _contactsIterating = false;
     _contactCursor = 0;
     _contactCount = 0;
@@ -1098,16 +1101,77 @@ bool CompanionService::trySendSyncResponse() {
     if (!clientConnected()) return true;            // client gone — nothing owed
     if (_iface->isWriteBusy()) return false;        // backpressure (paces BLE; no-op on WiFi)
 
-    if (_offlineLen <= 0) {
-        uint8_t f = RESP_CODE_NO_MORE_MESSAGES;
-        return _iface->writeFrame(&f, 1) == 1;      // defer if the transport can't take it
+    // 1. Replay stored history via the cursor (uncapped, built on demand). Advance the
+    //    cursor PAST the message only once the transport confirms it accepted the frame.
+    if (_bfActive) {
+        int n = buildNextBackfillFrame();           // builds into _out at the cursor
+        if (n > 0) {
+            if (_iface->writeFrame(_out, (size_t)n) != (size_t)n) return false;  // not sent — keep cursor
+            _bfMsgIdx++;                            // move past it only on confirmed accept
+            return true;
+        }
+        _bfActive = false;                          // history exhausted → fall through to live
     }
-    // Pop the front (FIFO) only on a confirmed accept.
-    const OfflineMsg& m = _offline[0];
-    if (_iface->writeFrame(m.buf, m.len) != m.len) return false;   // not sent — keep it queued
-    _offlineLen--;
-    for (int i = 0; i < _offlineLen; i++) _offline[i] = _offline[i + 1];
-    return true;
+
+    // 2. Live messages that arrived while connected (FIFO). Pop only on confirmed accept.
+    if (_offlineLen > 0) {
+        const OfflineMsg& m = _offline[0];
+        if (_iface->writeFrame(m.buf, m.len) != m.len) return false;
+        _offlineLen--;
+        for (int i = 0; i < _offlineLen; i++) _offline[i] = _offline[i + 1];
+        return true;
+    }
+
+    // 3. Nothing left.
+    uint8_t f = RESP_CODE_NO_MORE_MESSAGES;
+    return _iface->writeFrame(&f, 1) == 1;
+}
+
+// Position the backfill cursor at the next inbound, resolvable message and build its
+// sync frame into _out. Returns the frame length, or 0 when history is exhausted.
+// Walks MessageStore in stable insertion order; skips self-sent messages and whole
+// conversations whose contact/channel can't be resolved (e.g. a removed contact —
+// we can't reconstruct its pubkey from a DM shortId).
+int CompanionService::buildNextBackfillFrame() {
+    auto& store = MessageStore::instance();
+    auto& cs = ContactStore::instance();
+
+    while (_bfConvoIdx < (int)store.conversationCount()) {
+        Conversation* convo = store.conversationByIndex((size_t)_bfConvoIdx);
+        if (convo) {
+            if (convo->convoId.type == ConvoId::DM) {
+                Contact* sc = nullptr;
+                for (size_t k = 0; k < cs.count(); k++) {
+                    Contact* c = cs.findByIndex(k);
+                    if (c && c->shortId() == convo->convoId.id) { sc = c; break; }
+                }
+                if (sc) {
+                    while (_bfMsgIdx < (int)convo->messages.size()) {
+                        const Message& m = convo->messages[_bfMsgIdx];
+                        if (!m.fromSelf)
+                            return buildContactRecvFrame(sc->publicKey, m.timestamp, m.text.c_str());
+                        _bfMsgIdx++;
+                    }
+                }
+            } else if (convo->convoId.type == ConvoId::CHANNEL) {
+                int meshIdx = channelIdxByName(convo->convoId.id);
+                if (meshIdx >= 0) {
+                    while (_bfMsgIdx < (int)convo->messages.size()) {
+                        const Message& m = convo->messages[_bfMsgIdx];
+                        if (!m.fromSelf) {
+                            String wire = m.senderName.length() ? (m.senderName + ": " + m.text) : m.text;
+                            return buildChannelRecvFrame((uint8_t)meshIdx, m.timestamp, wire.c_str());
+                        }
+                        _bfMsgIdx++;
+                    }
+                }
+            }
+            // ROOM conversations are not exposed over the companion link.
+        }
+        _bfConvoIdx++;        // this conversation done (or unresolvable) — next one
+        _bfMsgIdx = 0;
+    }
+    return 0;                 // exhausted
 }
 
 void CompanionService::enqueueOffline(const uint8_t* frame, int len) {
@@ -1189,52 +1253,19 @@ void CompanionService::onChannelMessage(uint8_t meshChannelIdx, uint32_t timesta
     tickleMsgWaiting();
 }
 
-// Replay stored RECEIVED messages so a freshly-connected client shows history,
-// not just messages that arrive while connected. Iterates conversations
-// (recent first) and enqueues their inbound messages chronologically, bounded by
-// the offline queue. Relies on the client deduping by (sender, timestamp).
+// Arm the cursor-driven history replay for a freshly-connected client. The actual
+// messages are streamed on demand by trySendSyncResponse()/buildNextBackfillFrame() as
+// the app pulls them via CMD_SYNC_NEXT_MESSAGE — no fixed-size staging, so every stored
+// inbound message is delivered (the old pre-stage capped at 24 and dropped the newest).
+// Live messages arriving while connected still go through the _offline queue, drained
+// after history. The client dedups by (sender, timestamp).
 void CompanionService::backfillHistory() {
     if (!clientConnected()) return;
-    _offlineLen = 0;   // start clean for this session
-
-    auto convos = MessageStore::instance().getConversationsSorted();
-    int enqueued = 0;
-    for (auto* convo : convos) {
-        if (!convo || enqueued >= OFFLINE_QUEUE_SIZE) break;
-
-        if (convo->convoId.type == ConvoId::DM) {
-            // All inbound messages in a DM are from that one contact.
-            Contact* sc = nullptr;
-            auto& cs = ContactStore::instance();
-            for (size_t k = 0; k < cs.count(); k++) {
-                Contact* c = cs.findByIndex(k);
-                if (c && c->shortId() == convo->convoId.id) { sc = c; break; }
-            }
-            if (!sc) continue;
-            for (const auto& m : convo->messages) {
-                if (m.fromSelf) continue;
-                if (enqueued >= OFFLINE_QUEUE_SIZE) break;
-                enqueueOffline(_out, buildContactRecvFrame(sc->publicKey, m.timestamp, m.text.c_str()));
-                enqueued++;
-            }
-        } else if (convo->convoId.type == ConvoId::CHANNEL) {
-            int meshIdx = channelIdxByName(convo->convoId.id);
-            if (meshIdx < 0) continue;
-            for (const auto& m : convo->messages) {
-                if (m.fromSelf) continue;
-                if (enqueued >= OFFLINE_QUEUE_SIZE) break;
-                // Reconstruct the on-wire "sender: text" form when we know the sender.
-                String wire = m.senderName.length() ? (m.senderName + ": " + m.text) : m.text;
-                enqueueOffline(_out, buildChannelRecvFrame((uint8_t)meshIdx, m.timestamp, wire.c_str()));
-                enqueued++;
-            }
-        }
-        // ROOM conversations are not exposed over the companion link yet.
-    }
-    if (enqueued > 0) {
-        LOGF("[Companion] backfilled %d message(s)\n", enqueued);
-        tickleMsgWaiting();
-    }
+    _bfConvoIdx = 0;
+    _bfMsgIdx   = 0;
+    _bfActive   = true;
+    _offlineLen = 0;     // start the live queue clean for this session
+    tickleMsgWaiting();  // nudge the app to begin syncing
 }
 
 // Map a channel name to its mesh channel index (as used by GET_CHANNEL).
