@@ -7,8 +7,10 @@
 #include "../hal/Speaker.h"
 #include "../config/ConfigManager.h"
 #include "../util/TimeHelper.h"
+#include "../util/log.h"
 #include "../net/WiFiManager.h"
 #include "../companion/CompanionService.h"
+#include <esp_heap_caps.h>
 
 namespace mclite {
 
@@ -120,6 +122,11 @@ void StatusBar::create(lv_obj_t* parent) {
     _lblTime = lv_label_create(_footer);
     lv_obj_set_style_text_font(_lblTime, FONT_STATUSBAR_ICON, 0);
     lv_obj_set_style_text_color(_lblTime, theme::TEXT_PRIMARY(), 0);
+
+    _lblMem = lv_label_create(_footer);
+    lv_obj_set_style_text_font(_lblMem, FONT_SMALL, 0);
+    lv_obj_set_style_text_color(_lblMem, theme::TEXT_SECONDARY(), 0);
+    lv_label_set_text(_lblMem, "");
 #else
     // T-Deck: single flex-row, device name left (grow), icons right.
     lv_obj_set_flex_flow(_bar, LV_FLEX_FLOW_ROW);
@@ -185,6 +192,11 @@ void StatusBar::create(lv_obj_t* parent) {
     _lblTime = lv_label_create(_bar);
     lv_obj_set_style_text_font(_lblTime, FONT_SMALL, 0);
     lv_obj_set_style_text_color(_lblTime, theme::TEXT_PRIMARY(), 0);
+
+    _lblMem = lv_label_create(_bar);
+    lv_obj_set_style_text_font(_lblMem, FONT_SMALL, 0);
+    lv_obj_set_style_text_color(_lblMem, theme::TEXT_SECONDARY(), 0);
+    lv_label_set_text(_lblMem, "");
 #endif
 
     updateSoundIcon();
@@ -306,6 +318,31 @@ void StatusBar::update() {
     } else {
         lv_label_set_text(_lblTime, "");
     }
+
+    // Memory usage — PSRAM and internal DRAM, logged every update and shown in status bar
+#if defined(ESP32)
+    {
+        const size_t dram_free = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        const size_t dram_tot  = heap_caps_get_total_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        const size_t dram_min  = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+        const size_t ps_free   = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+        const size_t ps_tot    = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
+        const uint8_t ramPct   = dram_tot > 0 ? (uint8_t)(100 - (dram_free * 100 / dram_tot)) : 0;
+        const uint8_t psrPct   = ps_tot   > 0 ? (uint8_t)(100 - (ps_free   * 100 / ps_tot))   : 0;
+        if (_lblMem) {
+            char memBuf[16];
+            if (ps_tot > 0)
+                snprintf(memBuf, sizeof(memBuf), "P%u%% R%u%%", (unsigned)psrPct, (unsigned)ramPct);
+            else
+                snprintf(memBuf, sizeof(memBuf), "R%u%%", (unsigned)ramPct);
+            lv_label_set_text(_lblMem, memBuf);
+        }
+        LOGF("[Mem] DRAM %u/%u KB (min %u KB), PSRAM %u/%u KB\n",
+             (unsigned)(dram_free / 1024), (unsigned)(dram_tot / 1024),
+             (unsigned)(dram_min / 1024),
+             (unsigned)(ps_free / 1024), (unsigned)(ps_tot / 1024));
+    }
+#endif
 
     // GPS indicator — green=live, amber=last known, gray=no fix
     if (!cfg.gpsEnabled) {
