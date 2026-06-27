@@ -667,6 +667,13 @@ void UIManager::onAckReceived(uint32_t packetId) {
     }
 }
 
+void UIManager::onMessageRepeated(uint32_t packetId, uint8_t repeaterCount) {
+    MessageStore::instance().updateRepeaterCount(packetId, repeaterCount);
+    if (_currentScreen == Screen::CHAT) {
+        _chatScreen.refresh();
+    }
+}
+
 void UIManager::onMessageFailed(uint32_t packetId) {
     MessageStore::instance().updateStatus(packetId, MessageStatus::FAILED);
     if (_currentScreen == Screen::CHAT) {

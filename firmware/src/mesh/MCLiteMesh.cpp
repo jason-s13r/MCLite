@@ -326,6 +326,11 @@ void MCLiteMesh::loop() {
         _pendingStatusTag = 0;
         memset(_pendingStatusKey, 0, PUB_KEY_SIZE);
     }
+
+    // Expire channel repeater-echo tracking slots past their listening window.
+    uint32_t nowMs = millis();
+    for (int i = 0; i < REPEAT_SLOTS; i++)
+        if (_repeats[i].used && (int32_t)(nowMs - _repeats[i].expiryMs) >= 0) _repeats[i].used = false;
 }
 
 bool MCLiteMesh::advertise(const char* name, bool flood) {
@@ -405,6 +410,12 @@ void MCLiteMesh::sendFloodScoped(const ContactInfo& recipient, mesh::Packet* pkt
 }
 
 void MCLiteMesh::sendFloodScoped(const mesh::GroupChannel& channel, mesh::Packet* pkt, uint32_t delay_millis) {
+    // Capture the packet hash so trackChannelRepeats() can match repeater echoes of this
+    // channel send (the hash is path-independent, so the echo will hash to the same value).
+    if (pkt) {
+        pkt->calculatePacketHash(_pendingChannelHash);
+        _pendingChannelHashValid = true;
+    }
     // Look up per-channel scope override via MeshCore channel index → ChannelStore
     int idx = findChannelIdx(channel);
     if (idx >= 0) {
@@ -416,6 +427,59 @@ void MCLiteMesh::sendFloodScoped(const mesh::GroupChannel& channel, mesh::Packet
         }
     }
     sendWithScope(_globalScope, pkt, delay_millis);
+}
+
+void MCLiteMesh::trackChannelRepeats(uint32_t packetId) {
+    if (!_pendingChannelHashValid) return;
+    _pendingChannelHashValid = false;    // consume the hash captured during the send
+
+    // Pick a free or expired slot (else evict the oldest by expiry).
+    uint32_t now = millis();
+    int slot = -1;
+    for (int i = 0; i < REPEAT_SLOTS; i++) {
+        if (!_repeats[i].used || (int32_t)(now - _repeats[i].expiryMs) >= 0) { slot = i; break; }
+    }
+    if (slot < 0) {
+        slot = 0;
+        for (int i = 1; i < REPEAT_SLOTS; i++)
+            if (_repeats[i].expiryMs < _repeats[slot].expiryMs) slot = i;
+    }
+    ChannelRepeatTrack& t = _repeats[slot];
+    t.used = true;
+    t.packetId = packetId;
+    memcpy(t.sentHash, _pendingChannelHash, MAX_HASH_SIZE);
+    t.relayLen = 0;
+    t.count = 0;
+    t.expiryMs = now + REPEAT_WINDOW_MS;
+}
+
+bool MCLiteMesh::filterRecvFloodPacket(mesh::Packet* packet) {
+    // Observe only — never filter. Detect repeater echoes of our own sent channel messages.
+    if (!packet) return false;
+    uint8_t hash[MAX_HASH_SIZE];
+    packet->calculatePacketHash(hash);
+
+    for (int i = 0; i < REPEAT_SLOTS; i++) {
+        ChannelRepeatTrack& t = _repeats[i];
+        if (!t.used || memcmp(t.sentHash, hash, MAX_HASH_SIZE) != 0) continue;
+
+        // Matched our own echo. Add each distinct relay path-hash to the set.
+        uint8_t hops  = packet->getPathHashCount();
+        uint8_t hsize = packet->getPathHashSize();
+        if (hsize == 0 || hsize > REPEAT_HASH_BYTES) return false;  // unexpected; ignore safely
+        t.relayLen = hsize;
+        uint8_t before = t.count;
+        for (uint8_t h = 0; h < hops && t.count < REPEAT_MAX_RELAYS; h++) {
+            const uint8_t* hop = &packet->path[h * hsize];
+            bool seen = false;
+            for (uint8_t r = 0; r < t.count; r++)
+                if (memcmp(t.relayHash[r], hop, hsize) == 0) { seen = true; break; }
+            if (!seen) { memcpy(t.relayHash[t.count], hop, hsize); t.count++; }
+        }
+        if (t.count != before && _onRepeated) _onRepeated(t.packetId, t.count);
+        return false;   // let the dedup table drop the duplicate
+    }
+    return false;
 }
 
 uint32_t MCLiteMesh::sendDM(size_t contactIdx, const char* text, uint32_t timestamp,

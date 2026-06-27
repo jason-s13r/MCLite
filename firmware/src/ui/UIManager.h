@@ -54,6 +54,7 @@ public:
 
     // Called when an ACK is received (DM delivered)
     void onAckReceived(uint32_t packetId);
+    void onMessageRepeated(uint32_t packetId, uint8_t repeaterCount);
 
     // Called when all retries exhausted (DM failed)
     void onMessageFailed(uint32_t packetId);

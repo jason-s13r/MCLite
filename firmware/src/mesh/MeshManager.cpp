@@ -120,6 +120,11 @@ void MeshManager::wireCallbacks() {
         if (_onAck) _onAck(packetId);
     });
 
+    // A sent channel message was echoed back by N repeaters (issue #39).
+    _mesh->onRepeated([this](uint32_t packetId, uint8_t count) {
+        if (_onRepeated) _onRepeated(packetId, count);
+    });
+
     // Send failed — UIManager handles MessageStore update
     _mesh->onFail([this](uint32_t packetId) {
         if (_onFail) _onFail(packetId);
@@ -354,6 +359,8 @@ uint32_t MeshManager::sendGroupMessage(uint8_t channelIndex, const String& text)
     static uint32_t groupMsgId = 0x80000000;  // High bit set to distinguish from DM IDs
     uint32_t id = ++groupMsgId;
     if (id == 0) id = ++groupMsgId;
+    // Track this send so repeater echoes can be counted against this message (#39).
+    _mesh->trackChannelRepeats(id);
     return id;
 }
 

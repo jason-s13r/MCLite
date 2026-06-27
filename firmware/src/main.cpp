@@ -372,6 +372,10 @@ static void setupMeshCallbacks() {
         CompanionService::instance().onAckConfirmed(packetId);   // -> SEND_CONFIRMED
     });
 
+    mesh.onRepeated([](uint32_t packetId, uint8_t count) {
+        UIManager::instance().onMessageRepeated(packetId, count);   // channel "heard by N repeaters" (#39)
+    });
+
     mesh.onFail([](uint32_t packetId) {
         UIManager::instance().onMessageFailed(packetId);
         CompanionService::instance().onSendFailed(packetId);

@@ -22,6 +22,7 @@ using OnGroupMsgCallback = std::function<void(uint8_t channelIdx,
                                                uint32_t timestamp,
                                                uint8_t hops)>;
 using OnAckCallback      = std::function<void(uint32_t packetId)>;
+using OnRepeatCallback   = std::function<void(uint32_t packetId, uint8_t repeaterCount)>;
 using OnFailCallback     = std::function<void(uint32_t packetId)>;
 using OnAdvertCallback     = std::function<void(const uint8_t* senderKey)>;
 using OnTelemetryCallback  = std::function<void(const uint8_t* pubKey, const TelemetryData& data)>;
@@ -60,6 +61,7 @@ public:
     void onMessage(OnMessageCallback cb)      { _onMessage = cb; }
     void onGroupMessage(OnGroupMsgCallback cb) { _onGroupMsg = cb; }
     void onAck(OnAckCallback cb)              { _onAck = cb; }
+    void onRepeated(OnRepeatCallback cb)      { _onRepeated = cb; }
     void onFail(OnFailCallback cb)            { _onFail = cb; }
     void onAdvert(OnAdvertCallback cb)        { _onAdvert = cb; }
     void onTelemetry(OnTelemetryCallback cb)  { _onTelemetry = cb; }
@@ -158,6 +160,7 @@ private:
     OnMessageCallback  _onMessage;
     OnGroupMsgCallback _onGroupMsg;
     OnAckCallback      _onAck;
+    OnRepeatCallback   _onRepeated;
     OnFailCallback     _onFail;
     OnAdvertCallback    _onAdvert;
     OnTelemetryCallback _onTelemetry;

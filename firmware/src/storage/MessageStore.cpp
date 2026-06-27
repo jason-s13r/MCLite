@@ -113,6 +113,7 @@ void MessageStore::loadHistory(const ConvoId& id) {
         else if (strcmp(status, "sending") == 0) msg.status = MessageStatus::FAILED;  // Can't ACK after reboot
         else                                     msg.status = MessageStatus::SENT;
         msg.hops = obj["hops"] | 0;
+        msg.repeaterCount = obj["rpt"] | 0;
 
         convo->messages.push_back(msg);
     }
@@ -152,6 +153,7 @@ void MessageStore::saveHistory(const ConvoId& id) {
             obj["sender"] = msg.senderName;
         }
         if (msg.hops > 0) obj["hops"] = msg.hops;   // received hop count (omit when 0/direct)
+        if (msg.repeaterCount > 0) obj["rpt"] = msg.repeaterCount;   // heard-by-N-repeaters (#39)
     }
 
     String json;
@@ -187,6 +189,20 @@ void MessageStore::updateStatus(uint32_t packetId, MessageStatus status) {
         for (auto& msg : convo.messages) {
             if (msg.packetId == packetId && msg.fromSelf) {
                 msg.status = status;
+                saveHistory(convo.convoId);
+                return;
+            }
+        }
+    }
+}
+
+void MessageStore::updateRepeaterCount(uint32_t packetId, uint8_t count) {
+    if (packetId == 0) return;
+    for (auto& convo : _convos) {
+        for (auto& msg : convo.messages) {
+            if (msg.packetId == packetId && msg.fromSelf) {
+                if (msg.repeaterCount == count) return;   // no change
+                msg.repeaterCount = count;
                 saveHistory(convo.convoId);
                 return;
             }

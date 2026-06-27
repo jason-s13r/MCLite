@@ -30,6 +30,8 @@ using MeshGroupMsgCb = std::function<void(const mesh::GroupChannel& channel,
                                            uint32_t timestamp, const char* text, uint8_t hops)>;
 using MeshAckCb      = std::function<void(uint32_t packetId)>;
 using MeshFailCb     = std::function<void(uint32_t packetId)>;
+// A sent channel (flood) message was heard echoed back by N distinct repeaters.
+using MeshRepeatCb   = std::function<void(uint32_t packetId, uint8_t repeaterCount)>;
 using MeshAdvertCb   = std::function<void(const ContactInfo& contact, bool isNew)>;
 using MeshTelemetryCb = std::function<void(const ContactInfo& contact, const TelemetryData& data)>;
 // Raw CayenneLPP payload of a telemetry reply (pubKey is 32 B). Used by the
@@ -133,6 +135,10 @@ public:
     void onMessage(MeshMessageCb cb)   { _onMessage = cb; }
     void onGroupMsg(MeshGroupMsgCb cb) { _onGroupMsg = cb; }
     void onAck(MeshAckCb cb)           { _onAck = cb; }
+    void onRepeated(MeshRepeatCb cb)   { _onRepeated = cb; }
+    // Begin tracking a just-sent channel message for repeater echoes (keyed to packetId,
+    // matched against the hash captured by the sendFloodScoped(channel) override).
+    void trackChannelRepeats(uint32_t packetId);
     void onFail(MeshFailCb cb)         { _onFail = cb; }
     void onAdvert(MeshAdvertCb cb)     { _onAdvert = cb; }
     void onTelemetry(MeshTelemetryCb cb) { _onTelemetry = cb; }
@@ -264,6 +270,10 @@ protected:
     // ---- Optional overrides ----
     bool shouldAutoAddContactType(uint8_t type) const override { return false; }  // MCLite uses config-defined contacts only
 
+    // Observe inbound floods to detect repeater echoes of our own sent channel messages.
+    // Always returns false (we don't filter — the echo is dropped later by the dedup table).
+    bool filterRecvFloodPacket(mesh::Packet* packet) override;
+
     // Advert-blob persistence — store/retrieve the raw signed advert packet keyed
     // by contact pubkey, which is what shareContactZeroHop() re-broadcasts. RAM
     // cache holds the latest advert for every heard node; saved contacts are also
@@ -310,10 +320,32 @@ private:
     bool        writeAdvertBlobToSD(const uint8_t* key, const uint8_t* data, uint16_t len);
     static void advertBlobPath(const uint8_t* key, char* out, size_t outLen);
 
+    // ---- Channel-message repeater-echo tracking ----
+    // When we flood a channel message, repeaters rebroadcast it; we hear the echo (same
+    // packet hash, different path). filterRecvFloodPacket() matches the echo and counts
+    // the distinct repeater path-hashes that relayed it. See issue #39.
+    static constexpr int      REPEAT_SLOTS         = 8;    // concurrent tracked channel sends
+    static constexpr int      REPEAT_MAX_RELAYS    = 16;   // distinct repeaters counted per message
+    static constexpr uint8_t  REPEAT_HASH_BYTES    = 3;    // max path-hash size (1/2/3 bytes/hop)
+    static constexpr uint32_t REPEAT_WINDOW_MS     = 60000;// stop listening for echoes after this
+    struct ChannelRepeatTrack {
+        bool     used = false;
+        uint32_t packetId = 0;
+        uint8_t  sentHash[MAX_HASH_SIZE];                      // calculatePacketHash of our sent packet
+        uint8_t  relayHash[REPEAT_MAX_RELAYS][REPEAT_HASH_BYTES];
+        uint8_t  relayLen = 0;                                  // path-hash size of stored relay hashes
+        uint8_t  count = 0;                                     // distinct repeaters heard
+        uint32_t expiryMs = 0;
+    };
+    ChannelRepeatTrack _repeats[REPEAT_SLOTS];
+    uint8_t _pendingChannelHash[MAX_HASH_SIZE];
+    bool    _pendingChannelHashValid = false;
+
     // Callbacks
     MeshMessageCb  _onMessage;
     MeshGroupMsgCb _onGroupMsg;
     MeshAckCb      _onAck;
+    MeshRepeatCb   _onRepeated;
     MeshFailCb     _onFail;
     MeshAdvertCb    _onAdvert;
     MeshTelemetryCb _onTelemetry;

@@ -21,6 +21,7 @@ struct Message {
     String   senderName;    // For channel messages: who sent it
     uint32_t packetId = 0;  // For ACK tracking
     uint8_t  hops = 0;      // Received hop count (path_hash_count); 0 = direct / self
+    uint8_t  repeaterCount = 0;  // Sent channel msg: distinct repeaters heard echoing it (#39)
 };
 
 // Identifies a conversation (DM, channel, or room)
@@ -68,6 +69,9 @@ public:
 
     // Update message status by packetId
     void updateStatus(uint32_t packetId, MessageStatus status);
+
+    // Update a sent channel message's repeater-echo count by packetId (#39).
+    void updateRepeaterCount(uint32_t packetId, uint8_t count);
 
     // Get conversation by ID
     Conversation* getConversation(const ConvoId& id);
