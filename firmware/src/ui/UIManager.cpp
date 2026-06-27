@@ -768,7 +768,7 @@ uint32_t UIManager::handleSend(const ConvoId& id, const String& text) {
 
 void UIManager::onRoomMessageReceived(size_t roomIdx, const String& roomName,
                                        const uint8_t* senderPrefix /* 4 B */,
-                                       const String& text, uint32_t timestamp) {
+                                       const String& text, uint32_t timestamp, uint8_t hops) {
     if (roomIdx >= MAX_ROOMS) return;
     _lastRoomMsgMs[roomIdx] = millis();
 
@@ -805,6 +805,7 @@ void UIManager::onRoomMessageReceived(size_t roomIdx, const String& roomName,
     msg.timestamp = timestamp;
     msg.senderName = sender;
     msg.status    = MessageStatus::DELIVERED;
+    msg.hops      = hops;
 
     onIncomingMessage(id, msg);
 

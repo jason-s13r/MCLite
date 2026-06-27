@@ -544,6 +544,8 @@ void SettingsScreen::buildMessaging() {
                       (void*)BoolField::CannedMessages, false);
     addSwitchRowGated(t("lbl_allow_mute"), cfg.messaging.allowMute, boolToggleCb,
                       (void*)BoolField::AllowMute, false);
+    addSwitchRowGated(t("lbl_show_hops"), cfg.messaging.showHopCount, boolToggleCb,
+                      (void*)BoolField::ShowHopCount, false);
 }
 
 void SettingsScreen::buildSound() {
@@ -1314,6 +1316,7 @@ void SettingsScreen::boolToggleCb(lv_event_t* e) {
         case BoolField::AutoTelemetry:    c.messaging.autoTelemetry = v; break;
         case BoolField::CannedMessages:   c.messaging.cannedMessages = v; break;
         case BoolField::AllowMute:        c.messaging.allowMute = v; break;
+        case BoolField::ShowHopCount:     c.messaging.showHopCount = v; break;
         case BoolField::GpsEnabled:       c.gpsEnabled = v; break;  // unused (see gpsToggleCb)
     }
     g_dsDirty = true;

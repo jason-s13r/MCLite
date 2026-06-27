@@ -75,7 +75,7 @@ public:
     // Room callbacks (wired from main.cpp setupMeshCallbacks)
     void onRoomMessageReceived(size_t roomIdx, const String& roomName,
                                 const uint8_t* senderPrefix /* 4 B */,
-                                const String& text, uint32_t timestamp);
+                                const String& text, uint32_t timestamp, uint8_t hops);
     void onRoomLoginResponse(size_t roomIdx, const String& roomName,
                               uint8_t status, uint8_t permissions);
 

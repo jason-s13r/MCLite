@@ -818,7 +818,7 @@ void MCLiteMesh::onContactPathUpdated(const ContactInfo& contact) {
 void MCLiteMesh::onMessageRecv(const ContactInfo& contact, mesh::Packet* pkt,
                                 uint32_t sender_timestamp, const char* text) {
     LOGF("[MCLiteMesh] DM from %s: %s\n", contact.name, text);
-    if (_onMessage) _onMessage(contact, sender_timestamp, text);
+    if (_onMessage) _onMessage(contact, sender_timestamp, text, pkt ? pkt->getPathHashCount() : 0);
 }
 
 void MCLiteMesh::onCommandDataRecv(const ContactInfo& contact, mesh::Packet* pkt,
@@ -833,22 +833,23 @@ void MCLiteMesh::onSignedMessageRecv(const ContactInfo& contact, mesh::Packet* p
     // Room post: dispatch with sender_prefix (4 bytes) so UIManager can resolve
     // the sender's alias against ContactStore. BaseChatMesh has already advanced
     // contact.sync_since by the time we get here (BaseChatMesh.cpp:242-243).
+    uint8_t hops = pkt ? pkt->getPathHashCount() : 0;
     if (contact.type == ADV_TYPE_ROOM) {
         LOGF("[MCLiteMesh] Room msg from '%s': %s\n", contact.name, text);
-        if (_onRoomMsg) _onRoomMsg(contact, sender_prefix, sender_timestamp, text);
+        if (_onRoomMsg) _onRoomMsg(contact, sender_prefix, sender_timestamp, text, hops);
         return;
     }
     // Signed DM fallback (no current MCLite path produces these, but BaseChatMesh
     // requires the override)
     LOGF("[MCLiteMesh] Signed DM from %s: %s\n", contact.name, text);
-    if (_onMessage) _onMessage(contact, sender_timestamp, text);
+    if (_onMessage) _onMessage(contact, sender_timestamp, text, hops);
 }
 
 void MCLiteMesh::onChannelMessageRecv(const mesh::GroupChannel& channel,
                                        mesh::Packet* pkt,
                                        uint32_t timestamp, const char* text) {
     LOGF("[MCLiteMesh] Group msg on channel: %s\n", text);
-    if (_onGroupMsg) _onGroupMsg(channel, timestamp, text);
+    if (_onGroupMsg) _onGroupMsg(channel, timestamp, text, pkt ? pkt->getPathHashCount() : 0);
 }
 
 uint32_t MCLiteMesh::calcFloodTimeoutMillisFor(uint32_t pkt_airtime_millis) const {

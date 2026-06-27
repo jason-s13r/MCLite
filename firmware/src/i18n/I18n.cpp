@@ -177,6 +177,7 @@ const DefaultString DEFAULT_STRINGS[] = {
     {"lbl_location_format", "Location Format"},
     {"lbl_canned",          "Canned Messages"},
     {"lbl_allow_mute",      "Mute Chats"},
+    {"lbl_show_hops",       "Show Hop Count"},
     {"preset_custom",       "Custom"},
     {"loc_decimal",         "Decimal"},
     {"loc_mgrs",            "MGRS"},

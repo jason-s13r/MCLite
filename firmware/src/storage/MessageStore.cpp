@@ -112,6 +112,7 @@ void MessageStore::loadHistory(const ConvoId& id) {
         else if (strcmp(status, "failed") == 0)  msg.status = MessageStatus::FAILED;
         else if (strcmp(status, "sending") == 0) msg.status = MessageStatus::FAILED;  // Can't ACK after reboot
         else                                     msg.status = MessageStatus::SENT;
+        msg.hops = obj["hops"] | 0;
 
         convo->messages.push_back(msg);
     }
@@ -150,6 +151,7 @@ void MessageStore::saveHistory(const ConvoId& id) {
         if (msg.senderName.length() > 0) {
             obj["sender"] = msg.senderName;
         }
+        if (msg.hops > 0) obj["hops"] = msg.hops;   // received hop count (omit when 0/direct)
     }
 
     String json;

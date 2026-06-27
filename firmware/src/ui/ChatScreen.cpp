@@ -529,6 +529,15 @@ void ChatScreen::addBubble(const Message& msg) {
         lv_label_set_text(ts, timeStr);
     }
 
+    // Received hop count (xN) — opt-in via Messaging → Show Hop Count, received only.
+    // 0 = heard directly (no relays) / self.
+    if (!msg.fromSelf && ConfigManager::instance().config().messaging.showHopCount) {
+        lv_obj_t* hop = lv_label_create(meta);
+        lv_obj_set_style_text_font(hop, FONT_BODY, 0);
+        lv_obj_set_style_text_color(hop, theme::TEXT_TIMESTAMP(), 0);
+        lv_label_set_text_fmt(hop, "x%u", (unsigned)msg.hops);
+    }
+
     // Delivery status (outgoing only)
     if (msg.fromSelf) {
         lv_obj_t* status = lv_label_create(meta);

@@ -20,6 +20,7 @@ struct Message {
     MessageStatus status = MessageStatus::SENT;
     String   senderName;    // For channel messages: who sent it
     uint32_t packetId = 0;  // For ACK tracking
+    uint8_t  hops = 0;      // Received hop count (path_hash_count); 0 = direct / self
 };
 
 // Identifies a conversation (DM, channel, or room)

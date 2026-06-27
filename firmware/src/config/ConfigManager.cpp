@@ -64,6 +64,7 @@ void ConfigManager::applyDefaults() {
     _config.messaging.allowMute        = defaults::ALLOW_MUTE;
     _config.messaging.autoTelemetry    = defaults::AUTO_TELEMETRY;
     _config.messaging.shareContact     = defaults::SHARE_CONTACT;
+    _config.messaging.showHopCount     = defaults::SHOW_HOP_COUNT;
     _config.soundEnabled = defaults::SOUND_ENABLED;
     _config.sosKeyword   = defaults::SOS_KEYWORD;
     _config.sosRepeat    = defaults::SOS_REPEAT;
@@ -303,6 +304,7 @@ bool ConfigManager::parseJson(const String& json) {
         _config.messaging.allowMute = msg["allow_mute"] | defaults::ALLOW_MUTE;
         _config.messaging.autoTelemetry = msg["auto_telemetry"] | defaults::AUTO_TELEMETRY;
         _config.messaging.shareContact = msg["share_contact"] | defaults::SHARE_CONTACT;
+        _config.messaging.showHopCount = msg["show_hop_count"] | defaults::SHOW_HOP_COUNT;
     }
 
     // Sound
@@ -518,6 +520,7 @@ String ConfigManager::toJson() const {
     msg["allow_mute"]           = _config.messaging.allowMute;
     msg["auto_telemetry"]       = _config.messaging.autoTelemetry;
     msg["share_contact"]        = _config.messaging.shareContact;
+    msg["show_hop_count"]       = _config.messaging.showHopCount;
 
     doc["sound"]["enabled"]     = _config.soundEnabled;
     doc["sound"]["sos_keyword"] = _config.sosKeyword;

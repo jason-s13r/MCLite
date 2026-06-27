@@ -74,10 +74,10 @@ void MeshManager::wireCallbacks() {
 
     // Incoming DM
     _mesh->onMessage([this](const ContactInfo& contact,
-                             uint32_t timestamp, const char* text) {
+                             uint32_t timestamp, const char* text, uint8_t hops) {
         if (_onMessage) {
             _onMessage(String(contact.name), contact.id.pub_key,
-                       String(text), timestamp);
+                       String(text), timestamp, hops);
         }
         // Tee to the companion link (raw text, native pubkey).
         CompanionService::instance().onContactMessage(contact.id.pub_key, timestamp, text);
@@ -85,7 +85,7 @@ void MeshManager::wireCallbacks() {
 
     // Incoming group message
     _mesh->onGroupMsg([this](const mesh::GroupChannel& channel,
-                              uint32_t timestamp, const char* text) {
+                              uint32_t timestamp, const char* text, uint8_t hops) {
         if (!_onGroupMsg) return;
 
         // Find which of our channels this message belongs to
@@ -112,7 +112,7 @@ void MeshManager::wireCallbacks() {
             msgText = fullText.substring(colonPos + 2);
         }
 
-        _onGroupMsg(channelIndex, senderName, msgText, timestamp);
+        _onGroupMsg(channelIndex, senderName, msgText, timestamp, hops);
     });
 
     // ACK received — UIManager handles MessageStore update
@@ -184,12 +184,12 @@ void MeshManager::wireCallbacks() {
     // Incoming room post (signed message from a server we're logged in to)
     _mesh->onRoomMsg([this, findRoomIdx](const ContactInfo& contact,
                                           const uint8_t* sender_prefix,
-                                          uint32_t timestamp, const char* text) {
+                                          uint32_t timestamp, const char* text, uint8_t hops) {
         if (!_onRoomMsg) return;
         int roomIdx = findRoomIdx(contact);
         if (roomIdx < 0) return;
         _onRoomMsg((size_t)roomIdx, String(contact.name), sender_prefix,
-                   String(text), timestamp);
+                   String(text), timestamp, hops);
     });
 
     // Room login response (from sendLogin handshake)
