@@ -578,7 +578,7 @@ void ChatScreen::addBubble(const Message& msg) {
         lv_obj_t* rep = lv_label_create(meta);
         lv_obj_set_style_text_font(rep, FONT_BODY, 0);
         lv_obj_set_style_text_color(rep, theme::ACCENT(), 0);
-        lv_label_set_text_fmt(rep, LV_SYMBOL_REFRESH "%u", (unsigned)msg.repeaterCount);
+        lv_label_set_text_fmt(rep, LV_SYMBOL_REFRESH " %u", (unsigned)msg.repeaterCount);
     }
 }
 
