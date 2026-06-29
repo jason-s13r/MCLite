@@ -15,6 +15,18 @@ Targets: **T-Deck Plus** (`mclite-vX.Y.Z.bin`) and **T-Watch Ultra** (`mclite-wa
   repeaters are in range. Thanks @jason-s13r (#39).
 - **Show received hop count.** Optionally show how many hops a received message took (`xN` next to the time;
   `x0` = heard directly). Off by default — enable in **Settings → Messaging → Show Hop Count**. (#39)
+- **Memory usage indicator (debug).** Optionally show `P% R%` (PSRAM / internal-RAM used) in the status bar, and
+  log internal-DRAM free / low-water / largest-free-block plus PSRAM over serial — handy for diagnosing memory
+  pressure. Off by default — enable in **Settings → Display → Show Memory Usage**. Thanks @jason-s13r (#38).
+
+### Changed
+- **LVGL now allocates from PSRAM instead of internal DRAM.** This frees scarce internal RAM for the things that
+  can only live there — notably BLE companion mode. Measured on the T-Deck with BLE companion *and* an app
+  connected: ~124 KB internal DRAM free with a ~111 KB largest contiguous block (negligible fragmentation); the
+  redirect is effectively what lets that combination fit. Validated on both T-Deck (octal PSRAM) and T-Watch Ultra
+  (quad PSRAM) with no perceptible UI slowdown. Falls back to DRAM if PSRAM is unavailable. Thanks @jason-s13r (#38).
+- **Chat bubbles are freed when you leave a chat**, so a previously-viewed conversation no longer keeps its
+  rendered bubbles in memory while you're on other screens (they're rebuilt from history on reopen). (#38)
 
 ## [0.4.1] — 2026-06-25
 
