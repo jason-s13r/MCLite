@@ -85,6 +85,9 @@ That's it. Full walkthrough — including updates and companion mode — in [Get
 - **Companion mode (WiFi / USB / BLE)** -- bridge the radio to a phone/desktop/CLI using the standard MeshCore companion protocol, *in parallel* with normal on-device use (received and app-sent messages appear in both — but messages typed *on the device* don't sync to the app; see the limitation note under Companion mode). BLE pairs with the **official MeshCore mobile apps** (6-digit PIN); WiFi/USB work with `meshcore-cli`/`meshcore.js`/`meshcore_py`. One transport at a time; messaging is read-only for config (no remote edits). See note below
 - **Zero-config for end users** -- all settings live in one JSON file on the SD card. Set it up once, copy to every device in your group
 
+> [!NOTE]
+> **Heard nodes go to "Heard Adverts", not your contact list — by design.** Unlike the stock MeshCore apps, MCLite never auto-adds a node you overhear to your contacts. Your contacts are the people you deliberately define (config tool) or **Save** from Heard Adverts; discovered nodes live in **Admin → Heard Adverts**. So a sparse or empty *contact* list is not a sign of weak reception — it's the intended behaviour. Adverts are also bursty: a freshly-booted device can take ~10–15 minutes to populate the heard list even with perfect reception.
+
 ## Getting Started
 
 ### Install the firmware
