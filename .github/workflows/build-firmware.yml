@@ -114,11 +114,16 @@ jobs:
           ls -t mclite-v*.bin       2>/dev/null | tail -n +6 | xargs -r rm
           ls -t mclite-watch-v*.bin 2>/dev/null | tail -n +6 | xargs -r rm
 
+      # Point the Mesh America Device Configurator catalog (served from raw.github)
+      # at this release's assets (#42). Regenerated here so it never goes stale.
+      - name: Regenerate Mesh America catalog
+        run: python3 tools/gen_catalog.py "${{ github.event.release.tag_name }}"
+
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add tools/web-flasher/firmware/
+          git add tools/web-flasher/firmware/ catalog.json
           git diff --cached --quiet && echo "No changes to commit" && exit 0
-          git commit -m "Publish firmware ${{ github.event.release.tag_name }} to web flasher"
+          git commit -m "Publish firmware ${{ github.event.release.tag_name }} to web flasher + catalog"
           git push

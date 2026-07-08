@@ -1,0 +1,58 @@
+{
+  "description": "Lightweight on-device MeshCore communicator for the LilyGo T-Deck Plus and T-Watch Ultra: encrypted DMs, channels, rooms, SOS, GPS/map, plus BLE/WiFi/USB companion. Runs standalone; configured from an SD-card config.json (offline config tool).",
+  "maker": {
+    "mclite": {
+      "name": "MCLite"
+    }
+  },
+  "device": [
+    {
+      "maker": "mclite",
+      "name": "LilyGo T-Deck",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "guiSD",
+          "title": "MCLite",
+          "version": {
+            "v0.4.1": {
+              "notes": "Full release notes: https://github.com/laserir/MCLite/releases/tag/v0.4.1",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "mclite-v0.4.1.bin",
+                  "url": "https://github.com/laserir/MCLite/releases/download/v0.4.1/mclite-v0.4.1.bin",
+                  "title": "Full install (bootloader + firmware)"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "maker": "mclite",
+      "name": "LilyGo T-Watch Ultra",
+      "type": "esp32",
+      "firmware": [
+        {
+          "role": "guiSD",
+          "title": "MCLite",
+          "version": {
+            "v0.4.1": {
+              "notes": "Full release notes: https://github.com/laserir/MCLite/releases/tag/v0.4.1",
+              "files": [
+                {
+                  "type": "flash-wipe",
+                  "name": "mclite-watch-v0.4.1.bin",
+                  "url": "https://github.com/laserir/MCLite/releases/download/v0.4.1/mclite-watch-v0.4.1.bin",
+                  "title": "Full install (bootloader + firmware)"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
